@@ -97,12 +97,12 @@ export default function LandingPage() {
           </motion.div>
 
           {/* Headline */}
-          <h1 className="font-serif font-bold leading-[1.1] mb-6" style={{ fontSize: "clamp(3rem, 7vw, 5.5rem)", letterSpacing: "-0.01em" }}>
-            <span className="liq-text-1">
+          <h1 className="font-serif font-bold leading-[1.1] mb-6" style={{ fontSize: "clamp(2.25rem, 5.5vw, 5rem)", letterSpacing: "-0.01em" }}>
+            <span className="liq-text-1 whitespace-nowrap">
               Does Your Business Have
             </span>
             <br />
-            <span className="text-gold-gradient gold-glow-text">
+            <span className="text-gold-gradient gold-glow-text whitespace-nowrap">
               Legal Blind Spots?
             </span>
           </h1>
