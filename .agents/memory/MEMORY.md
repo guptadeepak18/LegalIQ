@@ -1,0 +1,3 @@
+- [LegalIQ OpenAPI naming](legaliq-openapi-naming.md) — Body/Response schema names must NOT match Orval's auto-generated pattern or TS2308 breaks codegen.
+- [LegalIQ Gemini setup](legaliq-gemini-setup.md) — Uses Replit AI Integrations proxy; callGemini uses @google/genai SDK with AI_INTEGRATIONS_GEMINI_BASE_URL.
+- [LegalIQ admin credentials](legaliq-admin.md) — Seeded admin: admin@restthecase.com / Admin@123; JWT_SECRET set as shared env var.

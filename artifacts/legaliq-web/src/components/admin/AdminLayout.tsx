@@ -1,0 +1,251 @@
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  LayoutDashboard, Users, Sparkles, BarChart2,
+  Star, Settings, Menu, X, LogOut, Scale,
+  ChevronRight,
+} from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+const NAV_ITEMS = [
+  { to: "/admin/dashboard",   label: "Dashboard",   icon: LayoutDashboard, section: "main" },
+  { to: "/admin/leads",       label: "Lead Manager", icon: Users,          section: "main" },
+  { to: "/admin/ai-insights", label: "AI Insights",  icon: Sparkles,       section: "main", badge: "AI" },
+  { to: "/admin/analytics",   label: "Analytics",    icon: BarChart2,      section: "main" },
+  { to: "/admin/reviews",     label: "Reviews",      icon: Star,           section: "main" },
+  { to: "/admin/settings",    label: "Settings",     icon: Settings,       section: "config" },
+];
+
+interface AdminLayoutProps {
+  active: string;
+  children: React.ReactNode;
+  title?: string;
+  actions?: React.ReactNode;
+}
+
+function NavItem({
+  item,
+  isActive,
+  onClick,
+}: {
+  item: typeof NAV_ITEMS[0];
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group relative overflow-hidden`}
+      style={{
+        color: isActive ? "#C9A84C" : "var(--liq-text-3)",
+      }}
+    >
+      {isActive && (
+        <motion.div
+          layoutId="activeNavBg"
+          className="absolute inset-0 bg-[#C9A84C]/10 rounded-xl"
+        />
+      )}
+      {isActive && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#C9A84C] rounded-r-full" />
+      )}
+      <item.icon
+        size={16}
+        className={`relative z-10 flex-shrink-0 transition-colors`}
+        style={{
+          color: isActive ? "#C9A84C" : "var(--liq-text-3)",
+        }}
+      />
+      <span className="relative z-10 flex-1 text-left">{item.label}</span>
+      {item.badge && (
+        <span className="relative z-10 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+          {item.badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function Sidebar({
+  active,
+  onNavigate,
+  onClose,
+}: {
+  active: string;
+  onNavigate: (to: string) => void;
+  onClose?: () => void;
+}) {
+  const [, navigate] = useLocation();
+
+  function logout() {
+    localStorage.removeItem("liq_admin_token");
+    navigate("/admin");
+  }
+
+  const mainItems = NAV_ITEMS.filter((i) => i.section === "main");
+  const configItems = NAV_ITEMS.filter((i) => i.section === "config");
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="px-5 py-5 border-b dark:border-blue-700" style={{ borderColor: "rgba(59,130,246,0.15)" }}>
+        <div className="flex items-center gap-2.5">
+          <img src="/rtc-logo.png" alt="Rest The Case" className="h-7 w-auto object-contain" />
+          <div>
+            <div className="font-serif text-sm font-bold leading-none dark:text-blue-100" style={{ color: "#1e3a8a" }}>LegalIQ</div>
+            <div className="text-[10px] leading-none dark:text-blue-400" style={{ color: "rgba(59,130,246,0.6)" }}>Admin Portal</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        <div className="text-[9px] font-semibold tracking-[0.15em] uppercase px-3 mb-2 dark:text-blue-400/50" style={{ color: "rgba(59,130,246,0.4)" }}>
+          Main
+        </div>
+        {mainItems.map((item) => {
+          const isActive = active === item.to || (item.to !== "/admin/dashboard" && active.startsWith(item.to + "/"));
+          return (
+            <NavItem
+              key={item.to}
+              item={item}
+              isActive={isActive}
+              onClick={() => { onNavigate(item.to); onClose?.(); }}
+            />
+          );
+        })}
+
+        <div className="text-[9px] font-semibold tracking-[0.15em] uppercase px-3 mb-2 mt-5 dark:text-blue-400/50" style={{ color: "rgba(59,130,246,0.4)" }}>
+          Config
+        </div>
+        {configItems.map((item) => {
+          const isActive = active === item.to;
+          return (
+            <NavItem
+              key={item.to}
+              item={item}
+              isActive={isActive}
+              onClick={() => { onNavigate(item.to); onClose?.(); }}
+            />
+          );
+        })}
+      </nav>
+
+      {/* Divider */}
+      <div className="mx-4 border-t dark:border-blue-700" style={{ borderColor: "rgba(59,130,246,0.15)" }} />
+
+      {/* User + logout */}
+      <div className="p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-blue-100 border border-blue-200 dark:bg-blue-900 dark:border-blue-700 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-bold text-blue-600 dark:text-blue-300">A</span>
+          </div>
+          <div className="min-w-0">
+            <div className="text-xs font-semibold truncate dark:text-blue-100" style={{ color: "#1e3a8a" }}>Admin</div>
+            <div className="text-[10px] truncate dark:text-blue-400" style={{ color: "rgba(59,130,246,0.6)" }}>admin@restthecase.com</div>
+          </div>
+        </div>
+        <div className="flex items-center justify-end w-full mb-2">
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 text-xs transition-colors px-2 py-1 hover:opacity-70"
+            style={{ color: "var(--liq-text-3)" }}
+          >
+            <LogOut size={11} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function AdminLayout({ active, children, title, actions }: AdminLayoutProps) {
+  const [, navigate] = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("liq_admin_token");
+    if (!token) navigate("/admin");
+  }, [navigate]);
+
+  // Close sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [active]);
+
+  return (
+    <div className="flex min-h-screen dark:bg-slate-950" style={{ background: "#FFFFFF" }}>
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-56 xl:w-60 fixed inset-y-0 left-0 flex-col z-40 border-r dark:border-blue-700 dark:bg-slate-950 shadow-lg" style={{ background: "#FFFFFF", borderColor: "rgba(200,200,200,0.2)", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
+        <Sidebar active={active} onNavigate={navigate} />
+      </aside>
+
+      {/* Mobile overlay */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              key="overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
+              onClick={() => setMobileOpen(false)}
+            />
+            <motion.aside
+              key="sidebar"
+              initial={{ x: -240 }}
+              animate={{ x: 0 }}
+              exit={{ x: -240 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed inset-y-0 left-0 w-56 flex flex-col z-50 border-r lg:hidden"
+              style={{ background: "var(--nav-bg)", borderColor: "var(--nav-border)" }}
+            >
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="absolute top-3 right-3 p-1.5 text-white/30 hover:text-white/60 z-10"
+              >
+                <X size={15} />
+              </button>
+              <Sidebar active={active} onNavigate={navigate} onClose={() => setMobileOpen(false)} />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile topbar */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 border-b px-4 py-3 flex items-center gap-3 dark:bg-blue-950/80"
+        style={{ background: "#FFFFFF", borderColor: "rgba(200,200,200,0.2)", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+        <button onClick={() => setMobileOpen(true)} className="text-white/40 hover:text-white/70 p-1">
+          <Menu size={18} />
+        </button>
+        <Scale size={14} className="text-blue-600 dark:text-blue-400" />
+        <span className="font-serif text-sm font-bold dark:text-blue-100" style={{ color: "#1e3a8a" }}>LegalIQ Admin</span>
+        {title && (
+          <>
+            <ChevronRight size={12} className="dark:text-blue-400" style={{ color: "rgba(59,130,246,0.6)" }} />
+            <span className="text-sm dark:text-blue-300" style={{ color: "rgba(30,58,138,0.7)" }}>{title}</span>
+          </>
+        )}
+      </div>
+
+      {/* Main content */}
+      <main className="lg:ml-56 xl:ml-60 flex-1 min-h-screen">
+        {/* Desktop page header */}
+        {(title || actions) && (
+          <div className="hidden lg:flex items-center justify-between px-8 py-5 border-b dark:bg-slate-900"
+            style={{ background: "#FFFFFF", borderColor: "rgba(200,200,200,0.2)" }}>
+            <h1 className="font-serif text-xl font-bold dark:text-blue-100" style={{ color: "#1e3a8a" }}>{title}</h1>
+            <div className="flex items-center gap-4">
+              {actions && <div>{actions}</div>}
+            </div>
+          </div>
+        )}
+        <div className="pt-14 lg:pt-0">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}

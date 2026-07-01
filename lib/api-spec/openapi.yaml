@@ -3,20 +3,36 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: LegalIQ API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: otp
+    description: OTP verification
+  - name: leads
+    description: Lead management
+  - name: questions
+    description: Dynamic question generation
+  - name: assessment
+    description: Assessment submission
+  - name: consultation
+    description: Consultation booking
+  - name: reviews
+    description: User reviews
+  - name: auth
+    description: Admin authentication
+  - name: admin
+    description: Admin panel operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +40,1123 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /otp/send-phone:
+    post:
+      operationId: sendPhoneOtp
+      tags: [otp]
+      summary: Send OTP to phone via SMS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneOtpRequest"
+      responses:
+        "200":
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpSendResponse"
+
+  /otp/send-email:
+    post:
+      operationId: sendEmailOtp
+      tags: [otp]
+      summary: Send OTP to email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailOtpRequest"
+      responses:
+        "200":
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpSendResponse"
+
+  /otp/verify-phone:
+    post:
+      operationId: verifyPhoneOtp
+      tags: [otp]
+      summary: Verify phone OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneOtpVerify"
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpVerifyResponse"
+
+  /otp/verify-email:
+    post:
+      operationId: verifyEmailOtp
+      tags: [otp]
+      summary: Verify email OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailOtpVerify"
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpVerifyResponse"
+
+  /leads:
+    post:
+      operationId: createLead
+      tags: [leads]
+      summary: Create lead after both OTPs verified
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadRegistration"
+      responses:
+        "200":
+          description: Lead created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadCreated"
+
+  /questions:
+    post:
+      operationId: generateQuestions
+      tags: [questions]
+      summary: Generate assessment questions (seed or follow-up)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestionRequest"
+      responses:
+        "200":
+          description: Questions generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionSet"
+
+  /submit:
+    post:
+      operationId: submitAssessment
+      tags: [assessment]
+      summary: Submit assessment answers and get score + report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessmentInput"
+      responses:
+        "200":
+          description: Assessment scored and report generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssessmentResult"
+
+  /consult:
+    post:
+      operationId: bookConsultation
+      tags: [consultation]
+      summary: Book a consultation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsultationBooking"
+      responses:
+        "200":
+          description: Consultation booked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsultationConfirmation"
+
+  /reviews:
+    post:
+      operationId: submitReview
+      tags: [reviews]
+      summary: Submit a user review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewSubmission"
+      responses:
+        "200":
+          description: Review submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewConfirmation"
+
+  /reviews/public:
+    get:
+      operationId: getPublicReviews
+      tags: [reviews]
+      summary: Get approved public reviews
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Public reviews
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicReviewsResponse"
+
+  /auth/login:
+    post:
+      operationId: adminLogin
+      tags: [auth]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCredentials"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get admin dashboard stats
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStatsResponse"
+
+  /admin/leads:
+    get:
+      operationId: getAdminLeads
+      tags: [admin]
+      summary: Get all leads with assessment data
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: risk
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Leads list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLeadsResponse"
+
+  /admin/leads/{id}:
+    get:
+      operationId: getAdminLead
+      tags: [admin]
+      summary: Get single lead with full report
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lead detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLeadDetailResponse"
+
+  /admin/leads/{id}/status:
+    patch:
+      operationId: updateLeadStatus
+      tags: [admin]
+      summary: Update lead status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadStatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/export:
+    get:
+      operationId: exportLeadsCsv
+      tags: [admin]
+      summary: Export leads as CSV
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /admin/reviews:
+    get:
+      operationId: getAdminReviews
+      tags: [admin]
+      summary: Get all reviews for moderation
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Reviews list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReviewsResponse"
+
+  /admin/reviews/{id}:
+    patch:
+      operationId: moderateReview
+      tags: [admin]
+      summary: Approve or reject a review
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewModeration"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /leads/{id}/resend-report:
+    post:
+      operationId: resendReport
+      tags: [leads]
+      summary: Re-trigger report email with PDF
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Report resent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
       properties:
         status:
           type: string
+        db:
+          type: string
       required:
         - status
 
+    PhoneOtpRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+      required:
+        - phone
+
+    EmailOtpRequest:
+      type: object
+      properties:
+        email:
+          type: string
+      required:
+        - email
+
+    PhoneOtpVerify:
+      type: object
+      properties:
+        phone:
+          type: string
+        otp:
+          type: string
+      required:
+        - phone
+        - otp
+
+    EmailOtpVerify:
+      type: object
+      properties:
+        email:
+          type: string
+        otp:
+          type: string
+      required:
+        - email
+        - otp
+
+    OtpSendResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        expiresIn:
+          type: integer
+        message:
+          type: string
+      required:
+        - success
+
+    OtpVerifyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        phoneToken:
+          type: string
+        emailToken:
+          type: string
+        message:
+          type: string
+      required:
+        - success
+
+    LeadRegistration:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        company:
+          type: string
+        city:
+          type: string
+        category:
+          type: string
+        subCategory:
+          type: string
+        businessType:
+          type: string
+        phoneToken:
+          type: string
+        emailToken:
+          type: string
+        whatsappOptIn:
+          type: boolean
+      required:
+        - name
+        - email
+        - phone
+        - company
+        - city
+        - category
+        - subCategory
+        - businessType
+        - phoneToken
+        - emailToken
+
+    LeadCreated:
+      type: object
+      properties:
+        success:
+          type: boolean
+        leadId:
+          type: string
+      required:
+        - success
+        - leadId
+
+    QuestionRequest:
+      type: object
+      properties:
+        businessType:
+          type: string
+        contextTags:
+          type: array
+          items:
+            type: string
+        seedAnswers:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeedAnswer"
+        mode:
+          type: string
+          enum: [seed, followup]
+      required:
+        - businessType
+        - contextTags
+        - mode
+
+    SeedAnswer:
+      type: object
+      properties:
+        pillar:
+          type: string
+        answer:
+          type: string
+        question:
+          type: string
+      required:
+        - pillar
+        - answer
+
+    Question:
+      type: object
+      properties:
+        id:
+          type: integer
+        question:
+          type: string
+        pillar:
+          type: string
+        isReverseScored:
+          type: boolean
+        isSeed:
+          type: boolean
+        contextNote:
+          type: string
+      required:
+        - id
+        - question
+        - pillar
+        - isReverseScored
+        - isSeed
+
+    QuestionSet:
+      type: object
+      properties:
+        success:
+          type: boolean
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Question"
+      required:
+        - success
+        - questions
+
+    AnswerInput:
+      type: object
+      properties:
+        questionId:
+          type: integer
+        question:
+          type: string
+        pillar:
+          type: string
+        answer:
+          type: string
+          enum: [YES, NO, UNSURE, N/A]
+        isReverseScored:
+          type: boolean
+        isSeed:
+          type: boolean
+      required:
+        - questionId
+        - question
+        - pillar
+        - answer
+        - isReverseScored
+        - isSeed
+
+    AssessmentInput:
+      type: object
+      properties:
+        leadId:
+          type: string
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnswerInput"
+      required:
+        - leadId
+        - answers
+
+    PillarScore:
+      type: object
+      properties:
+        score:
+          type: integer
+        maxScore:
+          type: integer
+        label:
+          type: string
+      required:
+        - score
+        - maxScore
+        - label
+
+    Insight:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        financialRisk:
+          type: string
+      required:
+        - title
+        - description
+        - severity
+        - financialRisk
+
+    ActionItem:
+      type: object
+      properties:
+        action:
+          type: string
+        description:
+          type: string
+        timeline:
+          type: string
+          enum: [THIS WEEK, THIS MONTH, 90 DAYS]
+      required:
+        - action
+        - description
+        - timeline
+
+    RealWorldExample:
+      type: object
+      properties:
+        businessName:
+          type: string
+        whatHappened:
+          type: string
+        consequences:
+          type: string
+        vcloWouldHave:
+          type: string
+        lesson:
+          type: string
+      required:
+        - businessName
+        - whatHappened
+        - consequences
+        - vcloWouldHave
+        - lesson
+
+    Report:
+      type: object
+      properties:
+        summary:
+          type: string
+        pillarAssessments:
+          type: object
+          additionalProperties:
+            type: string
+        insights:
+          type: array
+          items:
+            $ref: "#/components/schemas/Insight"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionItem"
+        example:
+          $ref: "#/components/schemas/RealWorldExample"
+        vcloPitch:
+          type: string
+      required:
+        - summary
+        - insights
+        - actions
+
+    AssessmentResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        assessmentId:
+          type: string
+        totalScore:
+          type: integer
+        riskLevel:
+          type: string
+          enum: [CRITICAL, MODERATE, HEALTHY]
+        litigationScore:
+          type: integer
+        contractualScore:
+          type: integer
+        complianceScore:
+          type: integer
+        costScore:
+          type: integer
+        futureScore:
+          type: integer
+        report:
+          $ref: "#/components/schemas/Report"
+      required:
+        - success
+        - totalScore
+        - riskLevel
+
+    ConsultationBooking:
+      type: object
+      properties:
+        leadId:
+          type: string
+        date:
+          type: string
+        time:
+          type: string
+        notes:
+          type: string
+      required:
+        - leadId
+        - date
+        - time
+
+    ConsultationConfirmation:
+      type: object
+      properties:
+        success:
+          type: boolean
+        consultationId:
+          type: string
+      required:
+        - success
+
+    ReviewSubmission:
+      type: object
+      properties:
+        reviewToken:
+          type: string
+        reviewerName:
+          type: string
+        company:
+          type: string
+        city:
+          type: string
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        headline:
+          type: string
+        body:
+          type: string
+      required:
+        - reviewerName
+        - company
+        - rating
+        - headline
+        - body
+
+    ReviewConfirmation:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    PublicReview:
+      type: object
+      properties:
+        id:
+          type: string
+        reviewerName:
+          type: string
+        company:
+          type: string
+        city:
+          type: string
+        rating:
+          type: integer
+        headline:
+          type: string
+        body:
+          type: string
+        lhsScore:
+          type: integer
+        riskLevel:
+          type: string
+        verifiedUser:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - reviewerName
+        - company
+        - rating
+        - headline
+        - body
+
+    PublicReviewsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicReview"
+      required:
+        - success
+        - reviews
+
+    AdminCredentials:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AdminSession:
+      type: object
+      properties:
+        success:
+          type: boolean
+        token:
+          type: string
+      required:
+        - success
+
+    AdminStatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        totalLeads:
+          type: integer
+        assessmentsComplete:
+          type: integer
+        criticalRisk:
+          type: integer
+        moderateRisk:
+          type: integer
+        legallyHealthy:
+          type: integer
+        consultationsBooked:
+          type: integer
+        riskBreakdown:
+          type: object
+          additionalProperties:
+            type: integer
+        recentLeads:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeadSummary"
+      required:
+        - success
+        - totalLeads
+        - assessmentsComplete
+
+    LeadSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        company:
+          type: string
+        businessType:
+          type: string
+        city:
+          type: string
+        totalScore:
+          type: integer
+        riskLevel:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - company
+
+    AdminLeadsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        leads:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeadSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - success
+        - leads
+        - total
+
+    AdminLeadDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        lead:
+          $ref: "#/components/schemas/LeadDetail"
+      required:
+        - success
+
+    LeadDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        company:
+          type: string
+        city:
+          type: string
+        category:
+          type: string
+        subCategory:
+          type: string
+        businessType:
+          type: string
+        createdAt:
+          type: string
+        assessment:
+          $ref: "#/components/schemas/AssessmentDetail"
+      required:
+        - id
+        - name
+        - email
+        - phone
+        - company
+
+    AssessmentDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        totalScore:
+          type: integer
+        riskLevel:
+          type: string
+        litigationScore:
+          type: integer
+        contractualScore:
+          type: integer
+        complianceScore:
+          type: integer
+        costScore:
+          type: integer
+        futureScore:
+          type: integer
+        status:
+          type: string
+        completedAt:
+          type: string
+        report:
+          $ref: "#/components/schemas/Report"
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnswerRecord"
+      required:
+        - id
+        - totalScore
+        - riskLevel
+
+    AnswerRecord:
+      type: object
+      properties:
+        question:
+          type: string
+        pillar:
+          type: string
+        answer:
+          type: string
+        score:
+          type: integer
+      required:
+        - question
+        - pillar
+        - answer
+
+    LeadStatusUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [new, contacted, qualified, converted, closed]
+      required:
+        - status
+
+    AdminReviewsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminReview"
+        pendingCount:
+          type: integer
+      required:
+        - success
+        - reviews
+
+    AdminReview:
+      type: object
+      properties:
+        id:
+          type: string
+        reviewerName:
+          type: string
+        company:
+          type: string
+        city:
+          type: string
+        rating:
+          type: integer
+        headline:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+        verifiedUser:
+          type: boolean
+        rejectionNote:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - reviewerName
+        - rating
+        - headline
+        - status
+
+    ReviewModeration:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [APPROVE, REJECT]
+        rejectionNote:
+          type: string
+      required:
+        - action
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success

@@ -1,0 +1,108 @@
+import { Router } from "express";
+import { randomBytes } from "crypto";
+import { db } from "@workspace/db";
+import { leads, otpVerifications } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { alertAdminNewLead } from "../services/callmebot.js";
+import { sendAdminLeadAlert } from "../services/resend.js";
+import { requireAuth } from "../middleware/auth.js";
+import { generateSeedQuestionsForAssessment } from "../services/gemini.js";
+import { logger } from "../lib/logger.js";
+
+const router = Router();
+
+router.post("/leads", async (req, res) => {
+  const {
+    name,
+    email,
+    phone,
+    company,
+    city,
+    category,
+    subCategory,
+    businessType,
+    emailToken,
+  } = req.body as {
+    name: string;
+    email: string;
+    phone: string;
+    company: string;
+    city: string;
+    category: string;
+    subCategory: string;
+    businessType: string;
+    emailToken: string;
+  };
+
+  if (!name || !email || !phone || !company || !city || !category || !subCategory || !businessType || !emailToken) {
+    res.status(400).json({ success: false, message: "All fields are required" });
+    return;
+  }
+
+  // Validate email token
+  const emailRecord = await db
+    .select()
+    .from(otpVerifications)
+    .where(
+      and(
+        eq(otpVerifications.recipient, email),
+        eq(otpVerifications.verificationToken, emailToken)
+      )
+    );
+
+  if (emailRecord.length === 0) {
+    res.status(400).json({ success: false, message: "Invalid email verification token" });
+    return;
+  }
+
+  const reviewToken = randomBytes(32).toString("hex");
+
+  const [lead] = await db
+    .insert(leads)
+    .values({
+      name,
+      email,
+      phone,
+      company,
+      city,
+      category,
+      subCategory,
+      businessType,
+      phoneToken: undefined,
+      emailToken,
+      reviewToken,
+      whatsappOptIn: false,
+    })
+    .returning();
+
+  // Fire non-blocking notifications
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (adminEmail) {
+    sendAdminLeadAlert(adminEmail, { name, company, city, businessType, phone, email }).catch(() => {});
+  }
+  alertAdminNewLead(name, company, city, businessType).catch(() => {});
+
+  // Warm the seed question cache immediately so questions are AI-personalised
+  // by the time the user starts the assessment (usually 10–30 seconds later).
+  generateSeedQuestionsForAssessment(
+    businessType,
+    subCategory ?? businessType,
+    "1-50",
+    "2-5 years",
+    category ?? "General",
+    city
+  ).then(() => {
+    logger.info({ businessType, city }, "Seed cache warmed for new lead");
+  }).catch((err) => {
+    logger.warn({ err, businessType, city }, "Seed cache warm-up failed — will fall back to static");
+  });
+
+  res.json({ success: true, leadId: lead.id });
+});
+
+router.post("/leads/:id/resend-report", requireAuth, async (req, res) => {
+  // TODO: implement resend report
+  res.json({ success: true, message: "Report resend queued" });
+});
+
+export default router;
