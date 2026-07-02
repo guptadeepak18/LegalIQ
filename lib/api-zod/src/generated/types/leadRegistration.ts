@@ -8,14 +8,11 @@
 
 export interface LeadRegistration {
   name: string;
-  email: string;
   phone: string;
   company: string;
   city: string;
   category: string;
   subCategory: string;
   businessType: string;
-  phoneToken: string;
-  emailToken: string;
   whatsappOptIn?: boolean;
 }

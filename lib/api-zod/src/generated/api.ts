@@ -82,15 +82,12 @@ export const VerifyEmailOtpResponse = zod.object({
  */
 export const CreateLeadBody = zod.object({
   "name": zod.string(),
-  "email": zod.string(),
   "phone": zod.string(),
   "company": zod.string(),
   "city": zod.string(),
   "category": zod.string(),
   "subCategory": zod.string(),
   "businessType": zod.string(),
-  "phoneToken": zod.string(),
-  "emailToken": zod.string(),
   "whatsappOptIn": zod.boolean().optional()
 })
 

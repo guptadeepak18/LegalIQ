@@ -4,12 +4,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Scale, Download, Calendar, Star, AlertTriangle, Shield, TrendingUp,
   FileText, CheckCircle, ArrowRight, Lightbulb, Clock, Zap, Target,
-  BookOpen, Share2, BarChart2, History, ChevronDown, ChevronUp,
+  BookOpen, Share2, BarChart2, History, ChevronDown, ChevronUp, Loader2,
 } from "lucide-react";
+import { useUser } from "@clerk/react";
 import { useStore } from "@/store/useStore";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { generateReportPDF } from "@/lib/pdfGenerator";
+import { basePath } from "@/lib/clerk";
 
 const PILLAR_META = [
   { key: "litigationScore",  label: "Litigation Health",     icon: AlertTriangle, color: "#EF4444", emoji: "⚖️" },
@@ -75,6 +77,7 @@ interface Benchmark {
 
 export default function ResultsPage() {
   const [, navigate] = useLocation();
+  const { isSignedIn, isLoaded } = useUser();
   const store = useStore();
   const result = store.result;
   const [downloading, setDownloading] = useState(false);
@@ -83,7 +86,14 @@ export default function ResultsPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [badgeGenerating, setBadgeGenerating] = useState(false);
 
-  useEffect(() => { if (!result) navigate("/"); }, [result, navigate]);
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      navigate(`${basePath}/sign-in`.replace(/\/\//g, "/"));
+      return;
+    }
+    if (!result) navigate("/");
+  }, [isLoaded, isSignedIn, result, navigate]);
 
   useEffect(() => {
     if (!store.leadId || !result) return;
@@ -198,6 +208,14 @@ export default function ResultsPage() {
       setBadgeGenerating(false);
     }
   }, [result, store.company, store.businessType, store.city]);
+
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 size={28} className="animate-spin liq-text-3" />
+      </div>
+    );
+  }
 
   if (!result) return null;
 

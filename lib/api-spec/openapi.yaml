@@ -516,8 +516,6 @@ components:
       properties:
         name:
           type: string
-        email:
-          type: string
         phone:
           type: string
         company:
@@ -530,23 +528,16 @@ components:
           type: string
         businessType:
           type: string
-        phoneToken:
-          type: string
-        emailToken:
-          type: string
         whatsappOptIn:
           type: boolean
       required:
         - name
-        - email
         - phone
         - company
         - city
         - category
         - subCategory
         - businessType
-        - phoneToken
-        - emailToken
 
     LeadCreated:
       type: object

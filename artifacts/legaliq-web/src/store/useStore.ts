@@ -44,15 +44,11 @@ export interface AssessmentResult {
 }
 
 interface Store {
-  // OTP flow
+  // Verified identity (from Clerk auth + mobile number)
   phone: string;
   email: string;
-  phoneToken: string;
-  emailToken: string;
   setPhone: (v: string) => void;
   setEmail: (v: string) => void;
-  setPhoneToken: (v: string) => void;
-  setEmailToken: (v: string) => void;
 
   // Lead
   leadId: string;
@@ -89,12 +85,8 @@ interface Store {
 export const useStore = create<Store>((set) => ({
   phone: "",
   email: "",
-  phoneToken: "",
-  emailToken: "",
   setPhone: (v) => set({ phone: v }),
   setEmail: (v) => set({ email: v }),
-  setPhoneToken: (v) => set({ phoneToken: v }),
-  setEmailToken: (v) => set({ emailToken: v }),
 
   leadId: "",
   name: "",
@@ -117,8 +109,6 @@ export const useStore = create<Store>((set) => ({
     set({
       phone: "",
       email: "",
-      phoneToken: "",
-      emailToken: "",
       leadId: "",
       name: "",
       company: "",

@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { randomBytes } from "crypto";
+import { getAuth, clerkClient } from "@clerk/express";
 import { db } from "@workspace/db";
-import { leads, otpVerifications } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { leads } from "@workspace/db";
 import { alertAdminNewLead } from "../services/callmebot.js";
 import { sendAdminLeadAlert } from "../services/resend.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -12,46 +12,44 @@ import { logger } from "../lib/logger.js";
 const router = Router();
 
 router.post("/leads", async (req, res) => {
+  const auth = getAuth(req);
+  const userId = auth?.userId;
+
+  if (!userId) {
+    res.status(401).json({ success: false, message: "Please sign in to continue" });
+    return;
+  }
+
+  const clerkUser = await clerkClient.users.getUser(userId);
+  const email =
+    clerkUser.primaryEmailAddress?.emailAddress ??
+    clerkUser.emailAddresses[0]?.emailAddress;
+
+  if (!email) {
+    res.status(400).json({ success: false, message: "Your account has no verified email address" });
+    return;
+  }
+
   const {
     name,
-    email,
     phone,
     company,
     city,
     category,
     subCategory,
     businessType,
-    emailToken,
   } = req.body as {
     name: string;
-    email: string;
     phone: string;
     company: string;
     city: string;
     category: string;
     subCategory: string;
     businessType: string;
-    emailToken: string;
   };
 
-  if (!name || !email || !phone || !company || !city || !category || !subCategory || !businessType || !emailToken) {
+  if (!name || !phone || !company || !city || !category || !subCategory || !businessType) {
     res.status(400).json({ success: false, message: "All fields are required" });
-    return;
-  }
-
-  // Validate email token
-  const emailRecord = await db
-    .select()
-    .from(otpVerifications)
-    .where(
-      and(
-        eq(otpVerifications.recipient, email),
-        eq(otpVerifications.verificationToken, emailToken)
-      )
-    );
-
-  if (emailRecord.length === 0) {
-    res.status(400).json({ success: false, message: "Invalid email verification token" });
     return;
   }
 
@@ -68,8 +66,7 @@ router.post("/leads", async (req, res) => {
       category,
       subCategory,
       businessType,
-      phoneToken: undefined,
-      emailToken,
+      clerkUserId: userId,
       reviewToken,
       whatsappOptIn: false,
     })

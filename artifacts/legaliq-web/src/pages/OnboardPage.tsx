@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Phone, Mail, ChevronRight, Building2, MapPin, Layers, ArrowLeft, Check, Loader2, Search, X } from "lucide-react";
+import { Phone, ChevronRight, Building2, MapPin, Layers, ArrowLeft, Check, Loader2, Search, X, ShieldCheck, Mail, LogOut } from "lucide-react";
+import { useUser, useClerk } from "@clerk/react";
 import { useStore } from "@/store/useStore";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { basePath } from "@/lib/clerk";
 import { ALL_INDIA_CITIES, BUSINESS_CATEGORIES } from "@/lib/indiaData";
 
-const STEP_LABELS = ["Verify Email", "Business Details"];
+const STEP_LABELS = ["Verify Identity", "Business Details"];
 
 // ─── Searchable City Combobox — uses fixed positioning to escape overflow:hidden ──
 function CityCombobox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -166,39 +168,16 @@ function CityCombobox({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
-// ─── OTP Boxes ────────────────────────────────────────────────────────────────
-function OtpInput({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
-  const chars = value.split("").concat(Array(6).fill("")).slice(0, 6);
-  return (
-    <div className="flex gap-3 justify-center">
-      {chars.map((c, i) => (
-        <input key={i} className="otp-slot" type="text" inputMode="numeric" maxLength={1} value={c} disabled={disabled}
-          onChange={(e) => {
-            const v = e.target.value.replace(/\D/g, "");
-            const next = chars.slice(); next[i] = v.slice(-1); onChange(next.join(""));
-            if (v && i < 5) { const inp = document.querySelectorAll<HTMLInputElement>(".otp-slot"); inp[i + 1]?.focus(); }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Backspace" && !chars[i] && i > 0) { const inp = document.querySelectorAll<HTMLInputElement>(".otp-slot"); inp[i - 1]?.focus(); }
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function OnboardPage() {
   const [, navigate] = useLocation();
   const store = useStore();
+  const { isSignedIn, isLoaded, user } = useUser();
+  const { signOut } = useClerk();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [emailSent, setEmailSent] = useState(false);
-  const [emailOtp, setEmailOtp] = useState("");
-  const [emailCountdown, setEmailCountdown] = useState(0);
 
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
@@ -208,53 +187,23 @@ export default function OnboardPage() {
 
   const categoryList = Object.keys(BUSINESS_CATEGORIES).sort();
 
-  const startCountdown = (setter: (v: number) => void) => {
-    let n = 60; setter(n);
-    const iv = setInterval(() => { n--; setter(n); if (n <= 0) clearInterval(iv); }, 1000);
-  };
-
-  async function devSkip() {
-    const testPhone = phone || "9876543210";
-    const testEmail = email || "dev@test.com";
-    setLoading(true);
-    try {
-      const res = await apiFetch<{ success: boolean; emailToken: string }>("/otp/dev-skip", { method: "POST", body: JSON.stringify({ email: testEmail }) });
-      store.setPhone(testPhone); store.setEmail(testEmail); store.setEmailToken(res.emailToken);
-      toast.success("Dev mode — OTP skipped."); setStep(1);
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Dev skip failed"); }
-    finally { setLoading(false); }
-  }
-
-  async function sendEmailOtp() {
-    if (!phone.match(/^(\+91)?[6-9]\d{9}$/)) { toast.error("Enter a valid 10-digit Indian mobile number"); return; }
-    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) { toast.error("Enter a valid email address"); return; }
-    setLoading(true);
-    try {
-      const res = await apiFetch<{ success: boolean; expiresIn: number; message: string; devOtp?: string }>("/otp/send-email", { method: "POST", body: JSON.stringify({ email }) });
-      setEmailSent(true); startCountdown(setEmailCountdown);
-      if (res.devOtp) { setEmailOtp(res.devOtp); toast.warning(`Dev mode — OTP: ${res.devOtp} (auto-filled).`, { duration: 12000 }); }
-      else { toast.success("OTP sent to your email!"); }
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Failed to send OTP"); }
-    finally { setLoading(false); }
-  }
-
-  async function verifyEmailOtp() {
-    if (emailOtp.length !== 6) { toast.error("Enter the complete 6-digit OTP"); return; }
-    setLoading(true);
-    try {
-      const res = await apiFetch<{ success: boolean; emailToken: string }>("/otp/verify-email", { method: "POST", body: JSON.stringify({ email, otp: emailOtp }) });
-      store.setPhone(phone); store.setEmail(email); store.setEmailToken(res.emailToken);
-      toast.success("Email verified!"); setStep(1);
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Wrong OTP"); }
-    finally { setLoading(false); }
-  }
+  // Once the user has verified their identity via Clerk (Google or
+  // email/password + email OTP), auto-advance to the business details step.
+  useEffect(() => {
+    if (isLoaded && isSignedIn && step === 0) {
+      setStep(1);
+    }
+  }, [isLoaded, isSignedIn, step]);
 
   async function createLead() {
+    if (!phone.match(/^(\+91)?[6-9]\d{9}$/)) { toast.error("Enter a valid 10-digit Indian mobile number"); return; }
     if (!name.trim() || !company.trim() || !city || !category || !subCategory) { toast.error("Please fill in all fields"); return; }
     setLoading(true);
     try {
-      const res = await apiFetch<{ success: boolean; leadId: string }>("/leads", { method: "POST", body: JSON.stringify({ name: name.trim(), email: store.email, phone: store.phone, company: company.trim(), city, category, subCategory, businessType: subCategory, emailToken: store.emailToken }) });
+      const res = await apiFetch<{ success: boolean; leadId: string }>("/leads", { method: "POST", body: JSON.stringify({ name: name.trim(), phone, company: company.trim(), city, category, subCategory, businessType: subCategory }) });
       store.setLeadId(res.leadId);
+      store.setPhone(phone);
+      store.setEmail(user?.primaryEmailAddress?.emailAddress ?? "");
       store.setLeadInfo({ name: name.trim(), company: company.trim(), city, category, subCategory, businessType: subCategory, whatsappOptIn: false });
       navigate("/assess");
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Failed to create profile"); }
@@ -294,64 +243,37 @@ export default function OnboardPage() {
       <AnimatePresence mode="wait">
         <motion.div key={step} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.25 }} className="w-full max-w-md">
 
-          {/* ── Step 0: Email OTP ───────────────────────────────────────── */}
+          {/* ── Step 0: Identity Verification (Clerk) ────────────────────── */}
           {step === 0 && (
-            <div className="glass-card rounded-2xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-11 h-11 rounded-xl bg-[#C9A84C]/10 border border-[#C9A84C]/22 flex items-center justify-center">
-                  <Mail size={20} className="text-[#C9A84C]" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold liq-text-1">Verify Your Contact</h2>
-                  <p className="text-xs liq-text-3">OTP sent to your email — 100% free</p>
-                </div>
+            <div className="glass-card rounded-2xl p-8 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-[#C9A84C]/10 border border-[#C9A84C]/22 flex items-center justify-center mx-auto mb-5">
+                <ShieldCheck size={26} className="text-[#C9A84C]" />
+              </div>
+              <h2 className="text-lg font-bold liq-text-1 mb-1.5">Verify Your Identity</h2>
+              <p className="text-xs liq-text-3 mb-6 leading-relaxed">
+                Sign in with Google, or create an account with email &amp; password.
+                We'll send a one-time code to your email to confirm it's really you
+                before revealing your Legal Health Score.
+              </p>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => navigate(`${basePath}/sign-up`.replace(/\/\//g, "/"))}
+                  className="w-full bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 text-base"
+                >
+                  Continue with Google or Email <ChevronRight size={18} />
+                </button>
+                <button
+                  onClick={() => navigate(`${basePath}/sign-in`.replace(/\/\//g, "/"))}
+                  className="w-full border border-[#C9A84C]/25 liq-text-2 hover:text-[#C9A84C] hover:border-[#C9A84C]/50 text-sm py-3 rounded-xl transition-all"
+                >
+                  Already have an account? Sign in
+                </button>
               </div>
 
-              {!emailSent ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs font-semibold liq-text-3 mb-1.5 flex items-center gap-1.5 block">
-                      <Phone size={11} /> Mobile Number
-                    </label>
-                    <input className="liq-input" type="tel" placeholder="98765 43210" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} />
-                    <p className="text-[11px] liq-text-4 mt-1.5">10-digit number without country code</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold liq-text-3 mb-1.5 flex items-center gap-1.5 block">
-                      <Mail size={11} /> Email Address
-                    </label>
-                    <input className="liq-input" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendEmailOtp()} />
-                    <p className="text-[11px] liq-text-4 mt-1.5">Your PDF report will be delivered here</p>
-                  </div>
-                  <button onClick={sendEmailOtp} disabled={loading} className="w-full bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold py-3.5 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2 text-base">
-                    {loading ? <Loader2 size={18} className="animate-spin" /> : "Send OTP to Email →"}
-                  </button>
-                  {import.meta.env.DEV && (
-                    <button onClick={devSkip} disabled={loading} className="w-full border border-dashed border-[#C9A84C]/20 liq-text-3 hover:text-[#C9A84C] hover:border-[#C9A84C]/40 text-xs py-2.5 rounded-xl transition-all disabled:opacity-30">
-                      {loading ? <Loader2 size={14} className="animate-spin inline" /> : "⚡ Skip OTP — Dev Mode Only"}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="bg-[#C9A84C]/6 border border-[#C9A84C]/22 rounded-xl px-4 py-3 text-sm text-center liq-text-2">
-                    OTP sent to <span className="text-[#C9A84C] font-semibold">{email}</span>
-                  </div>
-                  <OtpInput value={emailOtp} onChange={setEmailOtp} disabled={loading} />
-                  <button onClick={verifyEmailOtp} disabled={loading || emailOtp.length !== 6} className="w-full bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold py-3.5 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-base">
-                    {loading ? <Loader2 size={18} className="animate-spin" /> : "Verify & Continue →"}
-                  </button>
-                  <div className="flex items-center justify-between text-xs">
-                    <button onClick={() => { setEmailSent(false); setEmailOtp(""); }} className="liq-text-3 hover:text-[#C9A84C] flex items-center gap-1 transition-colors">
-                      <ArrowLeft size={12} /> Change email
-                    </button>
-                    {emailCountdown > 0
-                      ? <span className="liq-text-3">Resend in {emailCountdown}s</span>
-                      : <button onClick={sendEmailOtp} className="text-[#C9A84C] hover:underline">Resend OTP</button>
-                    }
-                  </div>
-                </div>
-              )}
+              <p className="text-[11px] liq-text-4 mt-6 flex items-center justify-center gap-1.5">
+                <Mail size={11} /> Your report will be delivered to your verified email
+              </p>
             </div>
           )}
 
@@ -369,6 +291,18 @@ export default function OnboardPage() {
               </div>
 
               <div className="space-y-4">
+                {user?.primaryEmailAddress?.emailAddress && (
+                  <div className="bg-[#C9A84C]/6 border border-[#C9A84C]/22 rounded-xl px-4 py-2.5 text-xs flex items-center justify-between gap-2">
+                    <span className="liq-text-2 flex items-center gap-1.5 truncate">
+                      <Check size={12} className="text-[#C9A84C] flex-shrink-0" />
+                      Verified as <span className="font-semibold text-[#C9A84C] truncate">{user.primaryEmailAddress.emailAddress}</span>
+                    </span>
+                    <button onClick={() => signOut({ redirectUrl: `${basePath}/onboard` })} className="liq-text-4 hover:text-[#C9A84C] flex items-center gap-1 flex-shrink-0 transition-colors">
+                      <LogOut size={11} /> Switch
+                    </button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold liq-text-3 mb-1.5 block">Your Name *</label>
@@ -378,6 +312,14 @@ export default function OnboardPage() {
                     <label className="text-xs font-semibold liq-text-3 mb-1.5 block">Company Name *</label>
                     <input className="liq-input" placeholder="Acme Pvt Ltd" value={company} onChange={(e) => setCompany(e.target.value)} />
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold liq-text-3 mb-1.5 flex items-center gap-1.5 block">
+                    <Phone size={11} /> Mobile Number *
+                  </label>
+                  <input className="liq-input" type="tel" placeholder="98765 43210" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} />
+                  <p className="text-[11px] liq-text-4 mt-1.5">10-digit number without country code</p>
                 </div>
 
                 {/* Searchable city */}
@@ -415,13 +357,9 @@ export default function OnboardPage() {
                   </div>
                 )}
 
-                <button onClick={createLead} disabled={loading || !name || !company || !city || !category || !subCategory}
+                <button onClick={createLead} disabled={loading || !name || !company || !phone || !city || !category || !subCategory}
                   className="w-full bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold py-3.5 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2 text-base">
                   {loading ? <Loader2 size={18} className="animate-spin" /> : <>Start My Assessment <ChevronRight size={18} /></>}
-                </button>
-
-                <button onClick={() => setStep(0)} className="w-full text-sm liq-text-3 hover:text-[#C9A84C] flex items-center justify-center gap-1 transition-colors py-2">
-                  <ArrowLeft size={13} /> Back to verification
                 </button>
               </div>
             </div>
