@@ -97,7 +97,7 @@ export default function LandingPage() {
           </motion.div>
 
           {/* Headline */}
-          <h1 className="font-serif font-bold leading-[1.1] mb-6" style={{ fontSize: "clamp(2.25rem, 5.5vw, 5rem)", letterSpacing: "-0.01em" }}>
+          <h1 className="font-serif font-semibold leading-[1.1] mb-6" style={{ fontSize: "clamp(2.25rem, 5.5vw, 5rem)", letterSpacing: "-0.01em" }}>
             <span className="liq-text-1 whitespace-nowrap">
               Does Your Business Have
             </span>
@@ -145,7 +145,7 @@ export default function LandingPage() {
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.55 + i * 0.08 }}
                 className="glass-card rounded-2xl p-4 text-center">
-                <div className="text-3xl md:text-4xl font-black text-[#C9A84C] leading-none mb-2"
+                <div className="text-3xl md:text-4xl font-bold text-[#C9A84C] leading-none mb-2"
                   style={{ fontFamily: "var(--app-font-grotesk)", letterSpacing: "-0.02em" }}>{s.val}</div>
                 <div className="text-[10px] font-semibold liq-text-3 tracking-widest uppercase leading-snug">{s.label}</div>
               </motion.div>
@@ -160,7 +160,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 gap-10 items-center">
             <motion.div initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>About Rest The Case</p>
-              <h2 className="font-serif text-4xl md:text-5xl font-bold liq-text-1 mb-5 leading-tight">
+              <h2 className="font-serif text-4xl md:text-5xl font-semibold liq-text-1 mb-5 leading-tight">
                 India's Leading Virtual Chief Legal Officer Service
               </h2>
               <p className="liq-text-2 leading-relaxed mb-5">
@@ -201,7 +201,7 @@ export default function LandingPage() {
           <div className="text-center mb-10">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>Why LegalIQ</p>
-              <h2 className="font-serif text-4xl md:text-5xl font-bold liq-text-1 mb-4">
+              <h2 className="font-serif text-4xl md:text-5xl font-semibold liq-text-1 mb-4">
                 Built to Find What You're Missing
               </h2>
               <p className="liq-text-2 max-w-xl mx-auto">
@@ -226,7 +226,7 @@ export default function LandingPage() {
                   style={{ background: `${f.color}15`, border: `1px solid ${f.color}30` }}>
                   <f.icon size={20} style={{ color: f.color }} />
                 </div>
-                <h3 className="font-bold liq-text-1 text-sm mb-2">{f.title}</h3>
+                <h3 className="font-semibold liq-text-1 text-sm mb-2">{f.title}</h3>
                 <p className="liq-text-3 text-xs leading-relaxed">{f.desc}</p>
               </motion.div>
             ))}
@@ -240,7 +240,7 @@ export default function LandingPage() {
           <div className="text-center mb-12">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>Assessment Framework</p>
-              <h2 className="font-serif text-4xl md:text-5xl font-bold liq-text-1 mb-4">
+              <h2 className="font-serif text-4xl md:text-5xl font-semibold liq-text-1 mb-4">
                 4 Pillars of Legal Health
               </h2>
               <p className="liq-text-3 max-w-lg mx-auto text-sm leading-relaxed"
@@ -265,7 +265,7 @@ export default function LandingPage() {
                       style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.22)" }}>
                       <p.icon size={20} className="text-[#C9A84C]" />
                     </div>
-                    <span className="text-5xl font-black leading-none select-none liq-text-1"
+                    <span className="text-5xl font-bold leading-none select-none liq-text-1"
                       style={{ opacity: 0.06, fontFamily: "var(--app-font-grotesk)" }}>
                       0{i + 1}
                     </span>
@@ -273,7 +273,7 @@ export default function LandingPage() {
                   <div className="text-[10px] font-bold uppercase tracking-widest mb-2 text-[#C9A84C]" style={{ letterSpacing: "0.13em" }}>
                     Pillar {i + 1}
                   </div>
-                  <h3 className="liq-text-1 font-bold text-[15px] leading-snug mb-2">
+                  <h3 className="liq-text-1 font-semibold text-[15px] leading-snug mb-2">
                     {p.label}
                   </h3>
                   <p className="liq-text-3 text-[11px] leading-relaxed">{p.tagline}</p>
@@ -285,7 +285,7 @@ export default function LandingPage() {
                 <div className="px-5 pb-5 pt-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-semibold liq-text-4 uppercase tracking-wider">Max Score</span>
-                    <span className="text-sm font-black text-[#C9A84C]" style={{ fontFamily: "var(--app-font-grotesk)" }}>25 pts</span>
+                    <span className="text-sm font-bold text-[#C9A84C]" style={{ fontFamily: "var(--app-font-grotesk)" }}>25 pts</span>
                   </div>
                   <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(201,168,76,0.12)" }}>
                     <div className="h-full rounded-full" style={{ width: "100%", background: "linear-gradient(90deg, rgba(201,168,76,0.4), #C9A84C)" }} />
@@ -310,7 +310,7 @@ export default function LandingPage() {
           <div className="text-center mb-10">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>The Process</p>
-              <h2 className="font-serif text-4xl md:text-5xl font-bold liq-text-1">
+              <h2 className="font-serif text-4xl md:text-5xl font-semibold liq-text-1">
                 How It Works
               </h2>
             </motion.div>
@@ -321,11 +321,11 @@ export default function LandingPage() {
                 initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.09 }} viewport={{ once: true }}
                 className="glass-card glass-card-hover rounded-xl p-6 relative">
-                <div className="text-5xl font-black opacity-[0.06] text-[#C9A84C] font-grotesk absolute top-4 right-5 leading-none">{h.step}</div>
+                <div className="text-5xl font-bold opacity-[0.06] text-[#C9A84C] font-grotesk absolute top-4 right-5 leading-none">{h.step}</div>
                 <div className="w-9 h-9 rounded-lg bg-[#C9A84C]/12 border border-[#C9A84C]/25 flex items-center justify-center mb-4">
-                  <span className="text-xs font-black text-[#C9A84C]">{h.step}</span>
+                  <span className="text-xs font-bold text-[#C9A84C]">{h.step}</span>
                 </div>
-                <h3 className="text-base font-bold liq-text-1 mb-2 pr-8">{h.title}</h3>
+                <h3 className="text-base font-semibold liq-text-1 mb-2 pr-8">{h.title}</h3>
                 <p className="text-sm liq-text-2 leading-relaxed mb-2">{h.hook}</p>
                 <p className="text-xs liq-text-3 leading-relaxed">{h.detail}</p>
               </motion.div>
@@ -343,7 +343,7 @@ export default function LandingPage() {
             <div className="grid md:grid-cols-2 gap-10 items-center relative z-10">
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>Your Report Includes</p>
-                <h2 className="font-serif text-3xl md:text-4xl font-bold liq-text-1 mb-3 leading-tight">
+                <h2 className="font-serif text-3xl md:text-4xl font-semibold liq-text-1 mb-3 leading-tight">
                   One Report. Everything You Need to Fix Your Legal Health.
                 </h2>
                 <p className="liq-text-3 text-sm leading-relaxed mb-6">
@@ -401,7 +401,7 @@ export default function LandingPage() {
                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <div className="text-5xl font-black text-[#C9A84C] font-grotesk gold-glow-text">68</div>
+                    <div className="text-5xl font-bold text-[#C9A84C] font-grotesk gold-glow-text">68</div>
                     <div className="liq-text-3 text-xs">out of 100</div>
                     <div className="mt-2 px-3 py-1 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/30 text-[#F59E0B] text-xs font-bold">MODERATE RISK</div>
                   </div>
@@ -419,7 +419,7 @@ export default function LandingPage() {
             <div className="text-center mb-10">
               <motion.div initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
                 <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>Client Stories</p>
-                <h2 className="liq-text-1 font-black"
+                <h2 className="liq-text-1 font-semibold"
                   style={{ fontFamily: "var(--app-font-display)", fontSize: "clamp(2rem, 5vw, 3.5rem)", letterSpacing: "-0.025em", lineHeight: 1.1 }}>
                   What Business Owners Say
                 </h2>
@@ -464,7 +464,7 @@ export default function LandingPage() {
             <div className="absolute inset-0 bg-gradient-to-br from-[#C9A84C]/8 to-transparent pointer-events-none" />
             <div className="absolute -top-20 -right-20 w-56 h-56 bg-[#C9A84C]/6 rounded-full blur-3xl pointer-events-none" />
             <AlertTriangle size={36} className="text-[#C9A84C] mx-auto mb-4 relative z-10 float" />
-            <h2 className="font-serif text-3xl md:text-4xl font-bold liq-text-1 mb-3 relative z-10">
+            <h2 className="font-serif text-3xl md:text-4xl font-semibold liq-text-1 mb-3 relative z-10">
               Don't Wait for a Legal Crisis
             </h2>
             <p className="liq-text-2 mb-8 leading-relaxed relative z-10 max-w-xl mx-auto text-sm">
