@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, CheckCircle, XCircle, HelpCircle } from "lucide-react";
+import { ChevronRight, ChevronLeft, CheckCircle, XCircle, HelpCircle, Loader2, Check } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
@@ -202,6 +202,8 @@ export default function AssessPage() {
     completedName: string; completedIcon: string; completedIndex: number;
   } | null>(null);
   const [allAnswers, setAllAnswers] = useState<RecordedAnswer[]>([]);
+  const [previousAnswer, setPreviousAnswer] = useState<Answer | null>(null);
+  const [backLoading, setBackLoading] = useState(false);
 
   type Phase = "loading" | "asking" | "checking" | "pillar-done" | "submitting";
   const [phase, setPhase] = useState<Phase>("loading");
@@ -225,9 +227,10 @@ export default function AssessPage() {
   const handleAnswer = useCallback(async (answer: Answer) => {
     if (!currentQuestion || !sessionId || phase !== "asking") return;
     setPhase("checking");
+    setPreviousAnswer(null);
     setAllAnswers((prev) => [...prev, { pillar: currentQuestion.pillar, answer }]);
     try {
-      const res = await apiFetch<ServerAction>("/session/answer", { method: "POST", body: JSON.stringify({ sessionId, questionId: currentQuestion.id, questionText: currentQuestion.text, pillarName: currentQuestion.pillar, answer, isReverseScored: currentQuestion.isReverse, isSeed: !currentQuestion.isFollowUp, weight: currentQuestion.weight }) });
+      const res = await apiFetch<ServerAction>("/session/answer", { method: "POST", body: JSON.stringify({ sessionId, questionId: currentQuestion.id, questionText: currentQuestion.text, pillarName: currentQuestion.pillar, answer, isReverseScored: currentQuestion.isReverse, isSeed: !currentQuestion.isFollowUp, weight: currentQuestion.weight, question: currentQuestion, pillarIcon, isFollowUp: currentQuestion.isFollowUp }) });
       if (res.type === "COMPLETE") {
         setPhase("submitting");
         store.setResult({ assessmentId: (res as { type: "COMPLETE"; assessmentId: string }).assessmentId, totalScore: res.totalScore, riskLevel: res.riskLevel as "CRITICAL"|"MODERATE"|"HEALTHY", litigationScore: res.litigationScore, contractualScore: res.contractualScore, complianceScore: res.complianceScore, costScore: res.costScore, futureScore: res.futureScore, report: res.report as Parameters<typeof store.setResult>[0]["report"] });
@@ -240,7 +243,22 @@ export default function AssessPage() {
       setCurrentQuestion(res.question); setPillarIndex(res.pillarIndex); setPillarName(res.pillarName); setPillarIcon(res.pillarIcon);
       setPhase("asking");
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Something went wrong."); setPhase("asking"); }
-  }, [currentQuestion, sessionId, phase, store, navigate]);
+  }, [currentQuestion, sessionId, phase, pillarIcon, store, navigate]);
+
+  const handleBack = useCallback(async () => {
+    if (!sessionId || allAnswers.length === 0 || backLoading || phase !== "asking") return;
+    setBackLoading(true);
+    try {
+      const res = await apiFetch<{
+        success: boolean; type: "QUESTION"; question: AQuestion; pillarIndex: number;
+        pillarName: string; pillarIcon: string; isFollowUp: boolean; previousAnswer: Answer;
+      }>("/session/back", { method: "POST", body: JSON.stringify({ sessionId }) });
+      setCurrentQuestion(res.question); setPillarIndex(res.pillarIndex); setPillarName(res.pillarName); setPillarIcon(res.pillarIcon);
+      setPreviousAnswer(res.previousAnswer);
+      setAllAnswers((prev) => prev.slice(0, -1));
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Could not go back."); }
+    finally { setBackLoading(false); }
+  }, [sessionId, allAnswers.length, backLoading, phase]);
 
   function advancePillar() {
     if (!pendingTransition) return;
@@ -339,7 +357,25 @@ export default function AssessPage() {
 
       <PillarDots current={pillarIndex} colors={PILLAR_COLORS} />
 
-      <div className="flex flex-col items-center mt-6 mb-2 gap-2">
+      <div className="flex items-center justify-center mt-5">
+        <motion.button
+          whileHover={allAnswers.length > 0 ? { x: -3 } : undefined}
+          whileTap={allAnswers.length > 0 ? { scale: 0.96 } : undefined}
+          onClick={handleBack}
+          disabled={allAnswers.length === 0 || backLoading}
+          className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-full transition-opacity"
+          style={{
+            color: "var(--liq-text-3)",
+            opacity: allAnswers.length === 0 ? 0.3 : 1,
+            cursor: allAnswers.length === 0 ? "default" : "pointer",
+          }}
+        >
+          {backLoading ? <Loader2 size={15} className="animate-spin" /> : <ChevronLeft size={15} />}
+          Back
+        </motion.button>
+      </div>
+
+      <div className="flex flex-col items-center mt-2 mb-2 gap-2">
         <div className="flex items-center gap-2">
           <span className="text-2xl">{pillarIcon}</span>
           <span className="text-base font-bold tracking-wide" style={{ color }}>{pillarName}</span>
@@ -378,12 +414,17 @@ export default function AssessPage() {
               {currentQuestion.riskIfNo && (
                 <p className="mt-3 text-xs text-red-500/80">⚠ Risk if No: {currentQuestion.riskIfNo}</p>
               )}
+              {previousAnswer && (
+                <p className="mt-4 text-xs font-semibold" style={{ color: `${color}CC` }}>
+                  ✎ You previously answered this — pick again to update it.
+                </p>
+              )}
             </div>
 
             {/* Answer Buttons */}
             <div className="flex flex-col gap-4">
               {(["YES","NO","UNSURE"] as Answer[]).map((val) => (
-                <AnswerBtn key={val} value={val} accentColor={color} border={border} onSelect={handleAnswer} />
+                <AnswerBtn key={val} value={val} accentColor={color} border={border} onSelect={handleAnswer} selected={previousAnswer === val} />
               ))}
             </div>
           </motion.div>
@@ -406,20 +447,25 @@ function PillarDots({ current, colors, done }: { current: number; colors: string
   );
 }
 
-function AnswerBtn({ value, accentColor, border, onSelect }: { value: Answer; accentColor: string; border: string; onSelect: (a: Answer) => void; }) {
+function AnswerBtn({ value, accentColor, border, onSelect, selected }: { value: Answer; accentColor: string; border: string; onSelect: (a: Answer) => void; selected?: boolean; }) {
   const cfg = ANSWER_CFG[value];
   const Icon = cfg.icon;
   return (
     <motion.button whileHover={{ x: 6, scale: 1.01, borderColor: accentColor }} whileTap={{ scale: 0.975 }}
       onClick={() => onSelect(value)}
       className="w-full flex items-center gap-5 px-6 py-5 rounded-2xl border text-left transition-all backdrop-blur-sm"
-      style={{ borderColor: border, background: "var(--answer-btn-bg)" }}>
+      style={{
+        borderColor: selected ? accentColor : border,
+        borderWidth: selected ? "2px" : "1px",
+        background: selected ? `${accentColor}14` : "var(--answer-btn-bg)",
+        boxShadow: selected ? `0 0 0 1px ${accentColor}40` : undefined,
+      }}>
       <Icon size={26} className={cfg.iconClass} />
       <div className="flex-1">
         <div className="liq-text-1 font-bold text-base leading-tight">{cfg.label}</div>
         <div className="liq-text-3 text-sm mt-0.5">{cfg.sub}</div>
       </div>
-      <ChevronRight size={18} className="opacity-25 flex-shrink-0" style={{ color: accentColor }} />
+      {selected ? <Check size={18} className="flex-shrink-0" style={{ color: accentColor }} /> : <ChevronRight size={18} className="opacity-25 flex-shrink-0" style={{ color: accentColor }} />}
     </motion.button>
   );
 }

@@ -26,6 +26,16 @@ export interface StoredAnswer {
   isReverseScored: boolean;
   isSeed: boolean;
   weight: number;
+  /** Full question payload as shown to the user — needed to redisplay it when going "back". */
+  fullQuestion?: AssessmentQuestion;
+  pillarIcon?: string;
+  isFollowUp?: boolean;
+  /** Session state as it was immediately BEFORE this answer was recorded — restored on "back". */
+  prevState?: {
+    currentPillarIndex: number;
+    currentQuestionIndex: number;
+    followUpCount: number;
+  };
 }
 
 export interface SessionForEngine {

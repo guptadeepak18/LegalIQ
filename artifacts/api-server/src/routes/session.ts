@@ -10,7 +10,7 @@ import { calculatePillarScores } from "../services/scoring.js";
 import { sendReportEmail } from "../services/resend.js";
 import { alertAdminAssessmentComplete, notifyUserReportReady } from "../services/callmebot.js";
 import { logger } from "../lib/logger.js";
-import type { AssessmentPillar } from "../services/gemini.js";
+import type { AssessmentPillar, AssessmentQuestion } from "../services/gemini.js";
 
 // How long to wait for AI seed generation before falling back to static questions.
 // A warm cache resolves in <50ms so a 200ms window captures those while
@@ -186,6 +186,9 @@ router.post("/session/answer", async (req, res) => {
     isReverseScored,
     isSeed,
     weight,
+    question,
+    pillarIcon,
+    isFollowUp,
   } = req.body as {
     sessionId: string;
     questionId: string;
@@ -195,6 +198,9 @@ router.post("/session/answer", async (req, res) => {
     isReverseScored: boolean;
     isSeed: boolean;
     weight: number;
+    question?: AssessmentQuestion;
+    pillarIcon?: string;
+    isFollowUp?: boolean;
   };
 
   if (!sessionId || !questionId || !answer) {
@@ -226,6 +232,14 @@ router.post("/session/answer", async (req, res) => {
     isReverseScored: isReverseScored ?? false,
     isSeed: isSeed ?? true,
     weight: weight ?? 7,
+    fullQuestion: question,
+    pillarIcon,
+    isFollowUp,
+    prevState: {
+      currentPillarIndex: session.currentPillarIndex ?? 0,
+      currentQuestionIndex: session.currentQuestionIndex ?? 0,
+      followUpCount: session.followUpCount ?? 0,
+    },
   };
   const updatedAnswers = [...storedAnswers, newAnswer];
 
@@ -442,6 +456,63 @@ router.post("/session/answer", async (req, res) => {
     pillarName: nextPillar?.name ?? "",
     pillarIcon: nextPillar?.icon ?? "",
     isFollowUp: nextAction.isFollowUp,
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/session/back
+// Undoes the most recently recorded answer and re-serves that question so the
+// user can review/edit it before continuing forward again.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/session/back", async (req, res) => {
+  const { sessionId } = req.body as { sessionId: string };
+
+  if (!sessionId) {
+    res.status(400).json({ success: false, message: "sessionId is required" });
+    return;
+  }
+
+  const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+  if (!session) {
+    res.status(404).json({ success: false, message: "Session not found" });
+    return;
+  }
+
+  if (session.status === "complete") {
+    res.status(400).json({ success: false, message: "Session already complete" });
+    return;
+  }
+
+  const storedAnswers = (session.answersJson as unknown as StoredAnswer[]) ?? [];
+  const lastAnswer = storedAnswers[storedAnswers.length - 1];
+
+  if (!lastAnswer || !lastAnswer.fullQuestion || !lastAnswer.prevState) {
+    res.status(400).json({ success: false, message: "No previous question to go back to" });
+    return;
+  }
+
+  const remainingAnswers = storedAnswers.slice(0, -1);
+
+  await db
+    .update(sessions)
+    .set({
+      answersJson: remainingAnswers as unknown as Record<string, unknown>[],
+      currentPillarIndex: lastAnswer.prevState.currentPillarIndex,
+      currentQuestionIndex: lastAnswer.prevState.currentQuestionIndex,
+      followUpCount: lastAnswer.prevState.followUpCount,
+    })
+    .where(eq(sessions.id, sessionId));
+
+  res.json({
+    success: true,
+    type: "QUESTION",
+    question: lastAnswer.fullQuestion,
+    pillarIndex: lastAnswer.pillarIndex,
+    pillarName: lastAnswer.pillar,
+    pillarIcon: lastAnswer.pillarIcon ?? "",
+    isFollowUp: lastAnswer.isFollowUp ?? false,
+    previousAnswer: lastAnswer.answer,
+    canGoBack: remainingAnswers.length > 0,
   });
 });
 

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Phone, ChevronRight, Building2, MapPin, Layers, ArrowLeft, Check, Loader2, Search, X, ShieldCheck, Mail, LogOut } from "lucide-react";
@@ -119,51 +120,54 @@ function CityCombobox({ value, onChange }: { value: string; onChange: (v: string
         )}
       </div>
 
-      <AnimatePresence>
-        {open && filtered.length > 0 && (
-          <motion.ul
-            key="city-dropdown"
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.12 }}
-            style={{
-              ...dropdownStyle,
-              background: "var(--card-glass-bg)",
-              border: "1.5px solid var(--card-glass-border)",
-              borderRadius: "12px",
-              boxShadow: "var(--card-glass-shadow), 0 16px 48px rgba(0,0,0,0.35)",
-              overflow: "hidden",
-            }}
-          >
-            <div className="max-h-56 overflow-y-auto">
-              {filtered.map((city, i) => (
-                <li
-                  key={city}
-                  onMouseEnter={() => setHighlighted(i)}
-                  onMouseDown={(e) => { e.preventDefault(); select(city); }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    padding: "10px 14px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    transition: "background 0.1s",
-                    background: i === highlighted ? "rgba(201,168,76,0.14)" : "transparent",
-                    color: i === highlighted ? "#C9A84C" : "hsl(var(--foreground))",
-                    fontWeight: i === highlighted ? 600 : 400,
-                  }}
-                >
-                  <MapPin size={11} style={{ flexShrink: 0, color: i === highlighted ? "#C9A84C" : "rgba(201,168,76,0.5)" }} />
-                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{city}</span>
-                  {city === value && <Check size={11} style={{ flexShrink: 0, color: "#C9A84C" }} />}
-                </li>
-              ))}
-            </div>
-          </motion.ul>
-        )}
-      </AnimatePresence>
+      {createPortal(
+        <AnimatePresence>
+          {open && filtered.length > 0 && (
+            <motion.ul
+              key="city-dropdown"
+              initial={{ opacity: 0, y: -6, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.98 }}
+              transition={{ duration: 0.12 }}
+              style={{
+                ...dropdownStyle,
+                background: "var(--card-glass-bg)",
+                border: "1.5px solid var(--card-glass-border)",
+                borderRadius: "12px",
+                boxShadow: "var(--card-glass-shadow), 0 16px 48px rgba(0,0,0,0.35)",
+                overflow: "hidden",
+              }}
+            >
+              <div className="max-h-56 overflow-y-auto">
+                {filtered.map((city, i) => (
+                  <li
+                    key={city}
+                    onMouseEnter={() => setHighlighted(i)}
+                    onMouseDown={(e) => { e.preventDefault(); select(city); }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      padding: "10px 14px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      transition: "background 0.1s",
+                      background: i === highlighted ? "rgba(201,168,76,0.14)" : "transparent",
+                      color: i === highlighted ? "#C9A84C" : "hsl(var(--foreground))",
+                      fontWeight: i === highlighted ? 600 : 400,
+                    }}
+                  >
+                    <MapPin size={11} style={{ flexShrink: 0, color: i === highlighted ? "#C9A84C" : "rgba(201,168,76,0.5)" }} />
+                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{city}</span>
+                    {city === value && <Check size={11} style={{ flexShrink: 0, color: "#C9A84C" }} />}
+                  </li>
+                ))}
+              </div>
+            </motion.ul>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 }
