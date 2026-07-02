@@ -7,8 +7,8 @@ export function LogoWatermark() {
       <img
         src="/rtc-logo.png"
         alt=""
-        className="w-[520px] max-w-[70vw] opacity-[0.04] dark:opacity-[0.06] select-none"
-        style={{ filter: "grayscale(1)" }}
+        className="w-[640px] max-w-[78vw] opacity-[0.07] dark:opacity-[0.10] select-none"
+        style={{ filter: "drop-shadow(0 0 40px rgba(201,168,76,0.25))" }}
       />
     </div>
   );

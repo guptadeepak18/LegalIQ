@@ -70,10 +70,14 @@ export default function LandingPage() {
     <div className="min-h-screen overflow-x-hidden">
       {/* ── NAV ─────────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-10 py-4 liq-nav">
-        <div className="flex items-center gap-2.5">
-          <img src="/rtc-logo.png" alt="Rest The Case" className="h-8 w-auto object-contain" />
+        <div className="flex items-center gap-3">
+          <div className="rounded-full bg-white dark:bg-[#F7F1E3] p-1.5 ring-1 ring-[#C9A84C]/40 shadow-[0_2px_10px_rgba(0,0,0,0.15)] flex-shrink-0">
+            <img src="/rtc-logo.png" alt="Rest The Case" className="h-9 w-9 object-contain" />
+          </div>
           <span className="font-serif text-xl font-bold liq-text-1 tracking-wide">LegalIQ</span>
-          <span className="liq-text-4 text-xs hidden sm:block border-l border-current/20 pl-2.5 ml-0.5">by Rest The Case</span>
+          <span className="hidden sm:block text-[11px] font-semibold uppercase liq-text-2 border-l border-current/25 pl-3 ml-0.5" style={{ letterSpacing: "0.14em" }}>
+            by Rest The Case
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <ThemeToggle />
@@ -492,8 +496,10 @@ export default function LandingPage() {
         <div className="px-6 md:px-10 py-10 max-w-5xl mx-auto grid sm:grid-cols-3 gap-8">
           {/* Brand */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <img src="/rtc-logo.png" alt="Rest The Case" className="h-9 w-auto object-contain" />
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="rounded-full bg-white dark:bg-[#F7F1E3] p-1.5 ring-1 ring-[#C9A84C]/40 shadow-[0_2px_10px_rgba(0,0,0,0.15)] flex-shrink-0">
+                <img src="/rtc-logo.png" alt="Rest The Case" className="h-9 w-9 object-contain" />
+              </div>
               <span className="font-serif font-bold text-[#C9A84C] text-lg">LegalIQ</span>
             </div>
             <p className="liq-text-3 text-xs leading-relaxed mb-4">
