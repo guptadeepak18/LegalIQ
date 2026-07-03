@@ -76,7 +76,8 @@ function AssessLoadingScreen({ businessType, city }: { businessType: string; cit
       <ThemeToggle className="fixed top-4 right-4 z-50" />
 
       {/* Logo */}
-      <img src="/rtc-logo.png" alt="Rest The Case" className="h-16 w-auto object-contain mb-8 float" />
+      <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-16 w-16 object-contain mb-8 float dark:hidden" />
+      <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-16 w-16 object-contain mb-8 float hidden dark:block" />
 
       {/* Card */}
       <div className="w-full max-w-sm glass-card rounded-3xl p-8 flex flex-col items-center gap-6">
@@ -281,7 +282,8 @@ export default function AssessPage() {
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center gap-8">
         <LogoWatermark />
         <ThemeToggle className="fixed top-4 right-4 z-50" />
-        <img src="/rtc-logo.png" alt="Rest The Case" className="h-20 w-auto object-contain float" />
+        <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-20 w-20 object-contain float dark:hidden" />
+        <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-20 w-20 object-contain float hidden dark:block" />
         <div className="relative w-20 h-20">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(201,168,76,0.12)" strokeWidth="8" />

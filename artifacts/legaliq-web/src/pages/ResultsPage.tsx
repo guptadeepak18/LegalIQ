@@ -290,7 +290,8 @@ export default function ResultsPage() {
       {/* Sticky header */}
       <div className="liq-nav px-5 py-3.5 flex items-center justify-between print:hidden sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <img src="/rtc-logo.png" alt="Rest The Case" className="h-8 w-auto object-contain" />
+          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
+          <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
           <span className="font-serif text-lg font-bold text-[#C9A84C]">LegalIQ Report</span>
           <span className="hidden sm:block liq-text-3 text-xs ml-1">— {store.company}</span>
         </div>
