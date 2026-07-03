@@ -733,3 +733,242 @@ export function generateReportPDF(data: ReportData): void {
   const fname = `LegalIQ-Report-${clean(data.company).replace(/[^a-zA-Z0-9]/g, "-")}-${data.totalScore}.pdf`;
   doc.save(fname);
 }
+
+// ═════════════════════════════════════════════════════════════════════════
+// CERTIFICATE — premium, cinematic light-theme certificate of assessment
+// ═════════════════════════════════════════════════════════════════════════
+
+export interface CertificateData {
+  company: string;
+  name: string;
+  businessType: string;
+  city: string;
+  totalScore: number;
+  logoUrl?: string;
+}
+
+// Light / cream certificate palette
+const CERT_BG      : [number,number,number] = [252, 250, 245]; // warm ivory
+const CERT_BG2     : [number,number,number] = [247, 243, 234]; // slightly deeper cream
+const CERT_INK1    : [number,number,number] = [35,  30,  22];
+const CERT_INK2    : [number,number,number] = [95,  86,  70];
+const CERT_INK3    : [number,number,number] = [150, 140, 120];
+const CERT_GOLD    : [number,number,number] = [176, 137, 58];
+const CERT_GOLD_LT : [number,number,number] = [201, 168, 76];
+
+/** Fetch an image URL and resolve it to a base64 data URL usable by jsPDF. */
+async function loadImageAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Draw an ornamental corner flourish (simple nested-line corner mark). */
+function cornerOrnament(doc: jsPDF, x: number, y: number, flipX: number, flipY: number) {
+  doc.setDrawColor(...CERT_GOLD);
+  doc.setLineWidth(0.6);
+  doc.line(x, y, x + 14 * flipX, y);
+  doc.line(x, y, x, y + 14 * flipY);
+  doc.setLineWidth(0.3);
+  doc.line(x + 4 * flipX, y + 4 * flipY, x + 9 * flipX, y + 4 * flipY);
+  doc.line(x + 4 * flipX, y + 4 * flipY, x + 4 * flipX, y + 9 * flipY);
+  doc.setFillColor(...CERT_GOLD);
+  doc.circle(x + 2 * flipX, y + 2 * flipY, 0.9, "F");
+}
+
+export async function generateCertificatePDF(data: CertificateData): Promise<void> {
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const W = doc.internal.pageSize.getWidth();   // 297
+  const H = doc.internal.pageSize.getHeight();  // 210
+  const cx = W / 2;
+
+  const g  = grade(data.totalScore);
+  const gl = gradeLabel(data.totalScore);
+  const rc = riskRGB(data.totalScore);
+  const issuedDate = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+  const certId = `LIQ-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+  const logoDataUrl = await loadImageAsDataUrl(data.logoUrl ?? "/rtc-logo-transparent.png");
+
+  // ── Base background ────────────────────────────────────────
+  doc.setFillColor(...CERT_BG);
+  doc.rect(0, 0, W, H, "F");
+
+  // Subtle radial-style corner washes (soft rectangles standing in for glow)
+  doc.setFillColor(...CERT_BG2);
+  doc.roundedRect(-40, -40, 140, 140, 60, 60, "F");
+  doc.roundedRect(W - 100, H - 100, 140, 140, 60, 60, "F");
+
+  // ── Large background watermark logo (very light, centered) ──
+  if (logoDataUrl) {
+    const wmSize = 150;
+    const gState = new (doc as any).GState({ opacity: 0.06 });
+    doc.setGState(gState);
+    doc.addImage(logoDataUrl, "PNG", cx - wmSize / 2, H / 2 - wmSize / 2, wmSize, wmSize);
+    doc.setGState(new (doc as any).GState({ opacity: 1 }));
+  }
+
+  // ── Outer double border frame ─────────────────────────────
+  const m1 = 8;
+  doc.setDrawColor(...CERT_GOLD);
+  doc.setLineWidth(1.1);
+  doc.rect(m1, m1, W - m1 * 2, H - m1 * 2, "S");
+  const m2 = 11.5;
+  doc.setLineWidth(0.35);
+  doc.setDrawColor(...CERT_GOLD_LT);
+  doc.rect(m2, m2, W - m2 * 2, H - m2 * 2, "S");
+
+  // Corner ornaments
+  const om = 15;
+  cornerOrnament(doc, om, om, 1, 1);
+  cornerOrnament(doc, W - om, om, -1, 1);
+  cornerOrnament(doc, om, H - om, 1, -1);
+  cornerOrnament(doc, W - om, H - om, -1, -1);
+
+  // ── Header: logo mark + wordmark ──────────────────────────
+  let headY = 30;
+  if (logoDataUrl) {
+    const logoS = 14;
+    doc.addImage(logoDataUrl, "PNG", cx - logoS / 2, headY - logoS + 4, logoS, logoS);
+    headY += 6;
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.setTextColor(...CERT_GOLD);
+  doc.text("LegalIQ", cx, headY + 12, { align: "center" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...CERT_INK3);
+  doc.text("LEGAL HEALTH ASSESSMENT  |  BY REST THE CASE", cx, headY + 19, { align: "center" });
+
+  doc.setDrawColor(...CERT_GOLD_LT);
+  doc.setLineWidth(0.3);
+  doc.line(cx - 30, headY + 24, cx + 30, headY + 24);
+
+  // ── Title ──────────────────────────────────────────────────
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(30);
+  doc.setTextColor(...CERT_INK1);
+  doc.text("Certificate of Legal Health", cx, headY + 40, { align: "center" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10.5);
+  doc.setTextColor(...CERT_INK2);
+  doc.text("This certifies that", cx, headY + 50, { align: "center" });
+
+  // ── Business name (hero) ──────────────────────────────────
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(26);
+  doc.setTextColor(...CERT_GOLD);
+  const nameLines = wrap(doc, data.company, W - 100);
+  doc.text(nameLines.slice(0, 1), cx, headY + 63, { align: "center" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...CERT_INK3);
+  doc.text(clean(`${data.businessType}  |  ${data.city}`), cx, headY + 71, { align: "center" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10.5);
+  doc.setTextColor(...CERT_INK2);
+  doc.text(
+    "has successfully completed the LegalIQ Legal Health Assessment,",
+    cx, headY + 82, { align: "center" }
+  );
+  doc.text(
+    "evaluating litigation exposure, contracts, compliance, and legal cost efficiency.",
+    cx, headY + 88, { align: "center" }
+  );
+
+  // ── Score medallion + grade badge ─────────────────────────
+  const medY = headY + 105;
+  const medR = 20;
+
+  // outer ring
+  doc.setDrawColor(...CERT_GOLD);
+  doc.setLineWidth(1.1);
+  doc.circle(cx, medY, medR, "S");
+  doc.setDrawColor(...CERT_GOLD_LT);
+  doc.setLineWidth(0.4);
+  doc.circle(cx, medY, medR - 2.2, "S");
+  doc.setFillColor(...CERT_BG2);
+  doc.circle(cx, medY, medR - 3.2, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(...CERT_GOLD);
+  doc.text(`${data.totalScore}`, cx, medY + 4, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...CERT_INK3);
+  doc.text("OUT OF 100", cx, medY + 11, { align: "center" });
+
+  // Grade badge to the right of medallion
+  const badgeX = cx + medR + 14;
+  doc.setFillColor(...rc);
+  doc.roundedRect(badgeX, medY - 11, 46, 22, 5, 5, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(...WHITE);
+  doc.text(`Grade ${g}`, badgeX + 23, medY - 1, { align: "center" });
+  doc.setFontSize(8.5);
+  doc.text(clean(gl).toUpperCase(), badgeX + 23, medY + 7, { align: "center" });
+
+  // Label to the left of medallion
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...CERT_INK3);
+  doc.text("LEGAL HEALTH", cx - medR - 14, medY - 1, { align: "right" });
+  doc.text("SCORE", cx - medR - 14, medY + 7, { align: "right" });
+
+  // ── Footer: signature line, date, certificate id ──────────
+  const footY = H - 30;
+  doc.setDrawColor(...CERT_INK3);
+  doc.setLineWidth(0.25);
+
+  // Left: date issued
+  doc.line(om + 6, footY, om + 66, footY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...CERT_INK3);
+  doc.text("DATE ISSUED", om + 6, footY + 6);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...CERT_INK1);
+  doc.text(issuedDate, om + 6, footY - 3);
+
+  // Right: authorised signature (Rest The Case)
+  doc.line(W - om - 66, footY, W - om - 6, footY);
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(13);
+  doc.setTextColor(...CERT_GOLD);
+  doc.text("Rest The Case", W - om - 36, footY - 3, { align: "center" });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...CERT_INK3);
+  doc.text("AUTHORISED ISSUER", W - om - 36, footY + 6, { align: "center" });
+
+  // Center: certificate id + prepared for
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...CERT_INK3);
+  doc.text(clean(`Certificate ID: ${certId}  |  Prepared for ${data.name}`), cx, footY + 6, { align: "center" });
+  doc.setFontSize(7);
+  doc.text("Verify at restthecase.com/virtualCLOPackage  |  Not legal advice", cx, H - 15, { align: "center" });
+
+  // ── Save ───────────────────────────────────────────────────
+  const fname = `LegalIQ-Certificate-${clean(data.company).replace(/[^a-zA-Z0-9]/g, "-")}-${data.totalScore}.pdf`;
+  doc.save(fname);
+}

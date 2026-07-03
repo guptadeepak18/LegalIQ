@@ -4,13 +4,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Scale, Download, Calendar, Star, AlertTriangle, Shield, TrendingUp,
   FileText, CheckCircle, ArrowRight, Lightbulb, Clock, Zap, Target,
-  BookOpen, Share2, BarChart2, History, ChevronDown, ChevronUp, Loader2,
+  BookOpen, Share2, BarChart2, History, ChevronDown, ChevronUp, Loader2, Award,
 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { useStore } from "@/store/useStore";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { generateReportPDF } from "@/lib/pdfGenerator";
+import { generateReportPDF, generateCertificatePDF } from "@/lib/pdfGenerator";
 import { basePath } from "@/lib/clerk";
 
 const PILLAR_META = [
@@ -101,6 +101,7 @@ export default function ResultsPage() {
   const [benchmark, setBenchmark] = useState<Benchmark | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [badgeGenerating, setBadgeGenerating] = useState(false);
+  const [certGenerating, setCertGenerating] = useState(false);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -267,6 +268,24 @@ export default function ResultsPage() {
     : null;
   const canReassess = !nextAssessmentDate || new Date() >= nextAssessmentDate;
 
+  async function handleDownloadCertificate() {
+    if (!result) return;
+    setCertGenerating(true);
+    try {
+      await generateCertificatePDF({
+        company: store.company || "Your Business",
+        name: store.name || "Business Owner",
+        businessType: store.businessType || "",
+        city: store.city || "India",
+        totalScore,
+      });
+    } catch (e) {
+      console.error("Certificate generation failed", e);
+    } finally {
+      setCertGenerating(false);
+    }
+  }
+
   function handleDownloadPdf() {
     if (!result) return;
     setDownloading(true);
@@ -412,6 +431,13 @@ export default function ResultsPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold liq-text-1 border border-[#C9A84C]/25 hover:border-[#C9A84C]/50 hover:bg-[#C9A84C]/8 transition-all">
                 <Download size={14} className="text-[#C9A84C]" />
                 {badgeGenerating ? "Generating…" : "Download Badge"}
+              </button>
+
+              <button onClick={handleDownloadCertificate} disabled={certGenerating}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#0A0A0A] transition-all"
+                style={{ background: "linear-gradient(135deg, #E2C97E, #C9A84C 55%, #8B6914)" }}>
+                <Award size={14} />
+                {certGenerating ? "Generating…" : "Download Certificate"}
               </button>
 
               <a href={linkedinLink} target="_blank" rel="noopener noreferrer"
