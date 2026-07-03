@@ -99,6 +99,7 @@ export const reports = pgTable("reports", {
   summary: text("summary"),
   pillarAssessments: jsonb("pillar_assessments").default({}),
   insights: jsonb("insights").default([]),
+  futureRisks: jsonb("future_risks").default([]),
   actions: jsonb("actions").default([]),
   example: jsonb("example").default({}),
   vcloPitch: text("vclo_pitch"),

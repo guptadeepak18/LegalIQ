@@ -92,6 +92,7 @@ router.post("/submit", async (req, res) => {
       summary: aiReport.summary,
       pillarAssessments: aiReport.pillarAssessments,
       insights: aiReport.insights,
+      futureRisks: aiReport.futureRisks,
       actions: aiReport.actions,
       example: aiReport.example,
       vcloPitch: aiReport.vcloPitch,

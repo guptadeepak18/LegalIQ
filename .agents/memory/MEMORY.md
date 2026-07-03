@@ -6,3 +6,5 @@
 - [rgb(var()) alpha syntax](css-rgb-var-alpha.md) — theme CSS custom-property colors need `rgb(var(--x) / N%)`; hex-alpha suffix concatenation on a var() string does not work.
 - [Clerk Google OAuth blocks e2e test subagent](clerk-oauth-testing-block.md) — "Continue with Google" on a Clerk sign-in screen reliably auto-blocks the Playwright testing subagent even with explicit instructions to skip it; use direct DB+curl or mockup-sandbox visual QA instead.
 - [jsPDF watermark opacity](jspdf-watermark-opacity.md) — use `new doc.GState({opacity})` (instance method, not `jsPDF.GState`) with `setGState` to draw translucent watermark images/shapes.
+- [PDF visual verification technique](pdf-visual-verification.md) — how to render a client-side jsPDF generator to PNG for visual QA without a browser.
+- [jsPDF helvetica dash bug](jspdf-dash-encoding.md) — en-dash/em-dash chars render as garbled glyphs in jsPDF's built-in helvetica font; use a plain hyphen instead.

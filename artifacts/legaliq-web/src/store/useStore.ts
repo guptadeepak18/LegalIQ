@@ -43,6 +43,17 @@ export interface AssessmentResult {
       description: string;
       severity: "HIGH" | "MEDIUM" | "LOW";
       financialRisk: string;
+      reason: string;
+      businessImpact: string;
+      futureProblem: string;
+      recommendation: string;
+    }>;
+    futureRisks: Array<{
+      title: string;
+      level: "HIGH" | "MEDIUM" | "LOW";
+      impact: string;
+      reason: string;
+      action: string;
     }>;
     actions: Array<{
       action: string;

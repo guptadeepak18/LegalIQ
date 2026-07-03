@@ -15,7 +15,11 @@ interface LeadDetail {
     complianceScore: number; costScore: number; futureScore: number; status: string;
     report?: {
       summary: string;
-      insights: Array<{ title: string; description: string; severity: string; financialRisk: string }>;
+      insights: Array<{
+        title: string; description: string; severity: string; financialRisk: string;
+        reason?: string; businessImpact?: string; futureProblem?: string; recommendation?: string;
+      }>;
+      futureRisks?: Array<{ title: string; level: string; impact: string; reason: string; action: string }>;
       actions: Array<{ action: string; description: string; timeline: string }>;
       vcloPitch: string;
     };
@@ -281,7 +285,38 @@ export default function LeadDetailPage() {
                                 }`}>{ins.severity}</span>
                               </div>
                               <p className="text-xs text-white/40">{ins.description}</p>
+                              {ins.businessImpact && (
+                                <p className="text-xs text-red-400/70 mt-1">Impact: {ins.businessImpact}</p>
+                              )}
                               <p className="text-xs text-amber-400/70 mt-1">{ins.financialRisk}</p>
+                              {ins.recommendation && (
+                                <p className="text-xs text-emerald-400/70 mt-1">Recommendation: {ins.recommendation}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {a.report.futureRisks && a.report.futureRisks.length > 0 && (
+                      <div className="glass-card rounded-2xl p-5">
+                        <h3 className="font-semibold text-white/80 mb-3 text-sm flex items-center gap-2">
+                          <AlertTriangle size={14} className="text-sky-400" /> Future Risk Exposure
+                        </h3>
+                        <div className="space-y-3">
+                          {a.report.futureRisks.map((fr, i) => (
+                            <div key={i} className="p-3 rounded-xl bg-white/[0.025] border border-white/[0.06]">
+                              <div className="flex items-start justify-between mb-1">
+                                <span className="text-sm font-medium text-white/80">{fr.title}</span>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ml-2 ${
+                                  fr.level === "HIGH" ? "text-red-400 bg-red-500/10 border-red-500/20" :
+                                  fr.level === "MEDIUM" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
+                                  "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                }`}>{fr.level}</span>
+                              </div>
+                              <p className="text-xs text-white/40">{fr.impact}</p>
+                              <p className="text-xs text-white/30 mt-1 italic">{fr.reason}</p>
+                              <p className="text-xs text-emerald-400/70 mt-1">{fr.action}</p>
                             </div>
                           ))}
                         </div>

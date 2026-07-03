@@ -10,6 +10,18 @@ export interface Insight {
   description: string;
   severity: "HIGH" | "MEDIUM" | "LOW";
   financialRisk: string;
+  reason?: string;
+  businessImpact?: string;
+  futureProblem?: string;
+  recommendation?: string;
+}
+
+export interface FutureRisk {
+  title: string;
+  level: "HIGH" | "MEDIUM" | "LOW";
+  impact: string;
+  reason: string;
+  action: string;
 }
 
 export interface Action {
@@ -42,6 +54,7 @@ export interface ReportData {
   summary: string;
   pillars: PillarScore[];
   insights: Insight[];
+  futureRisks?: FutureRisk[];
   actions: Action[];
   vcloPitch?: string;
   answerHistory?: AnswerHistoryItem[];
@@ -466,11 +479,24 @@ export function generateReportPDF(data: ReportData): void {
 
   data.insights.forEach((ins, i) => {
     const sc = sevRGB(ins.severity);
-    const titleLines = wrap(doc, ins.title, CW - 24);
-    const descLines  = wrap(doc, ins.description, CW - 20);
-    const frLines    = wrap(doc, `Risk: ${ins.financialRisk}`, CW - 20);
+    const titleLines  = wrap(doc, ins.title, CW - 46);
+    const descLines   = wrap(doc, ins.description, CW - 20);
+    const reasonLines = ins.reason ? wrap(doc, `Why this was flagged: ${ins.reason}`, CW - 20) : [];
+    const impactLines = ins.businessImpact ? wrap(doc, `Business impact: ${ins.businessImpact}`, CW - 20) : [];
+    const futureLines = ins.futureProblem ? wrap(doc, `If left unresolved: ${ins.futureProblem}`, CW - 20) : [];
+    const recLines    = ins.recommendation ? wrap(doc, `Recommendation: ${ins.recommendation}`, CW - 20) : [];
+    const frLines     = wrap(doc, `Estimated exposure: ${ins.financialRisk}`, CW - 20);
 
-    const boxH = 10 + titleLines.length * 5.5 + 4 + descLines.length * 4.8 + 4 + frLines.length * 4.8 + 8;
+    const boxH =
+      10 +
+      titleLines.length * 5.5 + 4 +
+      descLines.length * 4.6 + 3 +
+      (reasonLines.length > 0 ? reasonLines.length * 4.4 + 3 : 0) +
+      (impactLines.length > 0 ? impactLines.length * 4.4 + 3 : 0) +
+      (futureLines.length > 0 ? futureLines.length * 4.4 + 3 : 0) +
+      frLines.length * 4.4 + 3 +
+      (recLines.length > 0 ? recLines.length * 4.4 + 3 : 0) +
+      6;
 
     if (y + boxH > H - 20) {
       doc.addPage();
@@ -494,21 +520,21 @@ export function generateReportPDF(data: ReportData): void {
     // Top row: severity badge + counter
     const badgeW2 = doc.getTextWidth(ins.severity) + 10;
     doc.setFillColor(...sc);
-    doc.roundedRect(ML + 10, y + 7, badgeW2, 8, 2, 2, "F");
+    doc.roundedRect(W - ML - 8 - badgeW2, y + 7, badgeW2, 8, 2, 2, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7);
     doc.setTextColor(...WHITE);
-    doc.text(ins.severity, ML + 10 + badgeW2 / 2, y + 12.5, { align: "center" });
+    doc.text(ins.severity, W - ML - 8 - badgeW2 / 2, y + 12.5, { align: "center" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(...INK3);
-    doc.text(`${i + 1} / ${data.insights.length}`, W - ML - 8, y + 12, { align: "right" });
+    doc.text(`Risk ${i + 1} of ${data.insights.length}`, ML + 10, y + 8);
 
     // Title
     let cy = y + 20;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
+    doc.setFontSize(10.5);
     doc.setTextColor(...INK1);
     doc.text(titleLines, ML + 10, cy);
     cy += titleLines.length * 5.5 + 4;
@@ -518,16 +544,154 @@ export function generateReportPDF(data: ReportData): void {
     doc.setFontSize(8.5);
     doc.setTextColor(...INK2);
     doc.text(descLines, ML + 10, cy);
-    cy += descLines.length * 4.8 + 4;
+    cy += descLines.length * 4.6 + 3;
+
+    if (reasonLines.length > 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(...INK3);
+      doc.text(reasonLines, ML + 10, cy);
+      cy += reasonLines.length * 4.4 + 3;
+    }
+
+    if (impactLines.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(180, 40, 40);
+      doc.text(impactLines, ML + 10, cy);
+      cy += impactLines.length * 4.4 + 3;
+    }
+
+    if (futureLines.length > 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(...INK2);
+      doc.text(futureLines, ML + 10, cy);
+      cy += futureLines.length * 4.4 + 3;
+    }
 
     // Financial risk line
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(175, 85, 0);
     doc.text(frLines, ML + 10, cy);
+    cy += frLines.length * 4.4 + 3;
+
+    if (recLines.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(30, 130, 70);
+      doc.text(recLines, ML + 10, cy);
+    }
 
     y += boxH + 7;
   });
+
+  // ══════════════════════════════════════════════════════════════
+  // PAGE — FUTURE RISK EXPOSURE
+  // ══════════════════════════════════════════════════════════════
+  if (data.futureRisks && data.futureRisks.length > 0) {
+    doc.addPage();
+    page++;
+    pageHeader(doc, page);
+    pageFooter(doc);
+
+    y = 24;
+
+    doc.setFillColor(...DARK_P);
+    doc.roundedRect(ML, y, CW, 12, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    doc.setTextColor(...GOLD);
+    doc.text("FUTURE RISK EXPOSURE", ML + 6, y + 8.5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(130, 120, 100);
+    doc.text(`${data.futureRisks.length} risks on the horizon`, W - ML - 6, y + 8.5, { align: "right" });
+    y += 18;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...INK3);
+    doc.text(
+      wrap(doc, "Forward-looking legal risks this business may face in the next 12-24 months, based on your answer pattern and business profile.", CW),
+      ML,
+      y
+    );
+    y += 12;
+
+    data.futureRisks.forEach((fr, i) => {
+      const sc = sevRGB(fr.level);
+      const titleLines  = wrap(doc, fr.title, CW - 46);
+      const impactLines = wrap(doc, `Possible future impact: ${fr.impact}`, CW - 20);
+      const reasonLines = wrap(doc, `Why you're exposed: ${fr.reason}`, CW - 20);
+      const actionLines = wrap(doc, `Recommended action: ${fr.action}`, CW - 20);
+
+      const boxH =
+        10 +
+        titleLines.length * 5.5 + 4 +
+        impactLines.length * 4.6 + 3 +
+        reasonLines.length * 4.4 + 3 +
+        actionLines.length * 4.4 + 6;
+
+      if (y + boxH > H - 20) {
+        doc.addPage();
+        page++;
+        pageHeader(doc, page);
+        pageFooter(doc);
+        y = 24;
+      }
+
+      doc.setFillColor(...PANEL);
+      doc.roundedRect(ML, y, CW, boxH, 4, 4, "F");
+      doc.setDrawColor(...INK4);
+      doc.setLineWidth(0.25);
+      doc.roundedRect(ML, y, CW, boxH, 4, 4, "S");
+
+      doc.setFillColor(...sc);
+      doc.rect(ML, y, 4, boxH, "F");
+
+      const badgeText = `${fr.level} RISK`;
+      const badgeW2 = doc.getTextWidth(badgeText) + 10;
+      doc.setFillColor(...sc);
+      doc.roundedRect(W - ML - 8 - badgeW2, y + 7, badgeW2, 8, 2, 2, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(...WHITE);
+      doc.text(badgeText, W - ML - 8 - badgeW2 / 2, y + 12.5, { align: "center" });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...INK3);
+      doc.text(`Future Risk ${i + 1} of ${data.futureRisks!.length}`, ML + 10, y + 8);
+
+      let cy = y + 20;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(...INK1);
+      doc.text(titleLines, ML + 10, cy);
+      cy += titleLines.length * 5.5 + 4;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(180, 40, 40);
+      doc.text(impactLines, ML + 10, cy);
+      cy += impactLines.length * 4.6 + 3;
+
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(...INK3);
+      doc.text(reasonLines, ML + 10, cy);
+      cy += reasonLines.length * 4.4 + 3;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(30, 130, 70);
+      doc.text(actionLines, ML + 10, cy);
+
+      y += boxH + 7;
+    });
+  }
 
   // ══════════════════════════════════════════════════════════════
   // PAGE — DETAILED ASSESSMENT HISTORY

@@ -110,6 +110,17 @@ export interface GeneratedReport {
     description: string;
     severity: "HIGH" | "MEDIUM" | "LOW";
     financialRisk: string;
+    reason: string;
+    businessImpact: string;
+    futureProblem: string;
+    recommendation: string;
+  }>;
+  futureRisks: Array<{
+    title: string;
+    level: "HIGH" | "MEDIUM" | "LOW";
+    impact: string;
+    reason: string;
+    action: string;
   }>;
   actions: Array<{
     action: string;
@@ -1028,7 +1039,23 @@ SECTIONS TO GENERATE:
 
 2. PILLAR BREAKDOWN — For each of 4 pillars: score, status, one finding sentence, one implication. Also include a "Future Risk Outlook" sub-section (2–3 sentences) covering emerging risks: DPDP Act compliance, trademark gaps, personal guarantees, or sector-specific threats specific to this business.
 
-3. TOP 3 RISK FLAGS — For each: title (plain language, max 6 words), gap, consequence with specific law/authority, estimated ₹ exposure, urgency (Immediate / 30 Days / 90 Days).
+3. TOP 3 RISK FLAGS — For each, provide ALL of the following, specific to this business (not generic boilerplate):
+   - title (plain language, max 6 words)
+   - gap (what safeguard is missing)
+   - consequence with specific law/authority
+   - reason (why this gap exists / why it was flagged, referencing their answer pattern)
+   - business_impact (concrete operational/financial impact on THIS business if unresolved)
+   - future_problem (what could escalate into if left unresolved for 6-12 months)
+   - recommendation (one specific, doable fix)
+   - estimated ₹ exposure
+   - urgency (Immediate / 30 Days / 90 Days)
+
+3B. FUTURE RISK EXPOSURE — 3 forward-looking risks this specific business could face in the next 12-24 months based on their answer pattern, business type, and sector (e.g. DPDP Act data-privacy obligations, trademark/IP exposure, personal guarantee liability, labour law changes, GST scrutiny, sector-specific regulatory shifts). For each, provide:
+   - title (plain language, max 6 words)
+   - level (HIGH / MEDIUM / LOW)
+   - impact (possible future impact on the business if this risk materialises)
+   - reason (why this business specifically is exposed, based on their profile/answers)
+   - action (recommended action to take now to reduce this future risk)
 
 4. ACTION PLAN — 3 prioritised actions only. Specific and doable. Include ₹ cost estimate. Timeline: This Week / This Month / This Quarter.
 
@@ -1054,9 +1081,14 @@ OUTPUT FORMAT — return only this JSON:
   ],
   "future_risk_outlook": "2–3 sentence AI-generated outlook on emerging risks: DPDP Act, trademark, personal guarantees, or sector-specific threats.",
   "risk_flags": [
-    { "rank": 1, "title": "risk title", "gap": "...", "consequence": "...", "law_reference": "specific act or null", "exposure": "₹X – ₹Y", "urgency": "Immediate" },
-    { "rank": 2, "title": "...", "gap": "...", "consequence": "...", "law_reference": "...", "exposure": "...", "urgency": "30 Days" },
-    { "rank": 3, "title": "...", "gap": "...", "consequence": "...", "law_reference": "...", "exposure": "...", "urgency": "90 Days" }
+    { "rank": 1, "title": "risk title", "gap": "...", "consequence": "...", "law_reference": "specific act or null", "reason": "why this was flagged for this business", "business_impact": "concrete impact on this business", "future_problem": "what this escalates to if unresolved", "recommendation": "specific fix", "exposure": "₹X – ₹Y", "urgency": "Immediate" },
+    { "rank": 2, "title": "...", "gap": "...", "consequence": "...", "law_reference": "...", "reason": "...", "business_impact": "...", "future_problem": "...", "recommendation": "...", "exposure": "...", "urgency": "30 Days" },
+    { "rank": 3, "title": "...", "gap": "...", "consequence": "...", "law_reference": "...", "reason": "...", "business_impact": "...", "future_problem": "...", "recommendation": "...", "exposure": "...", "urgency": "90 Days" }
+  ],
+  "future_risks": [
+    { "title": "future risk title", "level": "HIGH", "impact": "possible future impact on this business", "reason": "why this business is exposed", "action": "recommended action now" },
+    { "title": "...", "level": "MEDIUM", "impact": "...", "reason": "...", "action": "..." },
+    { "title": "...", "level": "LOW", "impact": "...", "reason": "...", "action": "..." }
   ],
   "action_plan": [
     { "step": 1, "timeline": "This Week", "action": "...", "cost": "₹0 / ₹X,000" },
@@ -1087,9 +1119,59 @@ export async function generateReport(payload: ReportPayload): Promise<GeneratedR
       "Legal Cost Efficiency": `Score: ${payload.cost}/25 — Proactive legal management can significantly reduce reactive costs.`,
     },
     insights: [
-      { title: "Critical Legal Gap", description: `Your ${payload.businessType} has significant gaps that expose it to financial risk. Without proper contracts and compliance, a single dispute could cost ₹5–20 Lakhs. Immediate action is recommended.`, severity: "HIGH", financialRisk: "₹5–20 Lakhs potential exposure" },
-      { title: "Compliance Risk", description: "Several regulatory areas need immediate attention to avoid penalties and business disruption.", severity: "MEDIUM", financialRisk: "₹2–10 Lakhs potential exposure" },
-      { title: "Contractual Gaps", description: "Written agreements are missing or incomplete for key business relationships, creating unenforceable positions.", severity: "LOW", financialRisk: "₹1–5 Lakhs potential exposure" },
+      {
+        title: "Critical Legal Gap",
+        description: `Your ${payload.businessType} has significant gaps that expose it to financial risk. Without proper contracts and compliance, a single dispute could cost ₹5–20 Lakhs. Immediate action is recommended.`,
+        severity: "HIGH",
+        financialRisk: "₹5–20 Lakhs potential exposure",
+        reason: "Your answers show key safeguards — written contracts and compliance filings — are missing or incomplete across the business.",
+        businessImpact: "A single vendor or customer dispute could result in an unenforceable claim, direct financial loss, and weeks of management time diverted to firefighting.",
+        futureProblem: "If left unresolved, repeated informal dealings compound the exposure — each new relationship without a contract adds to the total risk carried by the business.",
+        recommendation: "Prioritise signed agreements for your top 3 highest-value relationships this month.",
+      },
+      {
+        title: "Compliance Risk",
+        description: "Several regulatory areas need immediate attention to avoid penalties and business disruption.",
+        severity: "MEDIUM",
+        financialRisk: "₹2–10 Lakhs potential exposure",
+        reason: "Statutory filings and licence renewals were flagged as inconsistent or overdue in your assessment.",
+        businessImpact: "Regulators can levy penalties, freeze accounts, or suspend licences for lapsed filings, directly disrupting day-to-day operations.",
+        futureProblem: "Unresolved compliance gaps tend to surface during audits, funding rounds, or expansion — at the worst possible time to fix them.",
+        recommendation: "Run a compliance checklist against GST, MCA21, and sector-specific licences this quarter.",
+      },
+      {
+        title: "Contractual Gaps",
+        description: "Written agreements are missing or incomplete for key business relationships, creating unenforceable positions.",
+        severity: "LOW",
+        financialRisk: "₹1–5 Lakhs potential exposure",
+        reason: "Some business relationships rely on verbal understanding rather than documented terms.",
+        businessImpact: "Without written terms, recovering dues or enforcing obligations in a dispute becomes significantly harder and slower.",
+        futureProblem: "As the business scales, more relationships without contracts multiply this risk across a larger base of vendors, employees, or customers.",
+        recommendation: "Introduce a standard agreement template for all new relationships going forward.",
+      },
+    ],
+    futureRisks: [
+      {
+        title: "Data Privacy (DPDP Act) Exposure",
+        level: "MEDIUM",
+        impact: "Non-compliance with the Digital Personal Data Protection Act can result in penalties of up to ₹250 crore for serious data breaches or mishandling of customer data.",
+        reason: `As a ${payload.businessType}, you likely collect customer or employee personal data without a formal consent and data-handling policy in place.`,
+        action: "Draft a basic data privacy policy and consent mechanism before the DPDP Act's enforcement provisions take full effect.",
+      },
+      {
+        title: "Trademark & Brand Exposure",
+        level: "MEDIUM",
+        impact: "Operating without a registered trademark risks losing your brand name to a competitor or facing a costly rebrand if challenged.",
+        reason: "Many businesses at your stage delay trademark registration, leaving the brand name and logo legally unprotected.",
+        action: "File a trademark application for your business name and logo within the next quarter.",
+      },
+      {
+        title: "Personal Guarantee Liability",
+        level: "LOW",
+        impact: "Personal guarantees on business loans or leases can expose the owner's personal assets if the business defaults.",
+        reason: "Growing businesses frequently take on loans or lease agreements that include personal guarantee clauses without full awareness of the exposure.",
+        action: "Review all existing loan and lease agreements for personal guarantee clauses and negotiate caps where possible.",
+      },
     ],
     actions: [
       { action: "Audit all contracts and agreements", description: "List every vendor, employee, and client relationship and confirm each has a signed written agreement in place.", timeline: "THIS WEEK" },
@@ -1110,7 +1192,25 @@ export async function generateReport(payload: ReportPayload): Promise<GeneratedR
     executive_summary?: string;
     pillar_breakdown?: Array<{ name: string; finding: string; implication: string }>;
     future_risk_outlook?: string;
-    risk_flags?: Array<{ title: string; gap: string; consequence: string; law_reference?: string; exposure: string; urgency: string }>;
+    risk_flags?: Array<{
+      title: string;
+      gap: string;
+      consequence: string;
+      law_reference?: string;
+      reason?: string;
+      business_impact?: string;
+      future_problem?: string;
+      recommendation?: string;
+      exposure: string;
+      urgency: string;
+    }>;
+    future_risks?: Array<{
+      title: string;
+      level?: string;
+      impact: string;
+      reason: string;
+      action: string;
+    }>;
     action_plan?: Array<{ action: string; timeline: string }>;
     consultation_note?: string;
     example?: { businessName: string; whatHappened: string; consequences: string; vcloWouldHave: string; lesson: string };
@@ -1137,6 +1237,17 @@ export async function generateReport(payload: ReportPayload): Promise<GeneratedR
         description: `${f.gap} ${f.consequence}${f.law_reference ? ` (${f.law_reference})` : ""}`,
         severity: (["HIGH", "MEDIUM", "LOW"] as const)[i] ?? "LOW",
         financialRisk: f.exposure,
+        reason: f.reason || fallback.insights[i]?.reason || f.gap,
+        businessImpact: f.business_impact || fallback.insights[i]?.businessImpact || f.consequence,
+        futureProblem: f.future_problem || fallback.insights[i]?.futureProblem || "If left unresolved, this gap compounds over time and increases overall legal exposure.",
+        recommendation: f.recommendation || fallback.insights[i]?.recommendation || "Consult a lawyer to close this gap.",
+      })),
+      futureRisks: (raw.future_risks ?? []).slice(0, 3).map((r, i) => ({
+        title: r.title,
+        level: (["HIGH", "MEDIUM", "LOW"].includes((r.level ?? "").toUpperCase()) ? (r.level ?? "").toUpperCase() : fallback.futureRisks[i]?.level ?? "MEDIUM") as "HIGH" | "MEDIUM" | "LOW",
+        impact: r.impact || fallback.futureRisks[i]?.impact || "",
+        reason: r.reason || fallback.futureRisks[i]?.reason || "",
+        action: r.action || fallback.futureRisks[i]?.action || "",
       })),
       actions: (raw.action_plan ?? []).slice(0, 3).map((a) => ({
         action: a.action,

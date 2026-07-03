@@ -307,6 +307,17 @@ export default function ResultsPage() {
           description: ins.description,
           severity: ins.severity,
           financialRisk: ins.financialRisk,
+          reason: ins.reason,
+          businessImpact: ins.businessImpact,
+          futureProblem: ins.futureProblem,
+          recommendation: ins.recommendation,
+        })),
+        futureRisks: (report.futureRisks || []).map((fr) => ({
+          title: fr.title,
+          level: fr.level,
+          impact: fr.impact,
+          reason: fr.reason,
+          action: fr.action,
         })),
         actions: (report.actions || []).map((act) => ({
           action: act.action,
@@ -631,9 +642,57 @@ export default function ResultsPage() {
                       <span className={`text-xs font-bold px-2.5 py-1 rounded-full border flex-shrink-0 ${sev.cls}`}>{ins.severity}</span>
                     </div>
                     <p className="liq-text-2 text-sm mb-3 leading-relaxed pl-5">{ins.description}</p>
-                    <div className="flex items-center gap-2 pl-5">
+                    {ins.reason && (
+                      <p className="text-xs liq-text-3 italic mb-2 pl-5 leading-relaxed">Why this was flagged: {ins.reason}</p>
+                    )}
+                    {ins.businessImpact && (
+                      <p className="text-xs text-red-500 font-medium mb-2 pl-5 leading-relaxed">Business impact: {ins.businessImpact}</p>
+                    )}
+                    {ins.futureProblem && (
+                      <p className="text-xs liq-text-2 mb-2 pl-5 leading-relaxed">If left unresolved: {ins.futureProblem}</p>
+                    )}
+                    <div className="flex items-center gap-2 pl-5 mb-2">
                       <AlertTriangle size={12} className="text-amber-500 flex-shrink-0" />
                       <span className="text-xs text-amber-600 font-medium">{ins.financialRisk}</span>
+                    </div>
+                    {ins.recommendation && (
+                      <div className="flex items-start gap-2 pl-5">
+                        <CheckCircle size={12} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-xs text-emerald-600 font-medium leading-relaxed">{ins.recommendation}</span>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── FUTURE RISK EXPOSURE ──────────────────────────────────────── */}
+        {report.futureRisks?.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="glass-card rounded-2xl p-6">
+            <h2 className="font-serif text-xl font-bold liq-text-1 mb-1 flex items-center gap-2">
+              <TrendingUp size={18} className="text-[#C9A84C]" /> Future Risk Exposure
+              <span className="ml-auto liq-text-3 text-xs font-normal">{report.futureRisks.length} on the horizon</span>
+            </h2>
+            <p className="liq-text-3 text-xs mb-5">Forward-looking legal risks over the next 12–24 months, based on your business profile and answers.</p>
+            <div className="space-y-4">
+              {report.futureRisks.map((fr, i) => {
+                const sev = SEVERITY_CONFIG[fr.level] ?? SEVERITY_CONFIG.LOW;
+                return (
+                  <motion.div key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + i * 0.06 }}
+                    className="p-5 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.12)", background: "rgba(201,168,76,0.03)" }}>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <h3 className="font-bold liq-text-1 text-sm flex items-center gap-2">
+                        <span>{sev.icon}</span>{fr.title}
+                      </h3>
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full border flex-shrink-0 ${sev.cls}`}>{fr.level} RISK</span>
+                    </div>
+                    <p className="text-xs text-red-500 font-medium mb-2 pl-5 leading-relaxed">Possible future impact: {fr.impact}</p>
+                    <p className="text-xs liq-text-3 italic mb-2 pl-5 leading-relaxed">Why you're exposed: {fr.reason}</p>
+                    <div className="flex items-start gap-2 pl-5">
+                      <CheckCircle size={12} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <span className="text-xs text-emerald-600 font-medium leading-relaxed">{fr.action}</span>
                     </div>
                   </motion.div>
                 );
