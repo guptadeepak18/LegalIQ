@@ -73,7 +73,7 @@ export default function LandingPage() {
         <div className="flex items-center gap-3">
           <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
           <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
-          <span className="font-serif text-xl font-bold liq-text-1 tracking-wide">LegalIQ</span>
+          <span className="font-serif text-xl font-bold text-[#C9A84C] tracking-wide">LegalIQ</span>
           <span className="hidden sm:block text-[11px] font-semibold uppercase liq-text-2 border-l border-current/25 pl-3 ml-0.5" style={{ letterSpacing: "0.14em" }}>
             by Rest The Case
           </span>
@@ -496,7 +496,8 @@ export default function LandingPage() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2.5 mb-3">
-              <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0" />
+              <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
+              <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
               <span className="font-serif font-bold text-[#C9A84C] text-lg">LegalIQ</span>
             </div>
             <p className="liq-text-3 text-xs leading-relaxed mb-4">
