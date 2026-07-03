@@ -5,6 +5,8 @@
  * LegalIQ API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AssessmentResultGrade } from './assessmentResultGrade';
+import type { AssessmentResultGradeLabel } from './assessmentResultGradeLabel';
 import type { AssessmentResultRiskLevel } from './assessmentResultRiskLevel';
 import type { Report } from './report';
 
@@ -13,6 +15,8 @@ export interface AssessmentResult {
   assessmentId?: string;
   totalScore: number;
   riskLevel: AssessmentResultRiskLevel;
+  grade?: AssessmentResultGrade;
+  gradeLabel?: AssessmentResultGradeLabel;
   litigationScore?: number;
   contractualScore?: number;
   complianceScore?: number;

@@ -6,12 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AnswerRecord } from './answerRecord';
+import type { AssessmentDetailGrade } from './assessmentDetailGrade';
+import type { AssessmentDetailGradeLabel } from './assessmentDetailGradeLabel';
 import type { Report } from './report';
 
 export interface AssessmentDetail {
   id: string;
   totalScore: number;
   riskLevel: string;
+  grade?: AssessmentDetailGrade;
+  gradeLabel?: AssessmentDetailGradeLabel;
   litigationScore?: number;
   contractualScore?: number;
   complianceScore?: number;

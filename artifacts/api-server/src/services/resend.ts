@@ -84,9 +84,11 @@ export async function sendReportEmail(
   const riskColor =
     riskLevel === "CRITICAL"
       ? "#EF4444"
-      : riskLevel === "MODERATE"
-        ? "#F59E0B"
-        : "#22C55E";
+      : riskLevel === "RISKY"
+        ? "#F97316"
+        : riskLevel === "STABLE" || riskLevel === "MODERATE"
+          ? "#F59E0B"
+          : "#22C55E";
 
   const attachments = pdfBuffer
     ? [{ filename: `LegalIQ-Report-${company}.pdf`, content: pdfBuffer }]

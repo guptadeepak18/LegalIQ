@@ -176,9 +176,30 @@ export type AssessmentResultRiskLevel = typeof AssessmentResultRiskLevel[keyof t
 
 
 export const AssessmentResultRiskLevel = {
-  CRITICAL: 'CRITICAL',
-  MODERATE: 'MODERATE',
   HEALTHY: 'HEALTHY',
+  STABLE: 'STABLE',
+  RISKY: 'RISKY',
+  CRITICAL: 'CRITICAL',
+} as const;
+
+export type AssessmentResultGrade = typeof AssessmentResultGrade[keyof typeof AssessmentResultGrade];
+
+
+export const AssessmentResultGrade = {
+  A: 'A',
+  B: 'B',
+  C: 'C',
+  D: 'D',
+} as const;
+
+export type AssessmentResultGradeLabel = typeof AssessmentResultGradeLabel[keyof typeof AssessmentResultGradeLabel];
+
+
+export const AssessmentResultGradeLabel = {
+  Healthy: 'Healthy',
+  Stable: 'Stable',
+  Risky: 'Risky',
+  Critical: 'Critical',
 } as const;
 
 export interface AssessmentResult {
@@ -186,6 +207,8 @@ export interface AssessmentResult {
   assessmentId?: string;
   totalScore: number;
   riskLevel: AssessmentResultRiskLevel;
+  grade?: AssessmentResultGrade;
+  gradeLabel?: AssessmentResultGradeLabel;
   litigationScore?: number;
   contractualScore?: number;
   complianceScore?: number;
@@ -288,6 +311,26 @@ export interface AdminLeadsResponse {
   totalPages?: number;
 }
 
+export type AssessmentDetailGrade = typeof AssessmentDetailGrade[keyof typeof AssessmentDetailGrade];
+
+
+export const AssessmentDetailGrade = {
+  A: 'A',
+  B: 'B',
+  C: 'C',
+  D: 'D',
+} as const;
+
+export type AssessmentDetailGradeLabel = typeof AssessmentDetailGradeLabel[keyof typeof AssessmentDetailGradeLabel];
+
+
+export const AssessmentDetailGradeLabel = {
+  Healthy: 'Healthy',
+  Stable: 'Stable',
+  Risky: 'Risky',
+  Critical: 'Critical',
+} as const;
+
 export interface AnswerRecord {
   question: string;
   pillar: string;
@@ -299,6 +342,8 @@ export interface AssessmentDetail {
   id: string;
   totalScore: number;
   riskLevel: string;
+  grade?: AssessmentDetailGrade;
+  gradeLabel?: AssessmentDetailGradeLabel;
   litigationScore?: number;
   contractualScore?: number;
   complianceScore?: number;

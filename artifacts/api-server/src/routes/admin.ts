@@ -108,7 +108,7 @@ router.get("/admin/stats", requireAuth, async (_req, res) => {
     avgScore: Math.round(Number(avgResult?.avg ?? 0)),
     scoreDistribution: { critical: d0_40.count, moderate: d40_60.count, healthy: d60_80.count, excellent: d80.count },
     criticalRisk: riskBreakdownMap["CRITICAL"] ?? 0,
-    moderateRisk: riskBreakdownMap["MODERATE"] ?? 0,
+    moderateRisk: (riskBreakdownMap["STABLE"] ?? 0) + (riskBreakdownMap["RISKY"] ?? 0) + (riskBreakdownMap["MODERATE"] ?? 0),
     legallyHealthy: riskBreakdownMap["HEALTHY"] ?? 0,
     riskBreakdown: riskBreakdownMap,
     topRiskFlags,

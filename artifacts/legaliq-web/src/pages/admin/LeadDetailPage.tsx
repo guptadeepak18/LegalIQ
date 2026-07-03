@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, User, Building2, Phone, Mail, MapPin, AlertTriangle, CheckCircle, Sparkles, Copy, Check, RefreshCw } from "lucide-react";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { riskBadgeClass } from "@/lib/risk";
 import { toast } from "sonner";
 
 interface LeadDetail {
@@ -176,7 +177,7 @@ export default function LeadDetailPage() {
                   <div className="flex items-center justify-between mb-5">
                     <h2 className="font-semibold text-white/80">Legal Health Score</h2>
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
-                      a.riskLevel === "CRITICAL" ? "risk-critical" : a.riskLevel === "MODERATE" ? "risk-moderate" : "risk-healthy"
+                      riskBadgeClass(a.riskLevel)
                     }`}>{a.riskLevel}</span>
                   </div>
                   <div className="flex items-end gap-2 mb-6">

@@ -19,6 +19,8 @@ router.get("/history/:leadId", async (req, res) => {
         id: assessments.id,
         totalScore: assessments.totalScore,
         riskLevel: assessments.riskLevel,
+        grade: assessments.grade,
+        gradeLabel: assessments.gradeLabel,
         litigationScore: assessments.litigationScore,
         contractualScore: assessments.contractualScore,
         complianceScore: assessments.complianceScore,

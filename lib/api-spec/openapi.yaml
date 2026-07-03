@@ -760,7 +760,13 @@ components:
           type: integer
         riskLevel:
           type: string
-          enum: [CRITICAL, MODERATE, HEALTHY]
+          enum: [HEALTHY, STABLE, RISKY, CRITICAL]
+        grade:
+          type: string
+          enum: [A, B, C, D]
+        gradeLabel:
+          type: string
+          enum: [Healthy, Stable, Risky, Critical]
         litigationScore:
           type: integer
         contractualScore:
@@ -1034,6 +1040,12 @@ components:
           type: integer
         riskLevel:
           type: string
+        grade:
+          type: string
+          enum: [A, B, C, D]
+        gradeLabel:
+          type: string
+          enum: [Healthy, Stable, Risky, Critical]
         litigationScore:
           type: integer
         contractualScore:

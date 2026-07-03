@@ -39,6 +39,22 @@ function gradeFromScore(score: number) {
   return "D";
 }
 
+function gradeLabelFromScore(score: number): "Healthy" | "Stable" | "Risky" | "Critical" {
+  const g = gradeFromScore(score);
+  if (g === "A") return "Healthy";
+  if (g === "B") return "Stable";
+  if (g === "C") return "Risky";
+  return "Critical";
+}
+
+function riskColorFromScore(score: number): string {
+  const g = gradeFromScore(score);
+  if (g === "A") return "#22C55E";
+  if (g === "B") return "#F59E0B";
+  if (g === "C") return "#F97316";
+  return "#EF4444";
+}
+
 function MiniRing({ score, color, max = 25 }: { score: number; color: string; max?: number }) {
   const pct = score / max;
   const r = 34;
@@ -127,7 +143,8 @@ export default function ResultsPage() {
 
       const score = result.totalScore;
       const grade = gradeFromScore(score);
-      const riskColor = result.riskLevel === "CRITICAL" ? "#EF4444" : result.riskLevel === "MODERATE" ? "#F59E0B" : "#22C55E";
+      const gradeLabel = gradeLabelFromScore(score);
+      const riskColor = riskColorFromScore(score);
 
       ctx.fillStyle = "#0A0A0A";
       ctx.fillRect(0, 0, 900, 420);
@@ -185,7 +202,7 @@ export default function ResultsPage() {
 
       ctx.fillStyle = riskColor;
       ctx.font = "bold 15px Arial, sans-serif";
-      ctx.fillText(result.riskLevel + " RISK", 168, 334);
+      ctx.fillText(gradeLabel.toUpperCase(), 168, 334);
 
       ctx.fillStyle = "#FFFFFF";
       ctx.font = "bold 22px Arial, sans-serif";
@@ -221,18 +238,21 @@ export default function ResultsPage() {
 
   const { totalScore, riskLevel, report } = result;
   const grade = gradeFromScore(totalScore);
-  const riskColor  = riskLevel === "CRITICAL" ? "#EF4444" : riskLevel === "MODERATE" ? "#F59E0B" : "#22C55E";
-  const riskBg     = riskLevel === "CRITICAL" ? "rgba(239,68,68,0.08)" : riskLevel === "MODERATE" ? "rgba(245,158,11,0.08)" : "rgba(34,197,94,0.08)";
-  const riskBorder = riskLevel === "CRITICAL" ? "rgba(239,68,68,0.25)" : riskLevel === "MODERATE" ? "rgba(245,158,11,0.25)" : "rgba(34,197,94,0.25)";
-  const riskEmoji  = riskLevel === "CRITICAL" ? "🚨" : riskLevel === "MODERATE" ? "⚠️" : "✅";
-  const riskMessage = riskLevel === "CRITICAL"
+  const gradeLabel = gradeLabelFromScore(totalScore);
+  const riskColor  = riskColorFromScore(totalScore);
+  const riskBg     = grade === "D" ? "rgba(239,68,68,0.08)" : grade === "C" ? "rgba(249,115,22,0.08)" : grade === "B" ? "rgba(245,158,11,0.08)" : "rgba(34,197,94,0.08)";
+  const riskBorder = grade === "D" ? "rgba(239,68,68,0.25)" : grade === "C" ? "rgba(249,115,22,0.25)" : grade === "B" ? "rgba(245,158,11,0.25)" : "rgba(34,197,94,0.25)";
+  const riskEmoji  = grade === "D" ? "🚨" : grade === "C" ? "⚠️" : grade === "B" ? "⚠️" : "✅";
+  const riskMessage = grade === "D"
     ? "Immediate legal intervention required. Multiple high-risk gaps detected."
-    : riskLevel === "MODERATE"
+    : grade === "C"
     ? "Significant risks identified. Prioritise action on highlighted gaps."
+    : grade === "B"
+    ? "Stable legal position, but a few gaps are worth addressing soon."
     : "Good legal health. Continue monitoring and maintaining compliance.";
 
   const RTC_URL = "https://restthecase.com/virtualCLOPackage";
-  const topRisk = report.insights?.[0]?.title ?? riskLevel + " legal risk";
+  const topRisk = report.insights?.[0]?.title ?? gradeLabel + " legal risk";
   const waMessage = encodeURIComponent(
     `I just checked my business legal health on LegalIQ.\n\n` +
     `My Legal Health Score: *${totalScore}/100*\n` +
@@ -319,7 +339,7 @@ export default function ResultsPage() {
           <span className="text-3xl flex-shrink-0">{riskEmoji}</span>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="font-bold text-base" style={{ color: riskColor }}>{riskLevel} RISK</span>
+              <span className="font-bold text-base" style={{ color: riskColor }}>{gradeLabel.toUpperCase()}</span>
               <span className="liq-text-3 text-sm">· Legal Health Score: {totalScore}/100</span>
             </div>
             <p className="liq-text-2 text-sm">{riskMessage}</p>
@@ -358,7 +378,7 @@ export default function ResultsPage() {
                   <div className="liq-text-3 text-xs mt-1">out of 100</div>
                   <div className="mt-2.5 px-4 py-1.5 rounded-full text-xs font-bold border"
                     style={{ borderColor: `${riskColor}50`, background: `${riskColor}15`, color: riskColor }}>
-                    Grade {grade} · {riskLevel}
+                    Grade {grade} · {gradeLabel}
                   </div>
                 </div>
               </div>
@@ -492,7 +512,7 @@ export default function ResultsPage() {
                   className="overflow-hidden">
                   <div className="mt-5 space-y-3">
                     {history.map((h, i) => {
-                      const hColor = h.riskLevel === "CRITICAL" ? "#EF4444" : h.riskLevel === "MODERATE" ? "#F59E0B" : "#22C55E";
+                      const hColor = riskColorFromScore(h.totalScore);
                       const isLatest = i === history.length - 1;
                       const prev = history[i - 1];
                       const delta = prev ? (h.totalScore - prev.totalScore) : null;

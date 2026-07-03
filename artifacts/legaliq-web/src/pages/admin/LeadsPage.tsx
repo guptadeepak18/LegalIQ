@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Search, Download, ChevronRight, Filter, X } from "lucide-react";
 import { apiFetch, authHeaders, API_BASE } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { riskBadgeClass } from "@/lib/risk";
 import { toast } from "sonner";
 
 interface Lead {
@@ -271,7 +272,7 @@ export default function LeadsPage() {
                       <td className="px-4 py-4 text-center">
                         {l.riskLevel ? (
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                            l.riskLevel === "CRITICAL" ? "risk-critical" : l.riskLevel === "MODERATE" ? "risk-moderate" : "risk-healthy"
+                            riskBadgeClass(l.riskLevel)
                           }`}>{l.riskLevel}</span>
                         ) : <span className="text-white/15 text-xs">—</span>}
                       </td>

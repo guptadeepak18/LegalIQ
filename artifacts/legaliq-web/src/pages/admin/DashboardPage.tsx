@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { riskBadgeClass } from "@/lib/risk";
 import { toast } from "sonner";
 
 interface ScoreDistribution { critical: number; moderate: number; healthy: number; excellent: number }
@@ -262,7 +263,7 @@ export default function DashboardPage() {
                     <td className="px-4 py-3.5 text-center">
                       {l.riskLevel ? (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                          l.riskLevel === "CRITICAL" ? "risk-critical" : l.riskLevel === "MODERATE" ? "risk-moderate" : "risk-healthy"
+                          riskBadgeClass(l.riskLevel)
                         }`}>{l.riskLevel}</span>
                       ) : <span className="dark:text-white/15 text-xs" style={{ color: "var(--liq-text-3)" }}>—</span>}
                     </td>

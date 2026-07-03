@@ -21,9 +21,32 @@ export interface PillarScore {
   label: PillarName;
 }
 
+export type Grade = "A" | "B" | "C" | "D";
+export type GradeLabel = "Healthy" | "Stable" | "Risky" | "Critical";
+export type RiskLevel = "HEALTHY" | "STABLE" | "RISKY" | "CRITICAL";
+
+export interface GradeInfo {
+  grade: Grade;
+  gradeLabel: GradeLabel;
+  riskLevel: RiskLevel;
+}
+
+/**
+ * Single source of truth for the Legal Health Score grading scale.
+ * 80-100 = A Healthy · 60-79 = B Stable · 40-59 = C Risky · 0-39 = D Critical
+ */
+export function getGrade(totalScore: number): GradeInfo {
+  if (totalScore >= 80) return { grade: "A", gradeLabel: "Healthy", riskLevel: "HEALTHY" };
+  if (totalScore >= 60) return { grade: "B", gradeLabel: "Stable", riskLevel: "STABLE" };
+  if (totalScore >= 40) return { grade: "C", gradeLabel: "Risky", riskLevel: "RISKY" };
+  return { grade: "D", gradeLabel: "Critical", riskLevel: "CRITICAL" };
+}
+
 export interface ScoringResult {
   totalScore: number;
-  riskLevel: "CRITICAL" | "MODERATE" | "HEALTHY";
+  riskLevel: RiskLevel;
+  grade: Grade;
+  gradeLabel: GradeLabel;
   litigationScore: number;
   contractualScore: number;
   complianceScore: number;
@@ -87,12 +110,13 @@ export function calculatePillarScores(
     pillarScores["Compliance Health"].score +
     pillarScores["Legal Cost Efficiency"].score;
 
-  const riskLevel: "CRITICAL" | "MODERATE" | "HEALTHY" =
-    totalScore <= 40 ? "CRITICAL" : totalScore <= 70 ? "MODERATE" : "HEALTHY";
+  const { riskLevel, grade, gradeLabel } = getGrade(totalScore);
 
   return {
     totalScore,
     riskLevel,
+    grade,
+    gradeLabel,
     litigationScore: pillarScores["Litigation Health"].score,
     contractualScore: pillarScores["Contractual Health"].score,
     complianceScore: pillarScores["Compliance Health"].score,

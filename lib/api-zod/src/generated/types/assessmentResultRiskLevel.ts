@@ -10,7 +10,8 @@ export type AssessmentResultRiskLevel = typeof AssessmentResultRiskLevel[keyof t
 
 
 export const AssessmentResultRiskLevel = {
-  CRITICAL: 'CRITICAL',
-  MODERATE: 'MODERATE',
   HEALTHY: 'HEALTHY',
+  STABLE: 'STABLE',
+  RISKY: 'RISKY',
+  CRITICAL: 'CRITICAL',
 } as const;

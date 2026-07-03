@@ -76,10 +76,20 @@ function grade(score: number): string {
   return "D";
 }
 
-function riskRGB(level: string): [number,number,number] {
-  if (level === "CRITICAL") return [220, 50, 50];
-  if (level === "MODERATE") return [210, 130, 20];
+function riskRGB(scoreOrLevel: number | string): [number,number,number] {
+  const g = typeof scoreOrLevel === "number" ? grade(scoreOrLevel) : scoreOrLevel;
+  if (g === "D" || scoreOrLevel === "CRITICAL") return [220, 50, 50];
+  if (g === "C" || scoreOrLevel === "RISKY") return [220, 120, 30];
+  if (g === "B" || scoreOrLevel === "STABLE" || scoreOrLevel === "MODERATE") return [210, 130, 20];
   return [34, 180, 80];
+}
+
+function gradeLabel(score: number): string {
+  const g = grade(score);
+  if (g === "A") return "Healthy";
+  if (g === "B") return "Stable";
+  if (g === "C") return "Risky";
+  return "Critical";
 }
 
 function sevRGB(s: string): [number,number,number] {
@@ -146,7 +156,8 @@ export function generateReportPDF(data: ReportData): void {
   const CW  = W - ML - MR; // 178
 
   const g   = grade(data.totalScore);
-  const rc  = riskRGB(data.riskLevel);
+  const gl  = gradeLabel(data.totalScore);
+  const rc  = riskRGB(data.totalScore);
   const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 
   // ══════════════════════════════════════════════════════════════
@@ -232,7 +243,7 @@ export function generateReportPDF(data: ReportData): void {
 
   doc.setFontSize(9);
   doc.setTextColor(...rc);
-  doc.text(`${clean(data.riskLevel)} RISK`, bX + 22, spY + 66, { align: "center" });
+  doc.text(clean(gl).toUpperCase(), bX + 22, spY + 66, { align: "center" });
 
   // ── Summary ─────────────────────────────────────────────────
   const sumY = spY + spH + 16;
@@ -654,7 +665,7 @@ export function generateReportPDF(data: ReportData): void {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(...rc);
-  doc.text(`Grade ${g}  |  ${clean(data.riskLevel)} RISK`, cx, 133, { align: "center" });
+  doc.text(`Grade ${g}  |  ${clean(gl).toUpperCase()}`, cx, 133, { align: "center" });
 
   // ── CTA button ──────────────────────────────────────────────
   const ctaW = 130;

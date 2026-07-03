@@ -12,7 +12,9 @@ export interface SeedAnswer {
 export interface AssessmentResult {
   assessmentId: string;
   totalScore: number;
-  riskLevel: "CRITICAL" | "MODERATE" | "HEALTHY";
+  riskLevel: "HEALTHY" | "STABLE" | "RISKY" | "CRITICAL" | "MODERATE";
+  grade?: "A" | "B" | "C" | "D";
+  gradeLabel?: "Healthy" | "Stable" | "Risky" | "Critical";
   litigationScore: number;
   contractualScore: number;
   complianceScore: number;

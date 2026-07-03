@@ -36,7 +36,7 @@ interface RecordedAnswer { pillar: string; label: string; score: number; }
 type ServerAction =
   | { type: "QUESTION"; question: AQuestion; pillarIndex: number; pillarName: string; pillarIcon: string; isFollowUp: boolean }
   | { type: "PILLAR_TRANSITION"; question: AQuestion; pillarIndex: number; pillarName: string; pillarIcon: string; completedPillarIndex: number; completedPillarName: string; completedPillarIcon: string }
-  | { type: "COMPLETE"; assessmentId: string; totalScore: number; riskLevel: string; litigationScore: number; contractualScore: number; complianceScore: number; costScore: number; futureScore: number; report: unknown };
+  | { type: "COMPLETE"; assessmentId: string; totalScore: number; riskLevel: string; grade?: string; gradeLabel?: string; litigationScore: number; contractualScore: number; complianceScore: number; costScore: number; futureScore: number; report: unknown };
 
 // Pillar accents are theme-aware CSS custom properties (see index.css) so the
 // same 4 semantic hues (red/amber/blue/violet) shift intensity automatically
@@ -255,7 +255,7 @@ export default function AssessPage() {
       const res = await apiFetch<ServerAction>("/session/answer", { method: "POST", body: JSON.stringify({ sessionId, questionId: currentQuestion.id, questionText: currentQuestion.text, pillarName: currentQuestion.pillar, answer: option.label, score: option.score, isSeed: !currentQuestion.isFollowUp, weight: currentQuestion.weight, question: currentQuestion, pillarIcon, isFollowUp: currentQuestion.isFollowUp }) });
       if (res.type === "COMPLETE") {
         setPhase("submitting");
-        store.setResult({ assessmentId: (res as { type: "COMPLETE"; assessmentId: string }).assessmentId, totalScore: res.totalScore, riskLevel: res.riskLevel as "CRITICAL"|"MODERATE"|"HEALTHY", litigationScore: res.litigationScore, contractualScore: res.contractualScore, complianceScore: res.complianceScore, costScore: res.costScore, futureScore: res.futureScore, report: res.report as Parameters<typeof store.setResult>[0]["report"] });
+        store.setResult({ assessmentId: (res as { type: "COMPLETE"; assessmentId: string }).assessmentId, totalScore: res.totalScore, riskLevel: res.riskLevel as "HEALTHY"|"STABLE"|"RISKY"|"CRITICAL"|"MODERATE", grade: res.grade as "A"|"B"|"C"|"D"|undefined, gradeLabel: res.gradeLabel as "Healthy"|"Stable"|"Risky"|"Critical"|undefined, litigationScore: res.litigationScore, contractualScore: res.contractualScore, complianceScore: res.complianceScore, costScore: res.costScore, futureScore: res.futureScore, report: res.report as Parameters<typeof store.setResult>[0]["report"] });
         navigate("/results"); return;
       }
       if (res.type === "PILLAR_TRANSITION") {
