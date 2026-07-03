@@ -18,8 +18,8 @@ router.post("/submit", async (req, res) => {
       questionId: string | number;
       question: string;
       pillar: string;
-      answer: "YES" | "NO" | "UNSURE" | "N/A";
-      isReverseScored: boolean;
+      answer: string;
+      score: number;
       isSeed: boolean;
     }>;
   };
@@ -59,7 +59,6 @@ router.post("/submit", async (req, res) => {
       answer: a.answer,
       score: a.score,
       isSeed: a.isSeed,
-      isReverseScored: a.isReverseScored,
     }))
   );
 

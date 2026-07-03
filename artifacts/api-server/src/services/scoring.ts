@@ -8,8 +8,10 @@ export interface AnswerInput {
   questionId: string | number;
   question: string;
   pillar: PillarName;
-  answer: "YES" | "NO" | "UNSURE" | "N/A";
-  isReverseScored: boolean;
+  /** The label of the answer option the user selected */
+  answer: string;
+  /** The score (0-4) carried by the selected answer option; 4 = healthiest/no risk, 0 = worst risk */
+  score: number;
   isSeed: boolean;
 }
 
@@ -31,18 +33,9 @@ export interface ScoringResult {
   answersWithScores: Array<AnswerInput & { score: number }>;
 }
 
-export function calculateAnswerScore(
-  answer: "YES" | "NO" | "UNSURE" | "N/A",
-  isReverseScored: boolean
-): number {
-  if (answer === "N/A") return 4;
-  if (answer === "UNSURE") return 0;
-
-  if (isReverseScored) {
-    return answer === "YES" ? 0 : 4;
-  } else {
-    return answer === "YES" ? 4 : 0;
-  }
+export function calculateAnswerScore(score: number): number {
+  if (Number.isNaN(score)) return 0;
+  return Math.min(4, Math.max(0, Math.round(score)));
 }
 
 export function calculatePillarScores(
@@ -63,7 +56,7 @@ export function calculatePillarScores(
 
   const answersWithScores = answers.map((a) => ({
     ...a,
-    score: calculateAnswerScore(a.answer, a.isReverseScored),
+    score: calculateAnswerScore(a.score),
   }));
 
   const pillarScores: Record<PillarName, PillarScore> = {
@@ -78,7 +71,7 @@ export function calculatePillarScores(
     if (pAnswers.length === 0) continue;
 
     const rawScore = pAnswers.reduce(
-      (sum, a) => sum + calculateAnswerScore(a.answer, a.isReverseScored),
+      (sum, a) => sum + calculateAnswerScore(a.score),
       0
     );
 

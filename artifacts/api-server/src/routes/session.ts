@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { generateSeedQuestionsForAssessment, generateReport, generateNextAdaptiveQuestion, STATIC_SEED_PILLARS } from "../services/gemini.js";
 import { storeSingle, clearSession } from "../services/adaptiveCache.js";
 import { getNextAction, type StoredAnswer } from "../services/quizEngine.js";
-import { calculatePillarScores } from "../services/scoring.js";
+import { calculatePillarScores, calculateAnswerScore } from "../services/scoring.js";
 import { sendReportEmail } from "../services/resend.js";
 import { alertAdminAssessmentComplete, notifyUserReportReady } from "../services/callmebot.js";
 import { logger } from "../lib/logger.js";
@@ -40,6 +40,7 @@ function prefetchNextAdaptive(
   newFollowUpCount: number,
   pillars: AssessmentPillar[],
   currentAnswers: StoredAnswer[],
+  companyName: string,
   businessType: string,
   registration: string,
   employeeCount: string,
@@ -58,7 +59,7 @@ function prefetchNextAdaptive(
   // Must have at least one pillar answer for meaningful context
   const pillarAnswers = currentAnswers
     .filter((a) => a.pillarIndex === newPillarIndex)
-    .map((a) => ({ question: a.question, answer: a.answer, isReverseScored: a.isReverseScored }));
+    .map((a) => ({ question: a.question, answer: a.answer, score: a.score }));
 
   if (pillarAnswers.length === 0) return;
 
@@ -68,7 +69,7 @@ function prefetchNextAdaptive(
   );
 
   generateNextAdaptiveQuestion(
-    businessType, registration, employeeCount, industry,
+    companyName, businessType, registration, employeeCount, industry,
     pillar.name, newPillarIndex + 1,
     PILLAR_DEFS[newPillarIndex + 1] ?? pillar.name,
     pillarAnswers,
@@ -105,6 +106,7 @@ router.post("/session/start", async (req, res) => {
     return;
   }
 
+  const companyName = lead.company ?? "your business";
   const businessType = lead.businessType ?? "Small Business";
   const registration = lead.subCategory ?? businessType;
   const industry = lead.category ?? "General";
@@ -115,7 +117,7 @@ router.post("/session/start", async (req, res) => {
   // seen before), they resolve in <50ms. On a cold miss we fall back to the
   // static question bank immediately so the user never waits.
   const aiPromise = generateSeedQuestionsForAssessment(
-    businessType, registration, employeeCount, "2-5 years", industry, state
+    companyName, businessType, registration, employeeCount, "2-5 years", industry, state
   );
 
   let pillars: AssessmentPillar[];
@@ -183,7 +185,7 @@ router.post("/session/answer", async (req, res) => {
     questionText,
     pillarName,
     answer,
-    isReverseScored,
+    score,
     isSeed,
     weight,
     question,
@@ -194,8 +196,10 @@ router.post("/session/answer", async (req, res) => {
     questionId: string;
     questionText: string;
     pillarName: string;
-    answer: "YES" | "NO" | "UNSURE";
-    isReverseScored: boolean;
+    /** Label of the answer option the user selected */
+    answer: string;
+    /** Score (0-4) carried by the selected answer option */
+    score: number;
     isSeed: boolean;
     weight: number;
     question?: AssessmentQuestion;
@@ -203,8 +207,8 @@ router.post("/session/answer", async (req, res) => {
     isFollowUp?: boolean;
   };
 
-  if (!sessionId || !questionId || !answer) {
-    res.status(400).json({ success: false, message: "sessionId, questionId, and answer are required" });
+  if (!sessionId || !questionId || !answer || score === undefined || score === null) {
+    res.status(400).json({ success: false, message: "sessionId, questionId, answer, and score are required" });
     return;
   }
 
@@ -219,6 +223,9 @@ router.post("/session/answer", async (req, res) => {
     return;
   }
 
+  const [answerLead] = await db.select().from(leads).where(eq(leads.id, session.leadId!));
+  const companyName = answerLead?.company ?? "your business";
+
   const pillars = (session.pillarsJson as unknown as AssessmentPillar[]) ?? [];
   const storedAnswers = (session.answersJson as unknown as StoredAnswer[]) ?? [];
 
@@ -229,7 +236,7 @@ router.post("/session/answer", async (req, res) => {
     pillar: pillarName,
     pillarIndex: session.currentPillarIndex ?? 0,
     answer,
-    isReverseScored: isReverseScored ?? false,
+    score: calculateAnswerScore(score),
     isSeed: isSeed ?? true,
     weight: weight ?? 7,
     fullQuestion: question,
@@ -251,6 +258,7 @@ router.post("/session/answer", async (req, res) => {
     followUpCount: session.followUpCount ?? 0,
     pillars,
     answers: updatedAnswers,
+    companyName,
     businessType: session.businessType ?? "Small Business",
     registration: session.registration ?? "General",
     employeeCount: session.employeeCount ?? "1-50",
@@ -268,7 +276,7 @@ router.post("/session/answer", async (req, res) => {
       question: a.question,
       pillar: a.pillar as Parameters<typeof calculatePillarScores>[0][number]["pillar"],
       answer: a.answer,
-      isReverseScored: a.isReverseScored,
+      score: a.score,
       isSeed: a.isSeed,
     }));
 
@@ -317,7 +325,6 @@ router.post("/session/answer", async (req, res) => {
         answer: a.answer,
         score: a.score,
         isSeed: a.isSeed,
-        isReverseScored: a.isReverseScored,
       }))
     );
 
@@ -424,6 +431,7 @@ router.post("/session/answer", async (req, res) => {
     newFollowUpCount,
     pillars,
     updatedAnswers,
+    companyName,
     session.businessType ?? "Small Business",
     session.registration ?? "General",
     session.employeeCount ?? "1-50",

@@ -22,8 +22,10 @@ export interface StoredAnswer {
   question: string;
   pillar: string;
   pillarIndex: number;
-  answer: "YES" | "NO" | "UNSURE";
-  isReverseScored: boolean;
+  /** Label of the answer option the user selected */
+  answer: string;
+  /** Score (0-4) carried by the selected answer option; 4 = healthiest/no risk */
+  score: number;
   isSeed: boolean;
   weight: number;
   /** Full question payload as shown to the user — needed to redisplay it when going "back". */
@@ -46,6 +48,7 @@ export interface SessionForEngine {
   followUpCount: number;
   pillars: AssessmentPillar[];
   answers: StoredAnswer[];
+  companyName: string;
   businessType: string;
   registration: string;
   employeeCount: string;
@@ -98,6 +101,7 @@ export async function getNextAction(
     followUpCount: adaptiveCount,
     pillars,
     answers,
+    companyName,
     businessType,
     registration,
     employeeCount,
@@ -136,7 +140,7 @@ export async function getNextAction(
       .map((a) => ({
         question: a.question,
         answer: a.answer,
-        isReverseScored: a.isReverseScored,
+        score: a.score,
       }));
 
     let adaptiveQ: AssessmentQuestion | null = null;
@@ -161,6 +165,7 @@ export async function getNextAction(
     if (adaptiveCount < 2) {
       try {
         adaptiveQ = await generateNextAdaptiveQuestion(
+          companyName,
           businessType,
           registration,
           employeeCount,

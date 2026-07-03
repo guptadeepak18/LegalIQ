@@ -1,20 +1,37 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, ChevronLeft, CheckCircle, XCircle, HelpCircle, Loader2, Check } from "lucide-react";
+import { ChevronRight, ChevronLeft, Loader2, Check, Lightbulb, TrendingDown, ListChecks, Sparkles, BookOpen } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
+interface AnswerOption {
+  value: string;
+  label: string;
+  sublabel?: string;
+  score: number;
+}
+
+interface QuestionInsight {
+  info: string;
+  impact: string;
+  suggestion: string;
+  recommendation: string;
+  example: string;
+}
+
 interface AQuestion {
   id: string; text: string; hint?: string; riskIfNo?: string;
   weight: number; isReverse: boolean; isFollowUp: boolean; parentId?: string;
   pillar: string; exposureEstimate?: string;
+  options: AnswerOption[];
+  insight: QuestionInsight;
 }
-type Answer = "YES" | "NO" | "UNSURE";
-interface RecordedAnswer { pillar: string; answer: Answer; }
+
+interface RecordedAnswer { pillar: string; label: string; score: number; }
 
 type ServerAction =
   | { type: "QUESTION"; question: AQuestion; pillarIndex: number; pillarName: string; pillarIcon: string; isFollowUp: boolean }
@@ -24,12 +41,6 @@ type ServerAction =
 const PILLAR_COLORS = ["#EF4444","#F59E0B","#3B82F6","#8B5CF6"];
 const PILLAR_BG     = ["rgba(239,68,68,0.09)","rgba(245,158,11,0.09)","rgba(59,130,246,0.09)","rgba(139,92,246,0.09)"];
 const PILLAR_BORDER = ["rgba(239,68,68,0.24)","rgba(245,158,11,0.24)","rgba(59,130,246,0.24)","rgba(139,92,246,0.24)"];
-
-const ANSWER_CFG: Record<Answer, { label: string; sub: string; icon: typeof CheckCircle; iconClass: string }> = {
-  YES:    { label: "Yes — This applies to us",    sub: "We have this covered",          icon: CheckCircle, iconClass: "text-emerald-500" },
-  NO:     { label: "No — This doesn't apply",     sub: "This is a gap for us",          icon: XCircle,     iconClass: "text-red-500" },
-  UNSURE: { label: "Not Sure — I don't know",     sub: "Uncertain or haven't checked",  icon: HelpCircle,  iconClass: "text-amber-500" },
-};
 
 const LOAD_STEPS = [
   { icon: "🏢", label: "Reading your business profile" },
@@ -203,7 +214,7 @@ export default function AssessPage() {
     completedName: string; completedIcon: string; completedIndex: number;
   } | null>(null);
   const [allAnswers, setAllAnswers] = useState<RecordedAnswer[]>([]);
-  const [previousAnswer, setPreviousAnswer] = useState<Answer | null>(null);
+  const [previousAnswerLabel, setPreviousAnswerLabel] = useState<string | null>(null);
   const [backLoading, setBackLoading] = useState(false);
 
   type Phase = "loading" | "asking" | "checking" | "pillar-done" | "submitting";
@@ -225,13 +236,13 @@ export default function AssessPage() {
     startSession();
   }, [store.leadId]);
 
-  const handleAnswer = useCallback(async (answer: Answer) => {
+  const handleAnswer = useCallback(async (option: AnswerOption) => {
     if (!currentQuestion || !sessionId || phase !== "asking") return;
     setPhase("checking");
-    setPreviousAnswer(null);
-    setAllAnswers((prev) => [...prev, { pillar: currentQuestion.pillar, answer }]);
+    setPreviousAnswerLabel(null);
+    setAllAnswers((prev) => [...prev, { pillar: currentQuestion.pillar, label: option.label, score: option.score }]);
     try {
-      const res = await apiFetch<ServerAction>("/session/answer", { method: "POST", body: JSON.stringify({ sessionId, questionId: currentQuestion.id, questionText: currentQuestion.text, pillarName: currentQuestion.pillar, answer, isReverseScored: currentQuestion.isReverse, isSeed: !currentQuestion.isFollowUp, weight: currentQuestion.weight, question: currentQuestion, pillarIcon, isFollowUp: currentQuestion.isFollowUp }) });
+      const res = await apiFetch<ServerAction>("/session/answer", { method: "POST", body: JSON.stringify({ sessionId, questionId: currentQuestion.id, questionText: currentQuestion.text, pillarName: currentQuestion.pillar, answer: option.label, score: option.score, isSeed: !currentQuestion.isFollowUp, weight: currentQuestion.weight, question: currentQuestion, pillarIcon, isFollowUp: currentQuestion.isFollowUp }) });
       if (res.type === "COMPLETE") {
         setPhase("submitting");
         store.setResult({ assessmentId: (res as { type: "COMPLETE"; assessmentId: string }).assessmentId, totalScore: res.totalScore, riskLevel: res.riskLevel as "CRITICAL"|"MODERATE"|"HEALTHY", litigationScore: res.litigationScore, contractualScore: res.contractualScore, complianceScore: res.complianceScore, costScore: res.costScore, futureScore: res.futureScore, report: res.report as Parameters<typeof store.setResult>[0]["report"] });
@@ -252,10 +263,10 @@ export default function AssessPage() {
     try {
       const res = await apiFetch<{
         success: boolean; type: "QUESTION"; question: AQuestion; pillarIndex: number;
-        pillarName: string; pillarIcon: string; isFollowUp: boolean; previousAnswer: Answer;
+        pillarName: string; pillarIcon: string; isFollowUp: boolean; previousAnswer: string;
       }>("/session/back", { method: "POST", body: JSON.stringify({ sessionId }) });
       setCurrentQuestion(res.question); setPillarIndex(res.pillarIndex); setPillarName(res.pillarName); setPillarIcon(res.pillarIcon);
-      setPreviousAnswer(res.previousAnswer);
+      setPreviousAnswerLabel(res.previousAnswer);
       setAllAnswers((prev) => prev.slice(0, -1));
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Could not go back."); }
     finally { setBackLoading(false); }
@@ -303,8 +314,8 @@ export default function AssessPage() {
     const completedBorder = PILLAR_BORDER[pendingTransition.completedIndex] ?? "rgba(201,168,76,0.22)";
     const nextColor       = PILLAR_COLORS[pendingTransition.pillarIndex]    ?? "#C9A84C";
     const pillarAnswers   = allAnswers.filter((a) => a.pillar === pendingTransition.completedName);
-    const yesCount = pillarAnswers.filter((a) => a.answer === "YES").length;
-    const noCount  = pillarAnswers.filter((a) => a.answer === "NO").length;
+    const goodCount = pillarAnswers.filter((a) => a.score >= 3).length;
+    const gapCount  = pillarAnswers.filter((a) => a.score <= 1).length;
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10">
@@ -319,8 +330,8 @@ export default function AssessPage() {
               <p className="liq-text-3 text-sm mb-5">Pillar {pendingTransition.completedIndex + 1} of 4 complete ✓</p>
               {pillarAnswers.length > 0 && (
                 <div className="flex items-center justify-center gap-3 flex-wrap">
-                  {yesCount > 0 && <span className="text-sm px-4 py-1.5 rounded-full font-semibold" style={{ background:"rgba(34,197,94,0.15)", color:"#22C55E" }}>✅ {yesCount} covered</span>}
-                  {noCount  > 0 && <span className="text-sm px-4 py-1.5 rounded-full font-semibold" style={{ background:"rgba(239,68,68,0.15)",  color:"#EF4444" }}>⚠️ {noCount} gap{noCount!==1?"s":""}</span>}
+                  {goodCount > 0 && <span className="text-sm px-4 py-1.5 rounded-full font-semibold" style={{ background:"rgba(34,197,94,0.15)", color:"#22C55E" }}>✅ {goodCount} covered</span>}
+                  {gapCount  > 0 && <span className="text-sm px-4 py-1.5 rounded-full font-semibold" style={{ background:"rgba(239,68,68,0.15)",  color:"#EF4444" }}>⚠️ {gapCount} gap{gapCount!==1?"s":""}</span>}
                 </div>
               )}
             </div>
@@ -396,38 +407,56 @@ export default function AssessPage() {
 
       <div className="flex-1 flex items-center justify-center py-6">
         <AnimatePresence mode="wait">
-          <motion.div key={currentQuestion.id} initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.25 }} className="w-full max-w-2xl">
-            {/* Question Card */}
-            <div className="rounded-3xl p-8 md:p-10 mb-6 border backdrop-blur-sm" style={{ background: bg, borderColor: border }}>
-              {currentQuestion.isFollowUp && (
-                <div className="mb-4 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-                  <span className="text-sm font-semibold opacity-80" style={{ color }}>Digging deeper…</span>
+          <motion.div key={currentQuestion.id} initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.25 }} className="w-full max-w-5xl">
+            <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:gap-6 lg:items-start">
+              {/* LEFT COLUMN — Question + Options */}
+              <div className="max-w-2xl mx-auto lg:mx-0 w-full">
+                {/* Question Card */}
+                <div className="rounded-3xl p-8 md:p-10 mb-6 border backdrop-blur-sm" style={{ background: bg, borderColor: border }}>
+                  {currentQuestion.isFollowUp && (
+                    <div className="mb-4 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                      <span className="text-sm font-semibold opacity-80" style={{ color }}>Digging deeper…</span>
+                    </div>
+                  )}
+                  <h2 className="liq-text-1 text-2xl md:text-3xl font-bold leading-snug mb-4">
+                    {currentQuestion.text}
+                  </h2>
+                  {currentQuestion.hint && (
+                    <div className="mt-4 p-3 rounded-xl" style={{ background:`${color}12`, borderLeft:`3px solid ${color}60` }}>
+                      <p className="text-sm leading-relaxed" style={{ color:`${color}CC` }}>💡 {currentQuestion.hint}</p>
+                    </div>
+                  )}
+                  {currentQuestion.exposureEstimate && (
+                    <p className="mt-3 text-xs text-red-500/80">⚠ Potential exposure: {currentQuestion.exposureEstimate}</p>
+                  )}
+                  {previousAnswerLabel && (
+                    <p className="mt-4 text-xs font-semibold" style={{ color: `${color}CC` }}>
+                      ✎ You previously answered this — pick again to update it.
+                    </p>
+                  )}
                 </div>
-              )}
-              <h2 className="liq-text-1 text-2xl md:text-3xl font-bold leading-snug mb-4">
-                {currentQuestion.text}
-              </h2>
-              {currentQuestion.hint && (
-                <div className="mt-4 p-3 rounded-xl" style={{ background:`${color}12`, borderLeft:`3px solid ${color}60` }}>
-                  <p className="text-sm leading-relaxed" style={{ color:`${color}CC` }}>💡 {currentQuestion.hint}</p>
-                </div>
-              )}
-              {currentQuestion.riskIfNo && (
-                <p className="mt-3 text-xs text-red-500/80">⚠ Risk if No: {currentQuestion.riskIfNo}</p>
-              )}
-              {previousAnswer && (
-                <p className="mt-4 text-xs font-semibold" style={{ color: `${color}CC` }}>
-                  ✎ You previously answered this — pick again to update it.
-                </p>
-              )}
-            </div>
 
-            {/* Answer Buttons */}
-            <div className="flex flex-col gap-4">
-              {(["YES","NO","UNSURE"] as Answer[]).map((val) => (
-                <AnswerBtn key={val} value={val} accentColor={color} border={border} onSelect={handleAnswer} selected={previousAnswer === val} />
-              ))}
+                {/* Answer Options */}
+                <div className="flex flex-col gap-4">
+                  {currentQuestion.options.map((option) => (
+                    <AnswerBtn
+                      key={option.value}
+                      option={option}
+                      accentColor={color}
+                      border={border}
+                      onSelect={handleAnswer}
+                      selected={previousAnswerLabel === option.label}
+                    />
+                  ))}
+                </div>
+
+              </div>
+
+              {/* RIGHT COLUMN — Insight card (laptop/tablet only) */}
+              <div className="hidden lg:block sticky top-6">
+                <InsightCard insight={currentQuestion.insight} color={color} bg={bg} border={border} />
+              </div>
             </div>
           </motion.div>
         </AnimatePresence>
@@ -449,12 +478,17 @@ function PillarDots({ current, colors, done }: { current: number; colors: string
   );
 }
 
-function AnswerBtn({ value, accentColor, border, onSelect, selected }: { value: Answer; accentColor: string; border: string; onSelect: (a: Answer) => void; selected?: boolean; }) {
-  const cfg = ANSWER_CFG[value];
-  const Icon = cfg.icon;
+function scoreVisual(score: number): { iconClass: string; dot: string } {
+  if (score >= 3) return { iconClass: "text-emerald-500", dot: "#22C55E" };
+  if (score === 2) return { iconClass: "text-amber-500", dot: "#F59E0B" };
+  return { iconClass: "text-red-500", dot: "#EF4444" };
+}
+
+function AnswerBtn({ option, accentColor, border, onSelect, selected }: { option: AnswerOption; accentColor: string; border: string; onSelect: (o: AnswerOption) => void; selected?: boolean; }) {
+  const visual = scoreVisual(option.score);
   return (
     <motion.button whileHover={{ x: 6, scale: 1.01, borderColor: accentColor }} whileTap={{ scale: 0.975 }}
-      onClick={() => onSelect(value)}
+      onClick={() => onSelect(option)}
       className="w-full flex items-center gap-5 px-6 py-5 rounded-2xl border text-left transition-all backdrop-blur-sm"
       style={{
         borderColor: selected ? accentColor : border,
@@ -462,12 +496,46 @@ function AnswerBtn({ value, accentColor, border, onSelect, selected }: { value: 
         background: selected ? `${accentColor}14` : "var(--answer-btn-bg)",
         boxShadow: selected ? `0 0 0 1px ${accentColor}40` : undefined,
       }}>
-      <Icon size={26} className={cfg.iconClass} />
+      <span className={`w-3 h-3 rounded-full flex-shrink-0 ${visual.iconClass}`} style={{ background: visual.dot }} />
       <div className="flex-1">
-        <div className="liq-text-1 font-bold text-base leading-tight">{cfg.label}</div>
-        <div className="liq-text-3 text-sm mt-0.5">{cfg.sub}</div>
+        <div className="liq-text-1 font-bold text-base leading-tight">{option.label}</div>
+        {option.sublabel && <div className="liq-text-3 text-sm mt-0.5">{option.sublabel}</div>}
       </div>
       {selected ? <Check size={18} className="flex-shrink-0" style={{ color: accentColor }} /> : <ChevronRight size={18} className="opacity-25 flex-shrink-0" style={{ color: accentColor }} />}
     </motion.button>
+  );
+}
+
+function InsightCard({ insight, color, bg, border }: { insight: QuestionInsight; color: string; bg: string; border: string }) {
+  const rows = [
+    { icon: Lightbulb, label: "Why it matters", text: insight.info },
+    { icon: TrendingDown, label: "Impact if ignored", text: insight.impact },
+    { icon: ListChecks, label: "What you can do", text: insight.suggestion },
+    { icon: Sparkles, label: "Recommendation", text: insight.recommendation },
+    { icon: BookOpen, label: "Real example", text: insight.example },
+  ];
+  return (
+    <motion.div
+      key={insight.info}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="rounded-3xl p-6 border backdrop-blur-sm flex flex-col gap-4"
+      style={{ background: bg, borderColor: border }}
+    >
+      <div className="flex items-center gap-2">
+        <Sparkles size={16} style={{ color }} />
+        <span className="text-sm font-bold tracking-wide" style={{ color }}>Why this question matters</span>
+      </div>
+      {rows.map((row) => (
+        <div key={row.label} className="flex gap-3">
+          <row.icon size={17} className="flex-shrink-0 mt-0.5" style={{ color }} />
+          <div>
+            <div className="liq-text-2 text-xs font-bold uppercase tracking-wide mb-0.5">{row.label}</div>
+            <p className="liq-text-3 text-sm leading-relaxed">{row.text}</p>
+          </div>
+        </div>
+      ))}
+    </motion.div>
   );
 }

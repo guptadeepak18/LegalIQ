@@ -30,6 +30,30 @@ export type PillarName =
   | "Compliance Health"
   | "Legal Cost Efficiency";
 
+export interface AnswerOption {
+  /** Stable key for this option, e.g. "A" | "B" | "C" | "D" */
+  value: string;
+  /** Main answer text shown to the user */
+  label: string;
+  /** Optional short helper text shown under the label */
+  sublabel?: string;
+  /** 0 (worst / highest legal risk) to 4 (best / fully compliant) */
+  score: number;
+}
+
+export interface QuestionInsight {
+  /** Plain-language context: what this risk area is and why it matters */
+  info: string;
+  /** Concrete financial/operational impact if the gap is left unaddressed */
+  impact: string;
+  /** A practical suggestion the business can act on */
+  suggestion: string;
+  /** A specific recommendation (e.g. what to get in place, from whom) */
+  recommendation: string;
+  /** A short real-world example / case illustrating the risk */
+  example: string;
+}
+
 export interface AssessmentQuestion {
   id: string;
   text: string;
@@ -41,6 +65,8 @@ export interface AssessmentQuestion {
   parentId?: string;
   pillar: string;
   exposureEstimate?: string;
+  options: AnswerOption[];
+  insight: QuestionInsight;
 }
 
 export interface AssessmentPillar {
@@ -151,6 +177,21 @@ const PILLAR_DEFINITIONS: Record<PillarName, string> = {
   "Legal Cost Efficiency": "Whether the business spends on legal reactively (damage control) versus proactively (prevention) — retainers, standard templates, insurance.",
 };
 
+interface OptionRaw {
+  value: string;
+  label: string;
+  sublabel?: string;
+  score: number;
+}
+
+interface InsightRaw {
+  info: string;
+  impact: string;
+  suggestion: string;
+  recommendation: string;
+  example: string;
+}
+
 interface SeedRaw {
   id: string;
   text: string;
@@ -164,6 +205,8 @@ interface SeedRaw {
   exposure_estimate?: string;
   triggers_followup_if?: string;
   isReverse?: boolean;
+  options?: OptionRaw[];
+  insight?: InsightRaw;
 }
 
 interface SeedPillarRaw {
@@ -173,7 +216,39 @@ interface SeedPillarRaw {
   questions: SeedRaw[];
 }
 
+function fallbackOptions(): AnswerOption[] {
+  return [
+    { value: "A", label: "Yes, fully in place", score: 4 },
+    { value: "B", label: "Partially — some gaps", score: 2 },
+    { value: "C", label: "No, not in place", score: 0 },
+    { value: "D", label: "Not sure", score: 1 },
+  ];
+}
+
+function normaliseOptions(raw?: OptionRaw[]): AnswerOption[] {
+  if (!Array.isArray(raw) || raw.length < 2) return fallbackOptions();
+  return raw
+    .filter((o) => o && typeof o.label === "string" && o.label.trim().length > 0)
+    .map((o, i) => ({
+      value: o.value ?? String.fromCharCode(65 + i),
+      label: o.label.trim(),
+      sublabel: o.sublabel?.trim(),
+      score: Math.max(0, Math.min(4, Math.round(o.score ?? 2))),
+    }));
+}
+
+function normaliseInsight(raw: InsightRaw | undefined, riskIfNo: string | undefined): QuestionInsight {
+  return {
+    info: raw?.info?.trim() || "This affects your day-to-day legal exposure and how protected your business is in a dispute.",
+    impact: raw?.impact?.trim() || riskIfNo || "Leaving this unaddressed increases the chance of a costly dispute or penalty.",
+    suggestion: raw?.suggestion?.trim() || "Review this area with a legal advisor and close any obvious gaps first.",
+    recommendation: raw?.recommendation?.trim() || "Get a written policy or agreement in place and keep it up to date.",
+    example: raw?.example?.trim() || "Many small businesses face this exact gap and only fix it after a dispute forces the issue.",
+  };
+}
+
 function buildSeedPrompt(
+  companyName: string,
   businessType: string,
   registration: string,
   employeeCount: string,
@@ -190,6 +265,7 @@ Each question must feel like it was written specifically for THIS business —
 not a generic legal checklist.
 
 BUSINESS PROFILE:
+Business Name: ${companyName}
 Business Type: ${businessType}
 Sub-category: ${industry}
 Registration: ${registration}
@@ -206,13 +282,26 @@ These are the FIRST questions in each pillar — the follow-up engine will
 handle subsequent questions based on answers.
 
 STRICT RULES FOR QUESTION QUALITY:
-1. Every question must mention or imply THIS specific business type
-2. Maximum 15 words per question
-3. Yes / No / Not Sure answers only
-4. No legal jargon — write at a Class 10 reading level
-5. Each question must probe a risk that is ACTUALLY COMMON for this business type
-6. Questions within a pillar must cover different risks — no overlap
-7. Tone: professional and direct — like a CA during a tax audit
+1. Every question must mention or imply THIS specific business type or category — where it reads naturally, use the business name "${companyName}" directly (e.g. "Does ${companyName} have...").
+2. Maximum 20 words per question
+3. Practical and moderately easy to answer — a busy owner should be able to answer in a few seconds without looking anything up
+4. NEVER use a plain Yes/No/Not-Sure question. Every question must ship with 3-4 custom answer OPTIONS that match that specific question (see OPTIONS RULES below)
+5. No legal jargon — write at a Class 10 reading level
+6. Each question must probe a risk that is ACTUALLY COMMON for this business type
+7. Questions within a pillar must cover different risks — no overlap
+8. Tone: professional and direct — like a CA during a tax audit
+
+OPTIONS RULES (apply to every question):
+- Provide 3 to 4 answer options, each tailored to what this exact question is asking (never reuse a generic Yes/No/Not Sure set)
+- Options should read like natural human answers, e.g. for "Do you have signed agreements with your vendors?": "Yes, all of them are signed", "Only some vendors have signed agreements", "No, most are verbal/informal", "Not sure — I'd need to check"
+- Each option needs a "score" from 0 to 4: 4 = fully compliant / no risk, 3 = mostly compliant, 2 = partial gap, 1 = significant gap, 0 = high risk / non-compliant
+- Order options from best (score 4) to worst (score 0) or worst to best — keep it logical and easy to scan
+- Every question must also include an "insight" object with 5 short fields written for THIS exact question and business:
+  - info: 1-2 plain sentences on what this risk area is and why it matters for ${companyName}
+  - impact: the concrete financial/operational consequence of the risk (₹ amount or real business impact)
+  - suggestion: one practical, doable suggestion
+  - recommendation: one specific recommendation (what to put in place, and how)
+  - example: a short (2-3 sentence) real-world-style example of a similar business in India facing this exact issue
 
 BUSINESS-TYPE SPECIFIC GUIDANCE (apply the rules that match this business):
 
@@ -334,15 +423,27 @@ OUTPUT — return only this JSON, no explanations, no markdown:
       "questions": [
         {
           "id": "p1_q1",
-          "text": "QUESTION TEXT — max 15 words, plain language, Yes/No/Not Sure",
+          "text": "QUESTION TEXT — max 20 words, plain language, practical",
           "context": "why this question matters for THIS specific business type",
-          "risk_if_no": "exact financial or legal consequence if answer is No",
+          "risk_if_no": "exact financial or legal consequence if this is a gap",
           "law_reference": "specific Indian law or authority e.g. Consumer Protection Act 2019",
           "risk_area": "litigation",
           "weight": 9,
           "exposure_low": 50000,
           "exposure_high": 500000,
-          "triggers_followup_if": "no"
+          "options": [
+            { "value": "A", "label": "answer option matching this question", "sublabel": "optional short helper text", "score": 4 },
+            { "value": "B", "label": "answer option matching this question", "score": 3 },
+            { "value": "C", "label": "answer option matching this question", "score": 1 },
+            { "value": "D", "label": "answer option matching this question", "score": 0 }
+          ],
+          "insight": {
+            "info": "what this risk area is and why it matters for this business",
+            "impact": "concrete ₹ or operational consequence",
+            "suggestion": "one practical suggestion",
+            "recommendation": "one specific recommendation",
+            "example": "short real-world-style example"
+          }
         },
         {
           "id": "p1_q2",
@@ -354,7 +455,8 @@ OUTPUT — return only this JSON, no explanations, no markdown:
           "weight": 7,
           "exposure_low": 25000,
           "exposure_high": 200000,
-          "triggers_followup_if": "no"
+          "options": [ "...same shape as above, 3-4 options tailored to this question..." ],
+          "insight": { "info": "...", "impact": "...", "suggestion": "...", "recommendation": "...", "example": "..." }
         }
       ]
     },
@@ -368,37 +470,67 @@ OUTPUT — return only this JSON, no explanations, no markdown:
 // ─── Static fallback: 2 seed questions × 4 pillars ────────────────────────
 // These are only the SEED questions. Adaptive questions (2–4 per pillar)
 // are generated by AI in real time based on the business profile and answers.
+// ─── Reusable answer-option sets + insight builder for static fallback data ──
+const OPTS_DISPUTE: AnswerOption[] = [
+  { value: "A", label: "No, nothing like that", score: 4 },
+  { value: "B", label: "It happened once but is resolved now", score: 3 },
+  { value: "C", label: "Yes, and it's still unresolved", score: 0 },
+  { value: "D", label: "Not sure / need to check", score: 1 },
+];
+const OPTS_HAVE: AnswerOption[] = [
+  { value: "A", label: "Yes, always", score: 4 },
+  { value: "B", label: "Usually, but not every time", score: 3 },
+  { value: "C", label: "Rarely or never", score: 0 },
+  { value: "D", label: "Not sure", score: 1 },
+];
+const OPTS_CURRENT: AnswerOption[] = [
+  { value: "A", label: "Yes, all up to date", score: 4 },
+  { value: "B", label: "Mostly, one or two are pending", score: 2 },
+  { value: "C", label: "No, several are overdue or expired", score: 0 },
+  { value: "D", label: "Not sure — I'd need to check", score: 1 },
+];
+const OPTS_SPEND: AnswerOption[] = [
+  { value: "A", label: "No, never", score: 4 },
+  { value: "B", label: "Once, and it was minor", score: 3 },
+  { value: "C", label: "Yes, more than once", score: 0 },
+  { value: "D", label: "Not tracked / not sure", score: 1 },
+];
+
+function mkInsight(info: string, impact: string, suggestion: string, recommendation: string, example: string): QuestionInsight {
+  return { info, impact, suggestion, recommendation, example };
+}
+
 export const STATIC_SEED_PILLARS: AssessmentPillar[] = [
   {
     id: 1, name: "Litigation Health", icon: "⚖️",
     definition: PILLAR_DEFINITIONS["Litigation Health"],
     questions: [
-      { id: "p1_q1", text: "Has your business received any legal notice from a court or government authority?", hint: "Includes consumer forum, labour tribunal, or tax notices", riskIfNo: "Unresolved notices escalate into court cases with mandatory attendance and heavy costs.", weight: 10, isReverse: true, isFollowUp: false, pillar: "Litigation Health", exposureEstimate: "₹50,000 – ₹5,00,000" },
-      { id: "p1_q2", text: "Do you have any unresolved dispute with a customer or vendor right now?", hint: "Even informal disagreements over payment or delivery count", riskIfNo: "Unresolved disputes escalate — the longer you wait, the more expensive resolution becomes.", weight: 9, isReverse: true, isFollowUp: false, pillar: "Litigation Health", exposureEstimate: "₹25,000 – ₹3,00,000" },
+      { id: "p1_q1", text: "Has your business received any legal notice from a court or government authority?", hint: "Includes consumer forum, labour tribunal, or tax notices", riskIfNo: "Unresolved notices escalate into court cases with mandatory attendance and heavy costs.", weight: 10, isReverse: true, isFollowUp: false, pillar: "Litigation Health", exposureEstimate: "₹50,000 – ₹5,00,000", options: OPTS_DISPUTE, insight: mkInsight("Legal notices are the first formal signal of a dispute — ignoring them almost always makes things worse.", "Unresolved notices escalate into court cases with mandatory attendance, legal fees, and possible ex-parte orders against you.", "Log every notice you receive and respond within the stated deadline, even if it's just to acknowledge it.", "Route every notice to a lawyer for a same-week reply — most can be resolved cheaply if addressed early.", "A small retailer ignored a consumer forum notice for months; the case went ex-parte and the resulting order cost far more than settling early would have.") },
+      { id: "p1_q2", text: "Do you have any unresolved dispute with a customer or vendor right now?", hint: "Even informal disagreements over payment or delivery count", riskIfNo: "Unresolved disputes escalate — the longer you wait, the more expensive resolution becomes.", weight: 9, isReverse: true, isFollowUp: false, pillar: "Litigation Health", exposureEstimate: "₹25,000 – ₹3,00,000", options: OPTS_DISPUTE, insight: mkInsight("Open disputes — even informal ones over payment or delivery — are the most common trigger for litigation among small businesses.", "An unresolved dispute can freeze a business relationship and end in legal costs many times the original amount in question.", "Put every ongoing disagreement in writing (email/WhatsApp) so there is a paper trail if it escalates.", "Set a 30-day internal deadline to resolve or formally escalate any dispute — don't let it sit indefinitely.", "A vendor dispute over a delayed payment dragged on for a year without documentation, and the business lost the case for lack of evidence.") },
     ],
   },
   {
     id: 2, name: "Contractual Health", icon: "📄",
     definition: PILLAR_DEFINITIONS["Contractual Health"],
     questions: [
-      { id: "p2_q1", text: "Do you have a written, signed agreement with every vendor you regularly pay?", hint: "Includes suppliers, service providers, and freelancers", riskIfNo: "Verbal agreements are unenforceable in Indian courts — you cannot claim damages.", weight: 9, isReverse: false, isFollowUp: false, pillar: "Contractual Health", exposureEstimate: "₹50,000 – ₹10,00,000" },
-      { id: "p2_q2", text: "Does every employee or contractor sign an agreement before starting work?", hint: "Even a simple offer letter with terms counts", riskIfNo: "Unsigned employment creates disputes over pay, notice period, and IP ownership.", weight: 8, isReverse: false, isFollowUp: false, pillar: "Contractual Health", exposureEstimate: "₹1,00,000 – ₹5,00,000" },
+      { id: "p2_q1", text: "Do you have a written, signed agreement with every vendor you regularly pay?", hint: "Includes suppliers, service providers, and freelancers", riskIfNo: "Verbal agreements are unenforceable in Indian courts — you cannot claim damages.", weight: 9, isReverse: false, isFollowUp: false, pillar: "Contractual Health", exposureEstimate: "₹50,000 – ₹10,00,000", options: OPTS_HAVE, insight: mkInsight("A signed vendor agreement is your only real protection if a supplier fails to deliver or breaches terms.", "Without a written contract, Indian courts generally cannot enforce damages, refunds, or penalties against a defaulting vendor.", "Start with your top 3 highest-value vendors and get simple one-page agreements signed this month.", "Use a standard vendor agreement template covering price, delivery, and penalties, and require a signature before any payment.", "A café owner paid a supplier upfront with no contract; when the goods never arrived, there was no legal recourse to recover the money.") },
+      { id: "p2_q2", text: "Does every employee or contractor sign an agreement before starting work?", hint: "Even a simple offer letter with terms counts", riskIfNo: "Unsigned employment creates disputes over pay, notice period, and IP ownership.", weight: 8, isReverse: false, isFollowUp: false, pillar: "Contractual Health", exposureEstimate: "₹1,00,000 – ₹5,00,000", options: OPTS_HAVE, insight: mkInsight("An employment or contractor agreement is what defines pay, notice period, confidentiality, and who owns the work produced.", "Without a signed agreement, disputes over pay or ownership of work can drag on and damage your reputation with future hires.", "Create one simple offer-letter template with the essentials and use it for every new hire, even short-term ones.", "Require every employee and contractor to sign before their first day, not after.", "A startup let a contractor build its app without a signed IP clause — the contractor later claimed partial ownership of the code.") },
     ],
   },
   {
     id: 3, name: "Compliance Health", icon: "✅",
     definition: PILLAR_DEFINITIONS["Compliance Health"],
     questions: [
-      { id: "p3_q1", text: "Are all your business registrations and industry licences current and valid?", hint: "FSSAI for food, Drug Licence for pharmacy, RERA for real estate", riskIfNo: "Operating with lapsed registrations attracts penalties and bars you from making legal claims.", weight: 10, isReverse: false, isFollowUp: false, pillar: "Compliance Health", exposureEstimate: "₹50,000 – ₹5,00,000" },
-      { id: "p3_q2", text: "Are your GST returns filed on time every quarter?", hint: "Late filing attracts 18% interest per annum plus late fees", riskIfNo: "GST arrears compound quickly and can trigger bank account attachment orders.", weight: 9, isReverse: false, isFollowUp: false, pillar: "Compliance Health", exposureEstimate: "₹10,000 – ₹2,00,000" },
+      { id: "p3_q1", text: "Are all your business registrations and industry licences current and valid?", hint: "FSSAI for food, Drug Licence for pharmacy, RERA for real estate", riskIfNo: "Operating with lapsed registrations attracts penalties and bars you from making legal claims.", weight: 10, isReverse: false, isFollowUp: false, pillar: "Compliance Health", exposureEstimate: "₹50,000 – ₹5,00,000", options: OPTS_CURRENT, insight: mkInsight("Industry licences (FSSAI, trade licence, drug licence, etc.) are what make your operations legal in the eyes of regulators.", "Operating on a lapsed licence can mean instant fines, forced shutdown, and disqualifies you from suing others in your own defence.", "Make a simple calendar of every licence and its renewal date so nothing lapses unnoticed.", "Assign one person (or your CA) to track and renew every licence at least 30 days before expiry.", "A cloud kitchen operated for 4 months on an expired FSSAI licence and was shut down by inspectors during a routine check.") },
+      { id: "p3_q2", text: "Are your GST returns filed on time every quarter?", hint: "Late filing attracts 18% interest per annum plus late fees", riskIfNo: "GST arrears compound quickly and can trigger bank account attachment orders.", weight: 9, isReverse: false, isFollowUp: false, pillar: "Compliance Health", exposureEstimate: "₹10,000 – ₹2,00,000", options: OPTS_CURRENT, insight: mkInsight("GST filing is a recurring statutory obligation, and the penalties for missing deadlines compound quickly.", "Late GST filings attract 18% annual interest plus late fees, and repeated defaults can lead to bank account attachment.", "Set a recurring reminder a week before every GST due date so filings never slip.", "Have your accountant file GST returns on a fixed monthly schedule rather than reactively.", "A small trader missed two consecutive GST filings and found their bank account temporarily frozen by the tax department.") },
     ],
   },
   {
     id: 4, name: "Legal Cost Efficiency", icon: "💼",
     definition: PILLAR_DEFINITIONS["Legal Cost Efficiency"],
     questions: [
-      { id: "p4_q1", text: "Did you pay any fine or penalty to a government body in the last year?", hint: "Tax, labour, pollution, or licence-related penalties", riskIfNo: "Past penalties are a leading indicator of structural gaps that will repeat.", weight: 9, isReverse: true, isFollowUp: false, pillar: "Legal Cost Efficiency", exposureEstimate: "₹25,000 – ₹5,00,000" },
-      { id: "p4_q2", text: "In the last year, did you spend money resolving a dispute a written agreement could have prevented?", hint: "Legal fees, settlement amounts, or lost business", riskIfNo: "Pattern of reactive spending means contracts are consistently absent or weak.", weight: 9, isReverse: true, isFollowUp: false, pillar: "Legal Cost Efficiency", exposureEstimate: "₹50,000 – ₹10,00,000" },
+      { id: "p4_q1", text: "Did you pay any fine or penalty to a government body in the last year?", hint: "Tax, labour, pollution, or licence-related penalties", riskIfNo: "Past penalties are a leading indicator of structural gaps that will repeat.", weight: 9, isReverse: true, isFollowUp: false, pillar: "Legal Cost Efficiency", exposureEstimate: "₹25,000 – ₹5,00,000", options: OPTS_SPEND, insight: mkInsight("Fines and penalties are usually a symptom of an underlying compliance gap, not a one-off accident.", "Repeated penalties add up fast and signal to regulators that your business is a recurring risk worth watching closely.", "List every fine paid this year and trace each one back to its root cause before it happens again.", "Do a full compliance review with your CA or lawyer if you've paid more than one penalty in the last 12 months.", "A logistics firm kept paying small e-way bill penalties every month rather than fixing the process — over a year it added up to a lakh in fines.") },
+      { id: "p4_q2", text: "In the last year, did you spend money resolving a dispute a written agreement could have prevented?", hint: "Legal fees, settlement amounts, or lost business", riskIfNo: "Pattern of reactive spending means contracts are consistently absent or weak.", weight: 9, isReverse: true, isFollowUp: false, pillar: "Legal Cost Efficiency", exposureEstimate: "₹50,000 – ₹10,00,000", options: OPTS_SPEND, insight: mkInsight("Reactive legal spend — fixing disputes after the fact — is almost always more expensive than preventing them with contracts up front.", "Businesses that spend reactively typically pay 5-10x more than they would have on preventive contracts and reviews.", "Track every legal expense this year and check how many could have been avoided with a signed agreement.", "Invest in a standard contract template and a short annual legal check-up instead of paying for damage control.", "A distributor spent ₹3 lakh settling a dispute that a simple written supply agreement, costing a fraction of that, would have prevented.") },
     ],
   },
 ];
@@ -407,28 +539,28 @@ export const STATIC_SEED_PILLARS: AssessmentPillar[] = [
 // Used when AI is unavailable (quota/timeout). Mandatory for adaptiveCount < 2.
 export const STATIC_ADAPTIVE_QUESTIONS: Record<number, AssessmentQuestion[]> = {
   1: [
-    { id: "p1_aq1", text: "Do you have a lawyer you can call immediately if a legal dispute arises?", hint: "Even a retained legal adviser on call counts", riskIfNo: "Without legal counsel access, a sudden dispute can paralyze your business for months.", weight: 7, isReverse: false, isFollowUp: true, pillar: "Litigation Health" },
-    { id: "p1_aq2", text: "Have any of your customers or vendors ever threatened you with legal action, even informally?", hint: "WhatsApp threats or verbal warnings count", riskIfNo: "Informal threats frequently escalate — ignoring them is one of the costliest mistakes.", weight: 8, isReverse: true, isFollowUp: true, pillar: "Litigation Health" },
-    { id: "p1_aq3", text: "Do you keep written records of all customer complaints and how they were resolved?", hint: "A simple register, email thread, or CRM entry counts", riskIfNo: "No records means no defence — consumer courts favour documented businesses.", weight: 6, isReverse: false, isFollowUp: true, pillar: "Litigation Health" },
-    { id: "p1_aq4", text: "Has any current or former employee ever made a complaint against your business?", hint: "Includes grievances filed internally or with a labour office", riskIfNo: "Labour disputes are India's fastest-growing litigation category for small businesses.", weight: 7, isReverse: true, isFollowUp: true, pillar: "Litigation Health" },
+    { id: "p1_aq1", text: "Do you have a lawyer you can call immediately if a legal dispute arises?", hint: "Even a retained legal adviser on call counts", riskIfNo: "Without legal counsel access, a sudden dispute can paralyze your business for months.", weight: 7, isReverse: false, isFollowUp: true, pillar: "Litigation Health", options: OPTS_HAVE, insight: mkInsight("Having a lawyer on call means you can react to a legal problem within hours instead of weeks.", "Without quick access to counsel, a sudden dispute can stall decisions and paralyze the business while you scramble to find help.", "Identify one lawyer or legal service you could call today and save their number.", "Set up a low-cost retainer or on-call arrangement with a local business lawyer.", "A shop owner spent two weeks searching for a lawyer after a notice arrived, missing the response deadline entirely.") },
+    { id: "p1_aq2", text: "Have any of your customers or vendors ever threatened you with legal action, even informally?", hint: "WhatsApp threats or verbal warnings count", riskIfNo: "Informal threats frequently escalate — ignoring them is one of the costliest mistakes.", weight: 8, isReverse: true, isFollowUp: true, pillar: "Litigation Health", options: OPTS_DISPUTE, insight: mkInsight("Informal threats — even a WhatsApp message — are often the first warning sign before a formal complaint is filed.", "Ignoring an informal threat is one of the costliest mistakes; it frequently escalates into a formal legal notice.", "Save and document any message that contains a threat of legal action, however informal.", "Respond calmly in writing and consider looping in a lawyer if the threat repeats.", "A vendor's WhatsApp warning about non-payment was ignored for months and turned into a formal consumer complaint.") },
+    { id: "p1_aq3", text: "Do you keep written records of all customer complaints and how they were resolved?", hint: "A simple register, email thread, or CRM entry counts", riskIfNo: "No records means no defence — consumer courts favour documented businesses.", weight: 6, isReverse: false, isFollowUp: true, pillar: "Litigation Health", options: OPTS_HAVE, insight: mkInsight("A record of complaints and resolutions is your evidence trail if a customer later escalates to a consumer forum.", "Without records, you have no defence — consumer courts consistently favour businesses that can show documented resolution attempts.", "Start a simple spreadsheet logging every complaint, date, and how it was resolved.", "Use a shared inbox or lightweight CRM so every team member logs complaints the same way.", "A retailer with no complaint log lost a consumer forum case simply because they couldn't prove they had offered a refund.") },
+    { id: "p1_aq4", text: "Has any current or former employee ever made a complaint against your business?", hint: "Includes grievances filed internally or with a labour office", riskIfNo: "Labour disputes are India's fastest-growing litigation category for small businesses.", weight: 7, isReverse: true, isFollowUp: true, pillar: "Litigation Health", options: OPTS_DISPUTE, insight: mkInsight("Employee grievances, even internal ones, are the seed of India's fastest-growing category of small business litigation.", "An unresolved labour complaint can turn into a tribunal case with back-pay orders and reputational damage.", "Set up a simple internal process for employees to raise concerns before they escalate externally.", "Document every employee grievance and its resolution, just like customer complaints.", "A small firm ignored a repeated pay complaint from a former employee, who later filed with the labour office and won back-pay.") },
   ],
   2: [
-    { id: "p2_aq1", text: "Do your written agreements include a dispute resolution clause (arbitration or jurisdiction)?", hint: "Specifies what happens if the parties disagree", riskIfNo: "Without a dispute clause, you default to costly and slow civil court proceedings.", weight: 7, isReverse: false, isFollowUp: true, pillar: "Contractual Health" },
-    { id: "p2_aq2", text: "Do you have a signed lease or rental agreement for your business premises?", hint: "Month-to-month verbal arrangements are high risk", riskIfNo: "An unsigned tenancy can result in eviction without notice and loss of all improvements.", weight: 8, isReverse: false, isFollowUp: true, pillar: "Contractual Health" },
-    { id: "p2_aq3", text: "Have you ever lost money because someone didn't honour a verbal commitment?", hint: "Payment defaults, delivery failures, or service cancellations", riskIfNo: "Repeated verbal agreement losses signal systematic contract absence.", weight: 7, isReverse: true, isFollowUp: true, pillar: "Contractual Health" },
-    { id: "p2_aq4", text: "Do your customer invoices or order confirmations include your payment terms and late-payment penalties?", hint: "Even a line on the invoice counts", riskIfNo: "Without stated terms, debt recovery through legal channels becomes extremely difficult.", weight: 6, isReverse: false, isFollowUp: true, pillar: "Contractual Health" },
+    { id: "p2_aq1", text: "Do your written agreements include a dispute resolution clause (arbitration or jurisdiction)?", hint: "Specifies what happens if the parties disagree", riskIfNo: "Without a dispute clause, you default to costly and slow civil court proceedings.", weight: 7, isReverse: false, isFollowUp: true, pillar: "Contractual Health", options: OPTS_HAVE, insight: mkInsight("A dispute resolution clause decides in advance where and how a disagreement will be settled — arbitration, mediation, or which court.", "Without this clause, any dispute defaults to slow, expensive civil court proceedings that can take years.", "Add a one-line arbitration/jurisdiction clause to your standard contract template.", "Specify a local arbitration process and your home city's jurisdiction in every future agreement.", "Two companies without a jurisdiction clause spent 3 years arguing over which state's courts should even hear their contract dispute.") },
+    { id: "p2_aq2", text: "Do you have a signed lease or rental agreement for your business premises?", hint: "Month-to-month verbal arrangements are high risk", riskIfNo: "An unsigned tenancy can result in eviction without notice and loss of all improvements.", weight: 8, isReverse: false, isFollowUp: true, pillar: "Contractual Health", options: OPTS_HAVE, insight: mkInsight("A signed lease protects your right to occupy the premises and outlines notice periods, deposits, and renewal terms.", "Without one, a landlord can ask you to vacate with little notice, and you may lose any money spent on fit-outs or improvements.", "Get your current arrangement, even if verbal, converted into a written lease as soon as possible.", "Register the lease if the term exceeds 11 months, as required under Indian law for enforceability.", "A boutique spent ₹8 lakh on interiors under a verbal lease and was asked to vacate within a week when the landlord changed his mind.") },
+    { id: "p2_aq3", text: "Have you ever lost money because someone didn't honour a verbal commitment?", hint: "Payment defaults, delivery failures, or service cancellations", riskIfNo: "Repeated verbal agreement losses signal systematic contract absence.", weight: 7, isReverse: true, isFollowUp: true, pillar: "Contractual Health", options: OPTS_DISPUTE, insight: mkInsight("Losses from broken verbal commitments are a direct sign that your business relies too heavily on trust instead of paper.", "Recurring losses like this compound over time and are almost entirely preventable with basic written terms.", "Identify the last 2-3 instances this happened and start requiring written confirmation for those relationships going forward.", "Move all recurring vendor/customer relationships to simple written purchase orders or agreements.", "A caterer repeatedly lost advance payments to no-show clients until requiring a signed booking confirmation solved the problem overnight.") },
+    { id: "p2_aq4", text: "Do your customer invoices or order confirmations include your payment terms and late-payment penalties?", hint: "Even a line on the invoice counts", riskIfNo: "Without stated terms, debt recovery through legal channels becomes extremely difficult.", weight: 6, isReverse: false, isFollowUp: true, pillar: "Contractual Health", options: OPTS_HAVE, insight: mkInsight("Payment terms printed on an invoice create a paper trail that makes unpaid dues far easier to recover legally.", "Without stated terms, recovering overdue payments through legal notice or court becomes far harder to prove and win.", "Add one line to your invoice template stating the due date and late-payment interest.", "Make it standard practice across your team to never send an invoice without payment terms.", "A supplier without stated payment terms struggled for a year to recover ₹2 lakh in dues because there was no written proof of the deadline.") },
   ],
   3: [
-    { id: "p3_aq1", text: "Do you file your annual income tax return on time every year?", hint: "Due date is typically 31st July for non-audit businesses", riskIfNo: "Late ITR attracts penalties, disallows loss carry-forward, and flags you for scrutiny.", weight: 8, isReverse: false, isFollowUp: true, pillar: "Compliance Health" },
-    { id: "p3_aq2", text: "Are your employee PF and ESI contributions deposited on time every month?", hint: "Due by the 15th and 21st of the following month respectively", riskIfNo: "Delayed PF/ESI deposits attract interest, damages, and personal liability for directors.", weight: 8, isReverse: false, isFollowUp: true, pillar: "Compliance Health" },
-    { id: "p3_aq3", text: "Do you have a valid Shop and Establishment Act registration for your business location?", hint: "Required for almost every commercial establishment in India", riskIfNo: "Without S&E registration, you cannot legally employ workers or open a business bank account.", weight: 7, isReverse: false, isFollowUp: true, pillar: "Compliance Health" },
-    { id: "p3_aq4", text: "Have you received any penalty or demand notice from a government body in the last 2 years?", hint: "Tax, labour, fire safety, or pollution board notices", riskIfNo: "Past penalty notices are a strong predictor of repeat compliance failures.", weight: 8, isReverse: true, isFollowUp: true, pillar: "Compliance Health" },
+    { id: "p3_aq1", text: "Do you file your annual income tax return on time every year?", hint: "Due date is typically 31st July for non-audit businesses", riskIfNo: "Late ITR attracts penalties, disallows loss carry-forward, and flags you for scrutiny.", weight: 8, isReverse: false, isFollowUp: true, pillar: "Compliance Health", options: OPTS_CURRENT, insight: mkInsight("Timely income tax filing keeps you eligible for loss carry-forward benefits and out of the scrutiny queue.", "A late ITR attracts penalties, blocks loss carry-forward, and increases the chance of a tax department notice.", "Mark the ITR due date on your calendar today and set a reminder 3 weeks before.", "File through a CA on a fixed annual schedule rather than waiting until the deadline week.", "A small firm missed its ITR deadline two years running and lost the ability to carry forward a large business loss.") },
+    { id: "p3_aq2", text: "Are your employee PF and ESI contributions deposited on time every month?", hint: "Due by the 15th and 21st of the following month respectively", riskIfNo: "Delayed PF/ESI deposits attract interest, damages, and personal liability for directors.", weight: 8, isReverse: false, isFollowUp: true, pillar: "Compliance Health", options: OPTS_CURRENT, insight: mkInsight("PF and ESI deposits are employee entitlements with strict monthly deadlines under labour law.", "Delayed deposits attract interest, damages, and in serious cases personal liability for the business owners or directors.", "Set a recurring reminder for the 15th (PF) and 21st (ESI) of every month.", "Automate the deposit through payroll software so it's never dependent on manual follow-up.", "A director was held personally liable for months of unpaid PF dues after the company's HR missed several deposit deadlines.") },
+    { id: "p3_aq3", text: "Do you have a valid Shop and Establishment Act registration for your business location?", hint: "Required for almost every commercial establishment in India", riskIfNo: "Without S&E registration, you cannot legally employ workers or open a business bank account.", weight: 7, isReverse: false, isFollowUp: true, pillar: "Compliance Health", options: OPTS_CURRENT, insight: mkInsight("Shop & Establishment registration is the baseline licence that legitimizes almost every commercial premises in India.", "Without it, you technically cannot legally employ workers, and banks may refuse to open or maintain a business account.", "Check your registration certificate today and confirm the renewal date.", "Apply for or renew your S&E registration through your state's labour department portal.", "A new outlet operated for 6 months without S&E registration and had its bank account flagged during a routine compliance check.") },
+    { id: "p3_aq4", text: "Have you received any penalty or demand notice from a government body in the last 2 years?", hint: "Tax, labour, fire safety, or pollution board notices", riskIfNo: "Past penalty notices are a strong predictor of repeat compliance failures.", weight: 8, isReverse: true, isFollowUp: true, pillar: "Compliance Health", options: OPTS_DISPUTE, insight: mkInsight("A past penalty notice usually points to a recurring gap in your compliance process, not a one-time mistake.", "Businesses with a prior penalty are statistically far more likely to face a repeat notice from the same authority.", "Pull up the last notice you received and confirm the underlying issue has actually been fixed, not just paid off.", "Do an annual compliance audit covering tax, labour, and any industry-specific licences.", "A workshop paid a pollution board fine but never fixed the underlying issue, and was fined again the following year for the same violation.") },
   ],
   4: [
-    { id: "p4_aq1", text: "Do you have standard contract templates your team uses without drafting fresh every time?", hint: "Templates prevent costly omissions and reduce lawyer fees", riskIfNo: "Every ad-hoc contract costs more and has higher error rates than a reviewed template.", weight: 6, isReverse: false, isFollowUp: true, pillar: "Legal Cost Efficiency" },
-    { id: "p4_aq2", text: "Have you ever consulted a lawyer before signing a major contract or taking a significant business decision?", hint: "Proactive legal advice costs 5–10× less than reactive legal rescue", riskIfNo: "Reactive legal spending is typically 5–10× higher than proactive advice costs.", weight: 7, isReverse: false, isFollowUp: true, pillar: "Legal Cost Efficiency" },
-    { id: "p4_aq3", text: "Do you have any legal insurance or professional indemnity cover for your business?", hint: "Covers legal defence costs and certain liability claims", riskIfNo: "A single uninsured legal dispute can consume an entire year's profit.", weight: 6, isReverse: false, isFollowUp: true, pillar: "Legal Cost Efficiency" },
-    { id: "p4_aq4", text: "Do you track how much your business spends on legal fees and penalties each year?", hint: "Includes lawyer bills, fines, settlement costs", riskIfNo: "Businesses that don't measure legal spend consistently overspend by 30–50%.", weight: 5, isReverse: false, isFollowUp: true, pillar: "Legal Cost Efficiency" },
+    { id: "p4_aq1", text: "Do you have standard contract templates your team uses without drafting fresh every time?", hint: "Templates prevent costly omissions and reduce lawyer fees", riskIfNo: "Every ad-hoc contract costs more and has higher error rates than a reviewed template.", weight: 6, isReverse: false, isFollowUp: true, pillar: "Legal Cost Efficiency", options: OPTS_HAVE, insight: mkInsight("Standard templates mean every contract has already been legally reviewed once, instead of drafted from scratch under time pressure.", "Ad-hoc contracts cost more in lawyer fees each time and have a much higher error/omission rate than a reused, reviewed template.", "Get your most common contract (vendor, customer, or employee) turned into a reusable template this month.", "Have a lawyer review and approve 2-3 core templates once, then reuse them for every future agreement.", "A services firm paid for a fresh contract review every single deal until switching to one approved template cut their legal costs by half.") },
+    { id: "p4_aq2", text: "Have you ever consulted a lawyer before signing a major contract or taking a significant business decision?", hint: "Proactive legal advice costs 5–10× less than reactive legal rescue", riskIfNo: "Reactive legal spending is typically 5–10× higher than proactive advice costs.", weight: 7, isReverse: false, isFollowUp: true, pillar: "Legal Cost Efficiency", options: OPTS_HAVE, insight: mkInsight("A quick legal review before signing a major contract catches problems while they're still cheap to fix.", "Fixing a bad contract after signing (reactive legal rescue) typically costs 5-10 times more than a proactive review upfront.", "Before your next major contract, budget a small amount for a lawyer's review before you sign.", "Build a habit: no contract above a certain value gets signed without a legal sanity check.", "A business signed a major distribution deal without review and later paid a lawyer 8x more to try to unwind an unfavourable clause.") },
+    { id: "p4_aq3", text: "Do you have any legal insurance or professional indemnity cover for your business?", hint: "Covers legal defence costs and certain liability claims", riskIfNo: "A single uninsured legal dispute can consume an entire year's profit.", weight: 6, isReverse: false, isFollowUp: true, pillar: "Legal Cost Efficiency", options: OPTS_HAVE, insight: mkInsight("Legal or professional indemnity insurance covers defence costs and certain liability claims so a single dispute doesn't sink the business.", "Without cover, one uninsured legal dispute can consume an entire year's profit in legal fees and settlements alone.", "Get a quote for a basic professional indemnity or legal expense policy suited to your business size.", "Choose a policy that at minimum covers legal defence costs for the claim types most common in your industry.", "An uninsured consultancy spent its entire annual profit defending a single client lawsuit that a basic policy would have covered.") },
+    { id: "p4_aq4", text: "Do you track how much your business spends on legal fees and penalties each year?", hint: "Includes lawyer bills, fines, settlement costs", riskIfNo: "Businesses that don't measure legal spend consistently overspend by 30–50%.", weight: 5, isReverse: false, isFollowUp: true, pillar: "Legal Cost Efficiency", options: OPTS_HAVE, insight: mkInsight("Tracking legal spend — fees, fines, and settlements — is the only way to see whether you're spending reactively or proactively.", "Businesses that don't track this figure consistently overspend by 30-50% because problems keep repeating unnoticed.", "Start a simple running total of every legal-related expense this year, however small.", "Review the total every quarter with your accountant and flag any recurring cost driver.", "A firm was stunned to discover it had spent ₹4 lakh on avoidable late fees and dispute costs it had never actually tallied up.") },
   ],
 };
 
@@ -437,6 +569,7 @@ const seedCache = new Map<string, { pillars: AssessmentPillar[]; ts: number }>()
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 export async function generateSeedQuestionsForAssessment(
+  companyName: string,
   businessType: string,
   registration: string,
   employeeCount: string,
@@ -444,14 +577,14 @@ export async function generateSeedQuestionsForAssessment(
   industry: string,
   state: string
 ): Promise<AssessmentPillar[]> {
-  const cacheKey = `${businessType}|${state}`;
+  const cacheKey = `${businessType}|${industry}|${state}`;
   const cached = seedCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
     logger.info({ cacheKey }, "Seed questions: cache hit");
     return cached.pillars;
   }
 
-  const prompt = buildSeedPrompt(businessType, registration, employeeCount, businessAge, industry, state);
+  const prompt = buildSeedPrompt(companyName || "your business", businessType, registration, employeeCount, businessAge, industry, state);
 
   async function tryParse(): Promise<AssessmentPillar[]> {
     const raw = await callGemini(prompt, 12000, 0.25);
@@ -483,6 +616,8 @@ export async function generateSeedQuestionsForAssessment(
             isFollowUp: false,
             pillar: pillarName,
             exposureEstimate: expEstimate,
+            options: normaliseOptions(q.options),
+            insight: normaliseInsight(q.insight, q.risk_if_no),
           };
         }),
       };
@@ -687,10 +822,13 @@ interface AdaptiveRaw {
     parent_id?: string;
     isReverse?: boolean;
     hint?: string;
+    options?: OptionRaw[];
+    insight?: InsightRaw;
   };
 }
 
 function buildAdaptivePrompt(
+  companyName: string,
   businessType: string,
   registration: string,
   employeeCount: string,
@@ -698,7 +836,7 @@ function buildAdaptivePrompt(
   pillarName: string,
   pillarNumber: number,
   _pillarDefinition: string,
-  pillarAnswers: Array<{ question: string; answer: string; isReverseScored: boolean }>,
+  pillarAnswers: Array<{ question: string; answer: string; score: number }>,
   adaptiveCount: number
 ): string {
   const questionsAskedCount = pillarAnswers.length;
@@ -706,7 +844,7 @@ function buildAdaptivePrompt(
 
   const pillarConversation = pillarAnswers
     .map((a, i) => {
-      const effectivelyBad = a.isReverseScored ? a.answer === "YES" : a.answer === "NO" || a.answer === "UNSURE";
+      const effectivelyBad = a.score <= 1;
       return `Q${i + 1}: "${a.question}" → ${a.answer}${effectivelyBad ? " ⚠️ (risk confirmed)" : " ✅ (covered)"}`;
     })
     .join("\n");
@@ -726,6 +864,7 @@ Each pillar must produce exactly 5 questions total:
 - Never ask more than 5 questions total per pillar
 
 BUSINESS PROFILE:
+Business Name: ${companyName}
 Business Type: ${businessType}
 Sub-category: ${industry}
 Registration: ${registration}
@@ -777,7 +916,7 @@ A: Yes
 RULE 5 — No generic follow-ups
 Every follow-up must be specific to:
   - The exact gap revealed by the answer
-  - The specific business type
+  - The specific business type — where natural, reference "${companyName}" by name
   - A specific ₹ consequence
 
 BAD: "Do you have any documentation for this?"
@@ -785,6 +924,17 @@ GOOD: "How many vendors do you work with who have no written agreement?"
 
 BAD: "Are you aware of the relevant regulations?"
 GOOD: "Has your FSSAI licence been renewed in the last 12 months?"
+
+RULE 6 — Custom answer options + insight (mandatory for every follow-up)
+Never write a plain Yes/No/Not Sure question. Every follow-up must ship with 3-4 tailored answer OPTIONS:
+  - Each option needs "value" (A/B/C/D), "label" (natural-language answer), optional "sublabel", and "score" 0-4 (4 = fully compliant/no risk, 0 = high risk)
+  - Options must match exactly what THIS question is asking, not a generic set
+Every follow-up must also include an "insight" object with 5 fields tailored to this exact question and ${companyName}:
+  - info: what this risk area is and why it matters
+  - impact: concrete ₹/operational consequence
+  - suggestion: one practical suggestion
+  - recommendation: one specific recommendation
+  - example: short real-world-style example
 
 PILLAR-SPECIFIC FOLLOW-UP GUIDANCE:
 
@@ -819,7 +969,7 @@ If a follow-up is warranted:
   "measure_type": "SCALE / DURATION / SEVERITY / DEPTH",
   "question": {
     "id": "p${pillarNumber}_q${questionsAskedCount + 1}",
-    "text": "follow-up question — max 15 words, plain language",
+    "text": "follow-up question — max 20 words, plain language, practical",
     "risk_if_no": "specific consequence",
     "law_reference": "specific Indian law if applicable, else null",
     "risk_area": "same pillar risk area",
@@ -827,7 +977,20 @@ If a follow-up is warranted:
     "exposure_low": 25000,
     "exposure_high": 300000,
     "is_followup": true,
-    "parent_id": "${parentQuestionId}"
+    "parent_id": "${parentQuestionId}",
+    "options": [
+      { "value": "A", "label": "tailored answer option", "sublabel": "optional helper text", "score": 4 },
+      { "value": "B", "label": "tailored answer option", "score": 2 },
+      { "value": "C", "label": "tailored answer option", "score": 0 },
+      { "value": "D", "label": "Not sure", "score": 1 }
+    ],
+    "insight": {
+      "info": "what this risk area is and why it matters for ${companyName}",
+      "impact": "concrete ₹ or operational consequence",
+      "suggestion": "one practical suggestion",
+      "recommendation": "one specific recommendation",
+      "example": "short real-world-style example"
+    }
   }
 }
 
@@ -849,6 +1012,7 @@ If pillar is complete (5 questions asked):
 const ADAPTIVE_TIMEOUT_MS = 5000;
 
 export async function generateNextAdaptiveQuestion(
+  companyName: string,
   businessType: string,
   registration: string,
   employeeCount: string,
@@ -856,14 +1020,14 @@ export async function generateNextAdaptiveQuestion(
   pillarName: string,
   pillarNumber: number,
   pillarDefinition: string,
-  pillarAnswers: Array<{ question: string; answer: string; isReverseScored: boolean }>,
+  pillarAnswers: Array<{ question: string; answer: string; score: number }>,
   adaptiveCount: number
 ): Promise<AssessmentQuestion | null> {
   // Hard cap enforced here (engine also checks, but belt + suspenders)
   if (adaptiveCount >= 4) return null;
 
   const prompt = buildAdaptivePrompt(
-    businessType, registration, employeeCount, industry,
+    companyName || "your business", businessType, registration, employeeCount, industry,
     pillarName, pillarNumber, pillarDefinition,
     pillarAnswers, adaptiveCount
   );
@@ -893,6 +1057,8 @@ export async function generateNextAdaptiveQuestion(
       parentId: q.parent_id,
       pillar: pillarName,
       exposureEstimate: expEstimate,
+      options: normaliseOptions(q.options),
+      insight: normaliseInsight(q.insight, q.risk_if_no),
     };
   }
 
@@ -1052,6 +1218,8 @@ export async function generateAdaptiveBatch(
           isFollowUp: true,
           pillar: pillarName,
           exposureEstimate: exp,
+          options: fallbackOptions(),
+          insight: normaliseInsight(undefined, q.risk_if_no),
         };
       }).filter((q) => q.text.length > 0);
     }
@@ -1278,7 +1446,7 @@ export async function generateSeedQuestions(
   _contextTags: string[]
 ): Promise<Array<{ id: number; question: string; pillar: PillarName; isReverseScored: boolean; isSeed: boolean; contextNote?: string }>> {
   try {
-    const pillars = await generateSeedQuestionsForAssessment(businessType, "Private Limited / LLP", "11-50", "2-5 years", businessType, city);
+    const pillars = await generateSeedQuestionsForAssessment("your business", businessType, "Private Limited / LLP", "11-50", "2-5 years", businessType, city);
     return pillars.flatMap((p) =>
       p.questions.map((q, i) => ({
         id: i + 1,

@@ -31,6 +31,7 @@ router.post("/assessment/init", async (req, res) => {
     return;
   }
 
+  const companyName = lead.company ?? "your business";
   const businessType = lead.businessType ?? "Small Business";
   const category = lead.category ?? "General";
   const city = lead.city ?? "India";
@@ -41,6 +42,7 @@ router.post("/assessment/init", async (req, res) => {
   logger.info({ businessType, city }, "Assessment init: generating seed questions");
 
   const pillars = await generateSeedQuestionsForAssessment(
+    companyName,
     businessType,
     subCategory,
     employeeCount,
@@ -59,6 +61,7 @@ router.post("/assessment/init", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.post("/assessment/adaptive", async (req, res) => {
   const {
+    companyName,
     businessType,
     registration,
     employeeCount,
@@ -68,13 +71,14 @@ router.post("/assessment/adaptive", async (req, res) => {
     pillarAnswers,
     adaptiveCount,
   } = req.body as {
+    companyName?: string;
     businessType: string;
     registration?: string;
     employeeCount?: string;
     industry?: string;
     pillarName: string;
     pillarNumber: number;
-    pillarAnswers: Array<{ question: string; answer: string; isReverseScored: boolean }>;
+    pillarAnswers: Array<{ question: string; answer: string; score: number }>;
     adaptiveCount: number;
   };
 
@@ -89,6 +93,7 @@ router.post("/assessment/adaptive", async (req, res) => {
   logger.info({ pillarName, adaptiveCount }, "Adaptive engine: evaluating next question");
 
   const question = await generateNextAdaptiveQuestion(
+    companyName ?? "your business",
     businessType,
     registration ?? businessType,
     employeeCount ?? "1-50",
