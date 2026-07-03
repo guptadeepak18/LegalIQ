@@ -3,8 +3,7 @@ import { randomBytes } from "crypto";
 import { db } from "@workspace/db";
 import { leads, sessions, assessments, answers as answersTable, reports } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { generateSeedQuestionsForAssessment, generateReport, generateNextAdaptiveQuestion, STATIC_SEED_PILLARS } from "../services/gemini.js";
-import { storeSingle, clearSession } from "../services/adaptiveCache.js";
+import { generateSeedQuestionsForAssessment, generateReport, STATIC_SEED_PILLARS } from "../services/gemini.js";
 import { getNextAction, type StoredAnswer } from "../services/quizEngine.js";
 import { calculatePillarScores, calculateAnswerScore } from "../services/scoring.js";
 import { sendReportEmail } from "../services/resend.js";
@@ -16,75 +15,6 @@ import type { AssessmentPillar, AssessmentQuestion } from "../services/gemini.js
 // A warm cache resolves in <50ms so a 200ms window captures those while
 // never blocking on a cold-miss AI call (which takes 10-30 seconds).
 const SEED_TIMEOUT_MS = 14000;
-
-// Pillar definitions for the adaptive prompt context
-const PILLAR_DEFS: Record<number, string> = {
-  1: "Whether the business has active disputes, unresolved claims, or lawsuit exposure",
-  2: "Whether written agreements protect the business in all key relationships",
-  3: "Whether all government registrations, licences, and filings are current",
-  4: "Whether the business spends on legal proactively vs. reactively",
-};
-
-/**
- * Optimistic pre-fetch: generate the next adaptive question in the background
- * while the user is reading the question we just returned.
- *
- * Timing: user takes ~10-30s to read + answer; Gemini takes ~5-10s → ready before they need it.
- * Quality: uses real per-answer adaptive prompts (same as the original approach they liked),
- *          just shifted to happen in parallel with user reading time instead of blocking them.
- */
-function prefetchNextAdaptive(
-  sessionId: string,
-  newPillarIndex: number,
-  newQuestionIndex: number,
-  newFollowUpCount: number,
-  pillars: AssessmentPillar[],
-  currentAnswers: StoredAnswer[],
-  companyName: string,
-  businessType: string,
-  registration: string,
-  employeeCount: string,
-  industry: string
-): void {
-  const pillar = pillars[newPillarIndex];
-  if (!pillar) return;
-
-  // Only pre-fetch when the next question will need an adaptive AI call
-  const nextSeedExists = pillar.questions[newQuestionIndex + 1] !== undefined;
-  if (nextSeedExists) return; // next question is a seed, no pre-fetch needed
-
-  // Only mandatory slots (0 and 1); optional slots are skipped
-  if (newFollowUpCount >= 2) return;
-
-  // Must have at least one pillar answer for meaningful context
-  const pillarAnswers = currentAnswers
-    .filter((a) => a.pillarIndex === newPillarIndex)
-    .map((a) => ({ question: a.question, answer: a.answer, score: a.score }));
-
-  if (pillarAnswers.length === 0) return;
-
-  logger.info(
-    { sessionId, pillar: pillar.name, slot: newFollowUpCount },
-    "Prefetch: starting background adaptive generation"
-  );
-
-  generateNextAdaptiveQuestion(
-    companyName, businessType, registration, employeeCount, industry,
-    pillar.name, newPillarIndex + 1,
-    PILLAR_DEFS[newPillarIndex + 1] ?? pillar.name,
-    pillarAnswers,
-    newFollowUpCount
-  )
-    .then((q) => {
-      if (q) {
-        storeSingle(sessionId, pillar.name, newFollowUpCount, q);
-        logger.info({ sessionId, pillar: pillar.name, slot: newFollowUpCount }, "Prefetch: cached successfully");
-      }
-    })
-    .catch(() => {
-      // Fire-and-forget: quiz falls through to live generation or static fallback
-    });
-}
 
 const router = Router();
 
@@ -346,9 +276,6 @@ router.post("/session/answer", async (req, res) => {
       await db.update(leads).set({ reviewToken }).where(eq(leads.id, lead.id));
     }
 
-    // Free adaptive cache for this session
-    clearSession(sessionId);
-
     // Mark session complete
     await db
       .update(sessions)
@@ -420,23 +347,6 @@ router.post("/session/answer", async (req, res) => {
     .where(eq(sessions.id, sessionId));
 
   const nextPillar = pillars[newPillarIndex];
-
-  // ── Shared pre-fetch call (fires after DB write, before response) ────────────
-  // Kicks off background Gemini generation of the NEXT adaptive question so the
-  // user never waits — it's ready before they finish reading the question returned here.
-  prefetchNextAdaptive(
-    sessionId,
-    newPillarIndex,
-    newQuestionIndex,
-    newFollowUpCount,
-    pillars,
-    updatedAnswers,
-    companyName,
-    session.businessType ?? "Small Business",
-    session.registration ?? "General",
-    session.employeeCount ?? "1-50",
-    session.industry ?? "General"
-  );
 
   // ── PILLAR_TRANSITION ───────────────────────────────────────────────────────
   if (nextAction.type === "PILLAR_TRANSITION") {

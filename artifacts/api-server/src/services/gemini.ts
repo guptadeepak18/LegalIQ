@@ -143,7 +143,16 @@ async function callGemini(
       const response = await ai.models.generateContent({
         model,
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        config: { temperature, maxOutputTokens: maxTokens },
+        config: {
+          temperature,
+          maxOutputTokens: maxTokens,
+          // gemini-2.5-* models default to "thinking" mode, which silently eats
+          // into maxOutputTokens for internal reasoning and truncates the
+          // visible JSON response. gemini-2.5-flash allows disabling it
+          // entirely (budget 0); gemini-2.5-pro requires a minimum budget, so
+          // give it the smallest allowed value instead.
+          thinkingConfig: { thinkingBudget: model === "gemini-2.5-pro" ? 128 : 0 },
+        },
       });
       const raw = response.text ?? "";
       logger.info({ model }, "Gemini call succeeded");
@@ -277,9 +286,12 @@ Sells Online: Unknown
 Handles Customer Data: Unknown
 
 YOUR TASK:
-Generate exactly 2 opening questions per pillar (8 questions total across 4 pillars).
-These are the FIRST questions in each pillar — the follow-up engine will 
-handle subsequent questions based on answers.
+Generate exactly 5 main questions per pillar (20 questions total across 4 pillars).
+These are ALL of the main questions for each pillar — do not generate fewer or more.
+A separate follow-up engine will add up to 2 extra questions after any single main
+question, but only when that specific answer reveals a risk worth exploring further.
+You do not need to plan for follow-ups here — just write 5 strong, distinct main
+questions per pillar, each covering a different risk area within that pillar.
 
 STRICT RULES FOR QUESTION QUALITY:
 1. Every question must mention or imply THIS specific business type or category — where it reads naturally, use the business name "${companyName}" directly (e.g. "Does ${companyName} have...").
@@ -458,6 +470,7 @@ OUTPUT — return only this JSON, no explanations, no markdown:
           "options": [ "...same shape as above, 3-4 options tailored to this question..." ],
           "insight": { "info": "...", "impact": "...", "suggestion": "...", "recommendation": "...", "example": "..." }
         }
+        /* … continue this exact shape for "p1_q3", "p1_q4", "p1_q5" — 5 questions total in this pillar, each covering a distinct risk area … */
       ]
     },
     { "id": 2, "name": "Contractual Health", "icon": "📄", "questions": [...] },
@@ -507,6 +520,9 @@ export const STATIC_SEED_PILLARS: AssessmentPillar[] = [
     questions: [
       { id: "p1_q1", text: "Has your business received any legal notice from a court or government authority?", hint: "Includes consumer forum, labour tribunal, or tax notices", riskIfNo: "Unresolved notices escalate into court cases with mandatory attendance and heavy costs.", weight: 10, isReverse: true, isFollowUp: false, pillar: "Litigation Health", exposureEstimate: "₹50,000 – ₹5,00,000", options: OPTS_DISPUTE, insight: mkInsight("Legal notices are the first formal signal of a dispute — ignoring them almost always makes things worse.", "Unresolved notices escalate into court cases with mandatory attendance, legal fees, and possible ex-parte orders against you.", "Log every notice you receive and respond within the stated deadline, even if it's just to acknowledge it.", "Route every notice to a lawyer for a same-week reply — most can be resolved cheaply if addressed early.", "A small retailer ignored a consumer forum notice for months; the case went ex-parte and the resulting order cost far more than settling early would have.") },
       { id: "p1_q2", text: "Do you have any unresolved dispute with a customer or vendor right now?", hint: "Even informal disagreements over payment or delivery count", riskIfNo: "Unresolved disputes escalate — the longer you wait, the more expensive resolution becomes.", weight: 9, isReverse: true, isFollowUp: false, pillar: "Litigation Health", exposureEstimate: "₹25,000 – ₹3,00,000", options: OPTS_DISPUTE, insight: mkInsight("Open disputes — even informal ones over payment or delivery — are the most common trigger for litigation among small businesses.", "An unresolved dispute can freeze a business relationship and end in legal costs many times the original amount in question.", "Put every ongoing disagreement in writing (email/WhatsApp) so there is a paper trail if it escalates.", "Set a 30-day internal deadline to resolve or formally escalate any dispute — don't let it sit indefinitely.", "A vendor dispute over a delayed payment dragged on for a year without documentation, and the business lost the case for lack of evidence.") },
+      { id: "p1_q3", text: "Do you have a lawyer you can call immediately if a legal dispute arises?", hint: "Even a retained legal adviser on call counts", riskIfNo: "Without legal counsel access, a sudden dispute can paralyze your business for months.", weight: 7, isReverse: false, isFollowUp: false, pillar: "Litigation Health", options: OPTS_HAVE, insight: mkInsight("Having a lawyer on call means you can react to a legal problem within hours instead of weeks.", "Without quick access to counsel, a sudden dispute can stall decisions and paralyze the business while you scramble to find help.", "Identify one lawyer or legal service you could call today and save their number.", "Set up a low-cost retainer or on-call arrangement with a local business lawyer.", "A shop owner spent two weeks searching for a lawyer after a notice arrived, missing the response deadline entirely.") },
+      { id: "p1_q4", text: "Have any of your customers or vendors ever threatened you with legal action, even informally?", hint: "WhatsApp threats or verbal warnings count", riskIfNo: "Informal threats frequently escalate — ignoring them is one of the costliest mistakes.", weight: 8, isReverse: true, isFollowUp: false, pillar: "Litigation Health", options: OPTS_DISPUTE, insight: mkInsight("Informal threats — even a WhatsApp message — are often the first warning sign before a formal complaint is filed.", "Ignoring an informal threat is one of the costliest mistakes; it frequently escalates into a formal legal notice.", "Save and document any message that contains a threat of legal action, however informal.", "Respond calmly in writing and consider looping in a lawyer if the threat repeats.", "A vendor's WhatsApp warning about non-payment was ignored for months and turned into a formal consumer complaint.") },
+      { id: "p1_q5", text: "Do you keep written records of all customer complaints and how they were resolved?", hint: "A simple register, email thread, or CRM entry counts", riskIfNo: "No records means no defence — consumer courts favour documented businesses.", weight: 6, isReverse: false, isFollowUp: false, pillar: "Litigation Health", options: OPTS_HAVE, insight: mkInsight("A record of complaints and resolutions is your evidence trail if a customer later escalates to a consumer forum.", "Without records, you have no defence — consumer courts consistently favour businesses that can show documented resolution attempts.", "Start a simple spreadsheet logging every complaint, date, and how it was resolved.", "Use a shared inbox or lightweight CRM so every team member logs complaints the same way.", "A retailer with no complaint log lost a consumer forum case simply because they couldn't prove they had offered a refund.") },
     ],
   },
   {
@@ -515,6 +531,9 @@ export const STATIC_SEED_PILLARS: AssessmentPillar[] = [
     questions: [
       { id: "p2_q1", text: "Do you have a written, signed agreement with every vendor you regularly pay?", hint: "Includes suppliers, service providers, and freelancers", riskIfNo: "Verbal agreements are unenforceable in Indian courts — you cannot claim damages.", weight: 9, isReverse: false, isFollowUp: false, pillar: "Contractual Health", exposureEstimate: "₹50,000 – ₹10,00,000", options: OPTS_HAVE, insight: mkInsight("A signed vendor agreement is your only real protection if a supplier fails to deliver or breaches terms.", "Without a written contract, Indian courts generally cannot enforce damages, refunds, or penalties against a defaulting vendor.", "Start with your top 3 highest-value vendors and get simple one-page agreements signed this month.", "Use a standard vendor agreement template covering price, delivery, and penalties, and require a signature before any payment.", "A café owner paid a supplier upfront with no contract; when the goods never arrived, there was no legal recourse to recover the money.") },
       { id: "p2_q2", text: "Does every employee or contractor sign an agreement before starting work?", hint: "Even a simple offer letter with terms counts", riskIfNo: "Unsigned employment creates disputes over pay, notice period, and IP ownership.", weight: 8, isReverse: false, isFollowUp: false, pillar: "Contractual Health", exposureEstimate: "₹1,00,000 – ₹5,00,000", options: OPTS_HAVE, insight: mkInsight("An employment or contractor agreement is what defines pay, notice period, confidentiality, and who owns the work produced.", "Without a signed agreement, disputes over pay or ownership of work can drag on and damage your reputation with future hires.", "Create one simple offer-letter template with the essentials and use it for every new hire, even short-term ones.", "Require every employee and contractor to sign before their first day, not after.", "A startup let a contractor build its app without a signed IP clause — the contractor later claimed partial ownership of the code.") },
+      { id: "p2_q3", text: "Do you have a signed lease or rental agreement for your business premises?", hint: "Month-to-month verbal arrangements are high risk", riskIfNo: "An unsigned tenancy can result in eviction without notice and loss of all improvements.", weight: 8, isReverse: false, isFollowUp: false, pillar: "Contractual Health", options: OPTS_HAVE, insight: mkInsight("A signed lease protects your right to occupy the premises and outlines notice periods, deposits, and renewal terms.", "Without one, a landlord can ask you to vacate with little notice, and you may lose any money spent on fit-outs or improvements.", "Get your current arrangement, even if verbal, converted into a written lease as soon as possible.", "Register the lease if the term exceeds 11 months, as required under Indian law for enforceability.", "A boutique spent ₹8 lakh on interiors under a verbal lease and was asked to vacate within a week when the landlord changed his mind.") },
+      { id: "p2_q4", text: "Have you ever lost money because someone didn't honour a verbal commitment?", hint: "Payment defaults, delivery failures, or service cancellations", riskIfNo: "Repeated verbal agreement losses signal systematic contract absence.", weight: 7, isReverse: true, isFollowUp: false, pillar: "Contractual Health", options: OPTS_DISPUTE, insight: mkInsight("Losses from broken verbal commitments are a direct sign that your business relies too heavily on trust instead of paper.", "Recurring losses like this compound over time and are almost entirely preventable with basic written terms.", "Identify the last 2-3 instances this happened and start requiring written confirmation for those relationships going forward.", "Move all recurring vendor/customer relationships to simple written purchase orders or agreements.", "A caterer repeatedly lost advance payments to no-show clients until requiring a signed booking confirmation solved the problem overnight.") },
+      { id: "p2_q5", text: "Do your customer invoices or order confirmations include your payment terms and late-payment penalties?", hint: "Even a line on the invoice counts", riskIfNo: "Without stated terms, debt recovery through legal channels becomes extremely difficult.", weight: 6, isReverse: false, isFollowUp: false, pillar: "Contractual Health", options: OPTS_HAVE, insight: mkInsight("Payment terms printed on an invoice create a paper trail that makes unpaid dues far easier to recover legally.", "Without stated terms, recovering overdue payments through legal notice or court becomes far harder to prove and win.", "Add one line to your invoice template stating the due date and late-payment interest.", "Make it standard practice across your team to never send an invoice without payment terms.", "A supplier without stated payment terms struggled for a year to recover ₹2 lakh in dues because there was no written proof of the deadline.") },
     ],
   },
   {
@@ -523,6 +542,9 @@ export const STATIC_SEED_PILLARS: AssessmentPillar[] = [
     questions: [
       { id: "p3_q1", text: "Are all your business registrations and industry licences current and valid?", hint: "FSSAI for food, Drug Licence for pharmacy, RERA for real estate", riskIfNo: "Operating with lapsed registrations attracts penalties and bars you from making legal claims.", weight: 10, isReverse: false, isFollowUp: false, pillar: "Compliance Health", exposureEstimate: "₹50,000 – ₹5,00,000", options: OPTS_CURRENT, insight: mkInsight("Industry licences (FSSAI, trade licence, drug licence, etc.) are what make your operations legal in the eyes of regulators.", "Operating on a lapsed licence can mean instant fines, forced shutdown, and disqualifies you from suing others in your own defence.", "Make a simple calendar of every licence and its renewal date so nothing lapses unnoticed.", "Assign one person (or your CA) to track and renew every licence at least 30 days before expiry.", "A cloud kitchen operated for 4 months on an expired FSSAI licence and was shut down by inspectors during a routine check.") },
       { id: "p3_q2", text: "Are your GST returns filed on time every quarter?", hint: "Late filing attracts 18% interest per annum plus late fees", riskIfNo: "GST arrears compound quickly and can trigger bank account attachment orders.", weight: 9, isReverse: false, isFollowUp: false, pillar: "Compliance Health", exposureEstimate: "₹10,000 – ₹2,00,000", options: OPTS_CURRENT, insight: mkInsight("GST filing is a recurring statutory obligation, and the penalties for missing deadlines compound quickly.", "Late GST filings attract 18% annual interest plus late fees, and repeated defaults can lead to bank account attachment.", "Set a recurring reminder a week before every GST due date so filings never slip.", "Have your accountant file GST returns on a fixed monthly schedule rather than reactively.", "A small trader missed two consecutive GST filings and found their bank account temporarily frozen by the tax department.") },
+      { id: "p3_q3", text: "Do you file your annual income tax return on time every year?", hint: "Due date is typically 31st July for non-audit businesses", riskIfNo: "Late ITR attracts penalties, disallows loss carry-forward, and flags you for scrutiny.", weight: 8, isReverse: false, isFollowUp: false, pillar: "Compliance Health", options: OPTS_CURRENT, insight: mkInsight("Timely income tax filing keeps you eligible for loss carry-forward benefits and out of the scrutiny queue.", "A late ITR attracts penalties, blocks loss carry-forward, and increases the chance of a tax department notice.", "Mark the ITR due date on your calendar today and set a reminder 3 weeks before.", "File through a CA on a fixed annual schedule rather than waiting until the deadline week.", "A small firm missed its ITR deadline two years running and lost the ability to carry forward a large business loss.") },
+      { id: "p3_q4", text: "Are your employee PF and ESI contributions deposited on time every month?", hint: "Due by the 15th and 21st of the following month respectively", riskIfNo: "Delayed PF/ESI deposits attract interest, damages, and personal liability for directors.", weight: 8, isReverse: false, isFollowUp: false, pillar: "Compliance Health", options: OPTS_CURRENT, insight: mkInsight("PF and ESI deposits are employee entitlements with strict monthly deadlines under labour law.", "Delayed deposits attract interest, damages, and in serious cases personal liability for the business owners or directors.", "Set a recurring reminder for the 15th (PF) and 21st (ESI) of every month.", "Automate the deposit through payroll software so it's never dependent on manual follow-up.", "A director was held personally liable for months of unpaid PF dues after the company's HR missed several deposit deadlines.") },
+      { id: "p3_q5", text: "Do you have a valid Shop and Establishment Act registration for your business location?", hint: "Required for almost every commercial establishment in India", riskIfNo: "Without S&E registration, you cannot legally employ workers or open a business bank account.", weight: 7, isReverse: false, isFollowUp: false, pillar: "Compliance Health", options: OPTS_CURRENT, insight: mkInsight("Shop & Establishment registration is the baseline licence that legitimizes almost every commercial premises in India.", "Without it, you technically cannot legally employ workers, and banks may refuse to open or maintain a business account.", "Check your registration certificate today and confirm the renewal date.", "Apply for or renew your S&E registration through your state's labour department portal.", "A new outlet operated for 6 months without S&E registration and had its bank account flagged during a routine compliance check.") },
     ],
   },
   {
@@ -531,6 +553,9 @@ export const STATIC_SEED_PILLARS: AssessmentPillar[] = [
     questions: [
       { id: "p4_q1", text: "Did you pay any fine or penalty to a government body in the last year?", hint: "Tax, labour, pollution, or licence-related penalties", riskIfNo: "Past penalties are a leading indicator of structural gaps that will repeat.", weight: 9, isReverse: true, isFollowUp: false, pillar: "Legal Cost Efficiency", exposureEstimate: "₹25,000 – ₹5,00,000", options: OPTS_SPEND, insight: mkInsight("Fines and penalties are usually a symptom of an underlying compliance gap, not a one-off accident.", "Repeated penalties add up fast and signal to regulators that your business is a recurring risk worth watching closely.", "List every fine paid this year and trace each one back to its root cause before it happens again.", "Do a full compliance review with your CA or lawyer if you've paid more than one penalty in the last 12 months.", "A logistics firm kept paying small e-way bill penalties every month rather than fixing the process — over a year it added up to a lakh in fines.") },
       { id: "p4_q2", text: "In the last year, did you spend money resolving a dispute a written agreement could have prevented?", hint: "Legal fees, settlement amounts, or lost business", riskIfNo: "Pattern of reactive spending means contracts are consistently absent or weak.", weight: 9, isReverse: true, isFollowUp: false, pillar: "Legal Cost Efficiency", exposureEstimate: "₹50,000 – ₹10,00,000", options: OPTS_SPEND, insight: mkInsight("Reactive legal spend — fixing disputes after the fact — is almost always more expensive than preventing them with contracts up front.", "Businesses that spend reactively typically pay 5-10x more than they would have on preventive contracts and reviews.", "Track every legal expense this year and check how many could have been avoided with a signed agreement.", "Invest in a standard contract template and a short annual legal check-up instead of paying for damage control.", "A distributor spent ₹3 lakh settling a dispute that a simple written supply agreement, costing a fraction of that, would have prevented.") },
+      { id: "p4_q3", text: "Do you have standard contract templates your team uses without drafting fresh every time?", hint: "Templates prevent costly omissions and reduce lawyer fees", riskIfNo: "Every ad-hoc contract costs more and has higher error rates than a reviewed template.", weight: 6, isReverse: false, isFollowUp: false, pillar: "Legal Cost Efficiency", options: OPTS_HAVE, insight: mkInsight("Standard templates mean every contract has already been legally reviewed once, instead of drafted from scratch under time pressure.", "Ad-hoc contracts cost more in lawyer fees each time and have a much higher error/omission rate than a reused, reviewed template.", "Get your most common contract (vendor, customer, or employee) turned into a reusable template this month.", "Have a lawyer review and approve 2-3 core templates once, then reuse them for every future agreement.", "A services firm paid for a fresh contract review every single deal until switching to one approved template cut their legal costs by half.") },
+      { id: "p4_q4", text: "Have you ever consulted a lawyer before signing a major contract or taking a significant business decision?", hint: "Proactive legal advice costs 5–10× less than reactive legal rescue", riskIfNo: "Reactive legal spending is typically 5–10× higher than proactive advice costs.", weight: 7, isReverse: false, isFollowUp: false, pillar: "Legal Cost Efficiency", options: OPTS_HAVE, insight: mkInsight("A quick legal review before signing a major contract catches problems while they're still cheap to fix.", "Fixing a bad contract after signing (reactive legal rescue) typically costs 5-10 times more than a proactive review upfront.", "Before your next major contract, budget a small amount for a lawyer's review before you sign.", "Build a habit: no contract above a certain value gets signed without a legal sanity check.", "A business signed a major distribution deal without review and later paid a lawyer 8x more to try to unwind an unfavourable clause.") },
+      { id: "p4_q5", text: "Do you have any legal insurance or professional indemnity cover for your business?", hint: "Covers legal defence costs and certain liability claims", riskIfNo: "A single uninsured legal dispute can consume an entire year's profit.", weight: 6, isReverse: false, isFollowUp: false, pillar: "Legal Cost Efficiency", options: OPTS_HAVE, insight: mkInsight("Legal or professional indemnity insurance covers defence costs and certain liability claims so a single dispute doesn't sink the business.", "Without cover, one uninsured legal dispute can consume an entire year's profit in legal fees and settlements alone.", "Get a quote for a basic professional indemnity or legal expense policy suited to your business size.", "Choose a policy that at minimum covers legal defence costs for the claim types most common in your industry.", "An uninsured consultancy spent its entire annual profit defending a single client lawsuit that a basic policy would have covered.") },
     ],
   },
 ];
@@ -593,6 +618,10 @@ export async function generateSeedQuestionsForAssessment(
     if (!parsed.pillars || parsed.pillars.length !== 4) {
       throw new Error(`Expected 4 pillars, got ${parsed.pillars?.length ?? 0}`);
     }
+    const shortPillar = parsed.pillars.find((p) => (p.questions?.length ?? 0) < 5);
+    if (shortPillar) {
+      throw new Error(`Pillar "${shortPillar.name}" has only ${shortPillar.questions?.length ?? 0} questions, expected 5`);
+    }
 
     return parsed.pillars.map((p, pIdx) => {
       const pillarName = p.name as PillarName;
@@ -643,8 +672,10 @@ export async function generateSeedQuestionsForAssessment(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PROMPT 2 — Follow-up Engine
-// Fires after every answer; decides if one targeted follow-up is warranted
+// PROMPT 2 — Per-Question Follow-up Engine
+// Fires after a main question (or a follow-up to it) is answered.
+// Decides whether ONE more follow-up is warranted for THIS SPECIFIC main
+// question thread. Hard cap: 2 follow-ups per main question.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface FollowUpRaw {
@@ -652,17 +683,21 @@ interface FollowUpRaw {
   reasoning?: string;
   measure_type?: string;
   question?: {
-    id: string;
+    id?: string;
     text: string;
+    risk_if_no?: string;
     risk_area?: string;
     weight?: number;
+    exposure_low?: number;
+    exposure_high?: number;
     isReverse?: boolean;
-    is_followup?: boolean;
-    parent_id?: string;
+    options?: OptionRaw[];
+    insight?: InsightRaw;
   };
 }
 
 function buildFollowUpPrompt(
+  companyName: string,
   businessType: string,
   registration: string,
   employeeCount: string,
@@ -670,36 +705,37 @@ function buildFollowUpPrompt(
   pillarName: string,
   pillarNumber: number,
   pillarDefinition: string,
-  questionText: string,
+  mainQuestionText: string,
   parentQuestionId: string,
-  answer: string,
+  latestAnswer: string,
   followUpCount: number,
-  pillarHistory: string,
-  riskArea: string
+  questionThreadHistory: string
 ): string {
   return `You are LegalIQ's follow-up engine — a professional legal risk assessor.
 
 A business owner has just answered a question in their legal health assessment.
-Your job is to determine whether one targeted follow-up question is warranted,
-or whether we have enough information to score this area and move on.
+Your job is to determine whether ONE targeted follow-up question is warranted
+for THIS specific main question, or whether we have enough information on this
+topic to score it and move on to the next main question.
 
 BUSINESS PROFILE:
-- Business Type: ${businessType}
-- Registration: ${registration}
-- Employees: ${employeeCount}
-- Industry: ${industry}
+Business Name: ${companyName}
+Business Type: ${businessType}
+Registration: ${registration}
+Employees: ${employeeCount}
+Industry: ${industry}
 
 CURRENT PILLAR: ${pillarName} (Pillar ${pillarNumber} of 4)
 PILLAR DEFINITION: ${pillarDefinition}
 
-QUESTION ASKED:
-"${questionText}"
+THE MAIN QUESTION THIS FOLLOW-UP WOULD ATTACH TO:
+"${mainQuestionText}"
 
-ANSWER GIVEN: ${answer}
-FOLLOW-UPS ALREADY ASKED ON THIS QUESTION: ${followUpCount}
+CONVERSATION SO FAR ON THIS SPECIFIC QUESTION (main question + any follow-ups already asked about it):
+${questionThreadHistory || "(no prior follow-ups on this question yet)"}
 
-FULL PILLAR CONVERSATION SO FAR:
-${pillarHistory || "(No prior answers in this pillar yet)"}
+MOST RECENT ANSWER GIVEN: ${latestAnswer}
+FOLLOW-UPS ALREADY ASKED ON THIS QUESTION: ${followUpCount} (maximum allowed: 2)
 
 ---
 
@@ -707,15 +743,15 @@ DECISION LOGIC — follow this exactly:
 
 STEP 1 — Should we follow up at all?
 Ask a follow-up ONLY if ALL of these are true:
-  a) Answer is "No" or "Not Sure"
+  a) The most recent answer reveals a real risk or gap (e.g. "No", "Not sure", or a partial/weak answer) — not a clean "Yes, fully in place"
   b) followUpCount is less than 2
-  c) A follow-up would materially change the risk score or exposure estimate
-  d) We do not already have this information from earlier in the conversation
+  c) A follow-up would materially change the risk score or exposure estimate for this exact topic
+  d) We do not already have this information from the conversation on this question so far
 
 Do NOT follow up if:
-  - Answer is "Yes" (risk is covered — move on)
-  - We already know the depth of this risk from a prior answer
-  - The follow-up would be redundant or obvious
+  - The answer is healthy / fully compliant (risk is covered — move to the next main question)
+  - We already know the depth of this specific risk from a prior follow-up
+  - The follow-up would be redundant, obvious, or a generic restatement
   - followUpCount is already 2
 
 STEP 2 — What should the follow-up measure?
@@ -725,47 +761,52 @@ The follow-up must do exactly ONE of these:
   C) Measure SEVERITY — has this gap already caused a problem?
   D) Measure AWARENESS — do they know the specific rule they're missing?
 
-Choose the one that most changes the ₹ exposure estimate.
+Choose the one that most changes the ₹ exposure estimate for this specific topic.
 
 STEP 3 — Write the follow-up question
 Rules:
-  - Maximum 12 words
+  - Maximum 16 words
   - Professional tone — direct, not warm
-  - Must be answerable with a short specific answer (a number, a timeframe, yes/no)
-  - No jargon
-  - Must logically follow from their answer — not feel like a random new question
+  - Must logically follow from their answer to "${mainQuestionText}" — not feel like a random new question
+  - Reference "${companyName}" by name where it reads naturally
+  - No legal jargon — Class 10 reading level
 
 GOOD FOLLOW-UP EXAMPLES BY PILLAR:
 
 Litigation Health:
-  Q: "Do you have any unresolved disputes with a customer or vendor?"
+  Main Q: "Do you have any unresolved disputes with a customer or vendor?"
   A: No (meaning yes, they have disputes)
   Good follow-up: "Is this dispute already in a court or consumer forum?"
   Why good: Measures severity — court filing = much higher exposure
 
 Contractual Health:
-  Q: "Do you have a written agreement with every vendor you regularly pay?"
+  Main Q: "Do you have a written agreement with every vendor you regularly pay?"
   A: No
   Good follow-up: "How many vendors do you pay without a written agreement?"
   Why good: Measures scale — 2 vendors vs 20 vendors = very different risk
 
 Compliance Health:
-  Q: "Are your GST returns filed on time every quarter?"
+  Main Q: "Are your GST returns filed on time every quarter?"
   A: Not Sure
   Good follow-up: "When did you last check your GST filing status?"
   Why good: Measures awareness/duration — may reveal months of unfiled returns
 
 Legal Cost Efficiency:
-  Q: "Did you spend money last year resolving a dispute a contract could have prevented?"
+  Main Q: "Did you spend money last year resolving a dispute a contract could have prevented?"
   A: Yes
   Good follow-up: "Roughly how much did that dispute cost you in total?"
   Why good: Measures severity — anchors their pain to a real ₹ number for the report
 
-Future Risk Exposure:
-  Q: "Do you collect customer names, emails, or phone numbers in any form?"
-  A: Yes
-  Good follow-up: "Do you have a written privacy policy your customers can read?"
-  Why good: Measures gap — DPDP Act 2023 requires this; no policy = penalty risk
+STEP 4 — Custom answer options + insight (mandatory for every follow-up)
+Never write a plain Yes/No/Not Sure question. Every follow-up must ship with 3-4 tailored answer OPTIONS:
+  - Each option needs "value" (A/B/C/D), "label" (natural-language answer), optional "sublabel", and "score" 0-4 (4 = fully compliant/no risk, 0 = high risk)
+  - Options must match exactly what THIS follow-up is asking, not a generic set
+Every follow-up must also include an "insight" object with 5 fields tailored to this exact question and ${companyName}:
+  - info: what this risk area is and why it matters
+  - impact: concrete ₹/operational consequence
+  - suggestion: one practical suggestion
+  - recommendation: one specific recommendation
+  - example: short real-world-style example
 
 ---
 
@@ -775,209 +816,14 @@ OUTPUT FORMAT — return only this JSON, nothing else:
   "reasoning": "one sentence explaining why this follow-up is warranted",
   "measure_type": "SCALE / DURATION / SEVERITY / AWARENESS",
   "question": {
-    "id": "p${pillarNumber}_fq${followUpCount + 1}",
+    "id": "${parentQuestionId}_fq${followUpCount + 1}",
     "text": "follow-up question here",
-    "risk_area": "${riskArea}",
-    "weight": 5,
-    "isReverse": false,
-    "is_followup": true,
-    "parent_id": "${parentQuestionId}"
-  }
-}
-
-OR if no follow-up is needed:
-{
-  "ask_followup": false,
-  "reasoning": "one sentence explaining why we have enough information"
-}`;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PROMPT 2 — Adaptive Question Engine
-// Fires after the 2 seed questions are done for a pillar.
-// Decides whether to ask a follow-up (concerning answer) or a probing question
-// (clean answer, but more to explore). Always asks at least 2 adaptive per pillar.
-// Hard cap: 4 adaptive questions per pillar.
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface AdaptiveQuestionResult {
-  ask: boolean;
-  question?: AssessmentQuestion;
-}
-
-interface AdaptiveRaw {
-  next: "followup" | "next_question" | "next_pillar";
-  measure_type?: string;
-  reason?: string;
-  question?: {
-    id?: string;
-    text: string;
-    risk_if_no?: string;
-    law_reference?: string | null;
-    risk_area?: string;
-    weight?: number;
-    exposure_low?: number;
-    exposure_high?: number;
-    is_followup?: boolean;
-    parent_id?: string;
-    isReverse?: boolean;
-    hint?: string;
-    options?: OptionRaw[];
-    insight?: InsightRaw;
-  };
-}
-
-function buildAdaptivePrompt(
-  companyName: string,
-  businessType: string,
-  registration: string,
-  employeeCount: string,
-  industry: string,
-  pillarName: string,
-  pillarNumber: number,
-  _pillarDefinition: string,
-  pillarAnswers: Array<{ question: string; answer: string; score: number }>,
-  adaptiveCount: number
-): string {
-  const questionsAskedCount = pillarAnswers.length;
-  const lastAnswer = pillarAnswers[pillarAnswers.length - 1];
-
-  const pillarConversation = pillarAnswers
-    .map((a, i) => {
-      const effectivelyBad = a.score <= 1;
-      return `Q${i + 1}: "${a.question}" → ${a.answer}${effectivelyBad ? " ⚠️ (risk confirmed)" : " ✅ (covered)"}`;
-    })
-    .join("\n");
-
-  const parentQuestionId = lastAnswer
-    ? `p${pillarNumber}_q${questionsAskedCount}`
-    : `p${pillarNumber}_q1`;
-
-  return `
-You are LegalIQ's follow-up question engine.
-
-CONTEXT:
-Each pillar must produce exactly 5 questions total:
-- Questions 1 and 2 are the seed questions (already asked)
-- Questions 3, 4, and 5 are generated by YOU based on answers so far
-- If earlier answers show no risk in an area, skip that follow-up and move to the next risk area
-- Never ask more than 5 questions total per pillar
-
-BUSINESS PROFILE:
-Business Name: ${companyName}
-Business Type: ${businessType}
-Sub-category: ${industry}
-Registration: ${registration}
-Employees: ${employeeCount}
-State: Unknown
-
-CURRENT PILLAR: ${pillarName} (Pillar ${pillarNumber} of 4)
-QUESTIONS ASKED SO FAR IN THIS PILLAR: ${questionsAskedCount} of 5
-FOLLOW-UPS GENERATED SO FAR: ${adaptiveCount}
-
-FULL PILLAR CONVERSATION:
-${pillarConversation || "(No prior answers in this pillar yet)"}
-
-LAST QUESTION ASKED:
-"${lastAnswer?.question ?? ""}"
-
-ANSWER GIVEN: ${lastAnswer?.answer ?? ""}
-
----
-
-DECISION FRAMEWORK — follow this exactly:
-
-RULE 1 — Have we reached 5 questions in this pillar?
-If questionsAskedCount >= 5 → always return { "next": "next_pillar" }
-
-RULE 2 — Does the answer reveal a risk that needs depth?
-Generate a follow-up ONLY IF:
-  a) Answer is "No" or "Not Sure"
-  b) AND this specific risk is worth quantifying further
-  c) AND we don't already know this information from an earlier answer
-  d) AND a follow-up would change the ₹ exposure estimate significantly
-
-RULE 3 — What type of follow-up to ask?
-Choose exactly one:
-  SCALE: How many / How much is affected? (reveals exposure size)
-  DURATION: How long has this gap existed? (reveals accumulated risk)
-  SEVERITY: Has this gap already caused a problem? (reveals if theoretical or real)
-  DEPTH: Do you have a partial version of this? (narrows whether gap is complete or partial)
-
-RULE 4 — What if the answer is "Yes"?
-Most "Yes" answers → move to next question in the pillar (no follow-up needed).
-Exception: if a "Yes" answer opens a NEW risk area → ask one targeted question on that new risk.
-
-Example: 
-Q: "Do you collect customer phone numbers or emails for your business?"
-A: Yes
-→ This opens DPDP Act risk → follow-up: "Do customers have a way to see or delete the data you hold on them?"
-
-RULE 5 — No generic follow-ups
-Every follow-up must be specific to:
-  - The exact gap revealed by the answer
-  - The specific business type — where natural, reference "${companyName}" by name
-  - A specific ₹ consequence
-
-BAD: "Do you have any documentation for this?"
-GOOD: "How many vendors do you work with who have no written agreement?"
-
-BAD: "Are you aware of the relevant regulations?"
-GOOD: "Has your FSSAI licence been renewed in the last 12 months?"
-
-RULE 6 — Custom answer options + insight (mandatory for every follow-up)
-Never write a plain Yes/No/Not Sure question. Every follow-up must ship with 3-4 tailored answer OPTIONS:
-  - Each option needs "value" (A/B/C/D), "label" (natural-language answer), optional "sublabel", and "score" 0-4 (4 = fully compliant/no risk, 0 = high risk)
-  - Options must match exactly what THIS question is asking, not a generic set
-Every follow-up must also include an "insight" object with 5 fields tailored to this exact question and ${companyName}:
-  - info: what this risk area is and why it matters
-  - impact: concrete ₹/operational consequence
-  - suggestion: one practical suggestion
-  - recommendation: one specific recommendation
-  - example: short real-world-style example
-
-PILLAR-SPECIFIC FOLLOW-UP GUIDANCE:
-
-PILLAR 1 — LITIGATION HEALTH:
-If they have an active dispute → ask: Is this in court, consumer forum, or still informal?
-If they have an ex-employee dispute → ask: Did they receive a written legal notice?
-If no disputes → ask about the most likely dispute type for their business type
-
-PILLAR 2 — CONTRACTUAL HEALTH:
-If no vendor agreements → ask: How many vendors do you pay more than ₹50,000/year without a contract?
-If no client agreements → ask: What is the value of your largest active client relationship?
-If partial agreements → ask: Do your agreements specify what happens if either side defaults?
-
-PILLAR 3 — COMPLIANCE HEALTH:
-If GST not filed → ask: How many months of GST returns are currently pending?
-If licence expired → ask: How long has it been since the licence was last renewed?
-If not sure about filings → ask: When did a CA or accountant last review your compliance status?
-
-PILLAR 4 — LEGAL COST EFFICIENCY:
-If they spent money on disputes → ask: Did you have a written agreement with the other party before the dispute?
-If they draft contracts fresh each time → ask: How many new agreements does your business sign in a typical year?
-If they carry personal guarantees on business loans → ask: What is the total amount you have personally guaranteed?
-If they don't track legal spend → ask: Do you have a way to see what your business spent on legal fees and penalties last year?
-
----
-
-OUTPUT — return only this JSON:
-
-If a follow-up is warranted:
-{
-  "next": "followup",
-  "measure_type": "SCALE / DURATION / SEVERITY / DEPTH",
-  "question": {
-    "id": "p${pillarNumber}_q${questionsAskedCount + 1}",
-    "text": "follow-up question — max 20 words, plain language, practical",
     "risk_if_no": "specific consequence",
-    "law_reference": "specific Indian law if applicable, else null",
     "risk_area": "same pillar risk area",
-    "weight": 6,
+    "weight": 5,
     "exposure_low": 25000,
     "exposure_high": 300000,
-    "is_followup": true,
-    "parent_id": "${parentQuestionId}",
+    "isReverse": false,
     "options": [
       { "value": "A", "label": "tailored answer option", "sublabel": "optional helper text", "score": 4 },
       { "value": "B", "label": "tailored answer option", "score": 2 },
@@ -994,24 +840,22 @@ If a follow-up is warranted:
   }
 }
 
-If no follow-up needed — move to next question in pillar:
+OR if no follow-up is needed:
 {
-  "next": "next_question",
-  "reason": "answer shows no risk in this area"
-}
-
-If pillar is complete (5 questions asked):
-{
-  "next": "next_pillar",
-  "reason": "pillar complete"
+  "ask_followup": false,
+  "reasoning": "one sentence explaining why we have enough information"
 }`;
 }
 
-// Adaptive question AI calls are capped at 5 seconds; on timeout we return null (skip).
-// In practice the pre-generated cache (adaptiveCache.ts) serves most questions instantly.
-const ADAPTIVE_TIMEOUT_MS = 5000;
+// Follow-up AI calls are capped; on timeout we skip the follow-up entirely
+// (acceptable, since follow-ups are optional and only asked "when needed").
+// Observed gemini-2.5-flash latency for this prompt varies 4-12s, so a short
+// cap caused nearly every follow-up to be skipped on timeout rather than
+// actually evaluated. 15s keeps the UX responsive while giving the model
+// realistic room to finish before we fall back to "no follow-up".
+const FOLLOWUP_TIMEOUT_MS = 15000;
 
-export async function generateNextAdaptiveQuestion(
+export async function generateFollowUp(
   companyName: string,
   businessType: string,
   registration: string,
@@ -1020,24 +864,27 @@ export async function generateNextAdaptiveQuestion(
   pillarName: string,
   pillarNumber: number,
   pillarDefinition: string,
-  pillarAnswers: Array<{ question: string; answer: string; score: number }>,
-  adaptiveCount: number
+  mainQuestionText: string,
+  parentQuestionId: string,
+  latestAnswer: string,
+  followUpCount: number,
+  questionThreadHistory: string
 ): Promise<AssessmentQuestion | null> {
   // Hard cap enforced here (engine also checks, but belt + suspenders)
-  if (adaptiveCount >= 4) return null;
+  if (followUpCount >= 2) return null;
 
-  const prompt = buildAdaptivePrompt(
+  const prompt = buildFollowUpPrompt(
     companyName || "your business", businessType, registration, employeeCount, industry,
     pillarName, pillarNumber, pillarDefinition,
-    pillarAnswers, adaptiveCount
+    mainQuestionText, parentQuestionId, latestAnswer, followUpCount, questionThreadHistory
   );
 
   async function tryParse(): Promise<AssessmentQuestion | null> {
-    const raw = await callGemini(prompt, 1200, 0.5);
-    const parsed = JSON.parse(raw) as AdaptiveRaw;
+    const raw = await callGemini(prompt, 2500, 0.5);
+    const parsed = JSON.parse(raw) as FollowUpRaw;
 
-    if (parsed.next !== "followup" || !parsed.question?.text?.trim()) {
-      logger.info({ pillarName, adaptiveCount, next: parsed.next, reason: parsed.reason }, "Adaptive engine: no follow-up needed");
+    if (!parsed.ask_followup || !parsed.question?.text?.trim()) {
+      logger.info({ pillarName, parentQuestionId, followUpCount, reasoning: parsed.reasoning }, "Follow-up engine: no follow-up needed");
       return null;
     }
 
@@ -1047,14 +894,14 @@ export async function generateNextAdaptiveQuestion(
       : undefined;
 
     return {
-      id: q.id ?? `p${pillarNumber}_aq${adaptiveCount + 1}`,
+      id: q.id ?? `${parentQuestionId}_fq${followUpCount + 1}`,
       text: q.text.trim(),
-      hint: q.hint ?? q.risk_if_no,
+      hint: q.risk_if_no,
       riskIfNo: q.risk_if_no,
       weight: q.weight ?? 6,
       isReverse: q.isReverse ?? false,
       isFollowUp: true,
-      parentId: q.parent_id,
+      parentId: parentQuestionId,
       pillar: pillarName,
       exposureEstimate: expEstimate,
       options: normaliseOptions(q.options),
@@ -1064,171 +911,16 @@ export async function generateNextAdaptiveQuestion(
 
   const timeoutPromise = new Promise<AssessmentQuestion | null>((resolve) =>
     setTimeout(() => {
-      logger.warn({ pillarName, adaptiveCount }, "Adaptive question timed out — skipping");
+      logger.warn({ pillarName, parentQuestionId, followUpCount }, "Follow-up question timed out — skipping");
       resolve(null);
-    }, ADAPTIVE_TIMEOUT_MS)
+    }, FOLLOWUP_TIMEOUT_MS)
   );
 
   try {
     return await Promise.race([tryParse(), timeoutPromise]);
   } catch (err) {
-    logger.warn({ err }, "Adaptive question engine failed, returning null");
+    logger.warn({ err }, "Follow-up engine failed, skipping follow-up");
     return null;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PROMPT 2b — Adaptive Batch Pre-Generator
-// Generates 2 business-specific adaptive questions per pillar (10 total) in a
-// single Gemini call at session start so the quiz never waits for AI mid-quiz.
-// ─────────────────────────────────────────────────────────────────────────────
-
-function buildAdaptiveBatchPrompt(
-  businessType: string,
-  registration: string,
-  employeeCount: string,
-  industry: string,
-  state: string
-): string {
-  return `You are LegalIQ — India's AI legal diagnostic platform.
-
-Generate exactly 2 targeted adaptive follow-up questions for EACH of the 5 legal health pillars for the business described below.
-
-BUSINESS PROFILE:
-- Business Type: ${businessType}
-- Sub-category / Registration: ${registration}
-- Industry: ${industry}
-- Employees: ${employeeCount}
-- State / City: ${state}
-
-CRITICAL RULES:
-1. Every question MUST be specific to a "${businessType}" business — mention actual operations, roles, documents, or risks unique to this type of business.
-2. NEVER write generic questions like "Do you have legal documentation?" or "Are you aware of regulations?".
-3. Each question must be answerable with YES / NO / NOT SURE (max 20 words).
-4. Reference real Indian laws where applicable (GST Act, FSSAI, Shops & Establishments Act, IT Act, etc.).
-5. The hint must explain why it matters for this specific business type.
-6. isReverse: true means answering YES is the RISKY answer (e.g., "Have you ever been sued?").
-
-PILLAR DEFINITIONS:
-1. Litigation Health — Active disputes, unresolved claims, or lawsuit exposure
-2. Contractual Health — Written agreements protecting the business in all key relationships
-3. Compliance Health — Government registrations, licences, and filings being current
-4. Legal Cost Efficiency — Spending on legal proactively vs. reactively (also covers future risk, DPDP Act, trademark gaps, personal guarantees)
-
-OUTPUT — Return ONLY this exact JSON (no markdown, no extra text):
-{
-  "pillars": {
-    "Litigation Health": [
-      {
-        "id": "p1_aq1",
-        "text": "specific question for ${businessType} — max 20 words",
-        "hint": "why this matters for ${businessType} businesses specifically",
-        "risk_if_no": "specific consequence with Indian law reference",
-        "weight": 7,
-        "isReverse": false,
-        "exposure_low": 50000,
-        "exposure_high": 500000
-      },
-      {
-        "id": "p1_aq2",
-        "text": "second specific question for ${businessType}",
-        "hint": "context for ${businessType} operators",
-        "risk_if_no": "consequence",
-        "weight": 7,
-        "isReverse": false,
-        "exposure_low": 25000,
-        "exposure_high": 300000
-      }
-    ],
-    "Contractual Health": [
-      { "id": "p2_aq1", "text": "...", "hint": "...", "risk_if_no": "...", "weight": 7, "isReverse": false, "exposure_low": 50000, "exposure_high": 500000 },
-      { "id": "p2_aq2", "text": "...", "hint": "...", "risk_if_no": "...", "weight": 7, "isReverse": false, "exposure_low": 25000, "exposure_high": 200000 }
-    ],
-    "Compliance Health": [
-      { "id": "p3_aq1", "text": "...", "hint": "...", "risk_if_no": "...", "weight": 7, "isReverse": false, "exposure_low": 10000, "exposure_high": 200000 },
-      { "id": "p3_aq2", "text": "...", "hint": "...", "risk_if_no": "...", "weight": 7, "isReverse": false, "exposure_low": 5000, "exposure_high": 100000 }
-    ],
-    "Legal Cost Efficiency": [
-      { "id": "p4_aq1", "text": "...", "hint": "...", "risk_if_no": "...", "weight": 6, "isReverse": false, "exposure_low": 25000, "exposure_high": 300000 },
-      { "id": "p4_aq2", "text": "...", "hint": "...", "risk_if_no": "...", "weight": 6, "isReverse": false, "exposure_low": 10000, "exposure_high": 150000 }
-    ]
-  }
-}`;
-}
-
-interface AdaptiveBatchRaw {
-  pillars: Record<string, Array<{
-    id?: string;
-    text: string;
-    hint?: string;
-    risk_if_no?: string;
-    weight?: number;
-    isReverse?: boolean;
-    exposure_low?: number;
-    exposure_high?: number;
-  }>>;
-}
-
-const PILLAR_NAMES = [
-  "Litigation Health",
-  "Contractual Health",
-  "Compliance Health",
-  "Legal Cost Efficiency",
-] as const;
-
-export async function generateAdaptiveBatch(
-  businessType: string,
-  registration: string,
-  employeeCount: string,
-  industry: string,
-  state: string
-): Promise<Record<string, AssessmentQuestion[]>> {
-  const prompt = buildAdaptiveBatchPrompt(businessType, registration, employeeCount, industry, state);
-
-  try {
-    const raw = await callGemini(prompt, 2500, 0.3);
-    const parsed = JSON.parse(raw) as AdaptiveBatchRaw;
-
-    if (!parsed.pillars || typeof parsed.pillars !== "object") {
-      throw new Error("Invalid batch response structure");
-    }
-
-    const result: Record<string, AssessmentQuestion[]> = {};
-
-    for (const pillarName of PILLAR_NAMES) {
-      const qs = parsed.pillars[pillarName];
-      if (!Array.isArray(qs) || qs.length < 2) {
-        logger.warn({ pillarName }, "Adaptive batch: missing questions for pillar, will use static fallback");
-        continue;
-      }
-
-      result[pillarName] = qs.slice(0, 2).map((q, idx) => {
-        const pillarNum = PILLAR_NAMES.indexOf(pillarName) + 1;
-        const exp = q.exposure_low != null && q.exposure_high != null
-          ? `Rs.${q.exposure_low.toLocaleString("en-IN")} - Rs.${q.exposure_high.toLocaleString("en-IN")}`
-          : undefined;
-
-        return {
-          id: q.id ?? `p${pillarNum}_aq${idx + 1}`,
-          text: q.text?.trim() ?? "",
-          hint: q.hint ?? q.risk_if_no ?? "",
-          riskIfNo: q.risk_if_no ?? "",
-          weight: q.weight ?? 7,
-          isReverse: q.isReverse ?? false,
-          isFollowUp: true,
-          pillar: pillarName,
-          exposureEstimate: exp,
-          options: fallbackOptions(),
-          insight: normaliseInsight(undefined, q.risk_if_no),
-        };
-      }).filter((q) => q.text.length > 0);
-    }
-
-    logger.info({ businessType, pillarsGenerated: Object.keys(result).length }, "Adaptive batch: generated successfully");
-    return result;
-  } catch (err) {
-    logger.warn({ err, businessType }, "Adaptive batch generation failed — quiz will use static fallbacks");
-    return {};
   }
 }
 

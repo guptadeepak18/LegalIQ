@@ -4,7 +4,7 @@ import { leads } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   generateSeedQuestionsForAssessment,
-  generateNextAdaptiveQuestion,
+  generateFollowUp,
   STATIC_SEED_PILLARS,
 } from "../services/gemini.js";
 import { logger } from "../lib/logger.js";
@@ -89,10 +89,21 @@ router.post("/assessment/adaptive", async (req, res) => {
 
   const pillar = STATIC_SEED_PILLARS.find((p) => p.name === pillarName);
   const definition = pillar?.definition ?? pillarName;
+  const lastEntry = pillarAnswers[pillarAnswers.length - 1];
 
-  logger.info({ pillarName, adaptiveCount }, "Adaptive engine: evaluating next question");
+  if (!lastEntry) {
+    res.json({ success: true, ask: false, question: undefined });
+    return;
+  }
 
-  const question = await generateNextAdaptiveQuestion(
+  const parentQuestionId = `p${pillarNumber}_q${pillarAnswers.length}`;
+  const questionThreadHistory = pillarAnswers
+    .map((a) => `Q: "${a.question}" → A: ${a.answer}`)
+    .join("\n");
+
+  logger.info({ pillarName, adaptiveCount }, "Follow-up engine: evaluating next question");
+
+  const question = await generateFollowUp(
     companyName ?? "your business",
     businessType,
     registration ?? businessType,
@@ -101,8 +112,11 @@ router.post("/assessment/adaptive", async (req, res) => {
     pillarName,
     pillarNumber,
     definition,
-    pillarAnswers,
-    adaptiveCount
+    lastEntry.question,
+    parentQuestionId,
+    lastEntry.answer,
+    adaptiveCount,
+    questionThreadHistory
   );
 
   res.json({ success: true, ask: question !== null, question: question ?? undefined });
