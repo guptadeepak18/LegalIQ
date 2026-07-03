@@ -1064,7 +1064,7 @@ SECTIONS TO GENERATE:
 6. BUSINESS EXAMPLE — A real-sounding Indian company story (plausible, not sensitive):
    businessName, whatHappened (2-3 sentences), consequences (₹ amount + time), vcloWouldHave (how Rest The Case VCLO prevented it), lesson (one punchy takeaway).
 
-7. VCLO PITCH — One compelling paragraph (4–5 sentences) addressed to ${payload.company}. Reference: their two lowest-scoring pillars, score (${payload.total}/100), city (${payload.city}), and monthly cost of VCLO vs. reactive legal fees.
+7. VCLO PITCH — One compelling, professional paragraph (4–5 sentences) addressed to ${payload.company}, a ${payload.businessType} in ${payload.city}. Reference: their score (${payload.total}/100) and risk level, their two lowest-scoring pillars, the single highest-priority risk flag from section 3, and how a dedicated Rest The Case VCLO (Virtual Chief Legal Officer) specifically addresses those gaps for a business of this type and stage. Tone: confident, consultative, and factual — no fear-based language, no fabricated statistics. End with a clear reason to act now.
 
 ---
 OUTPUT FORMAT — return only this JSON:
@@ -1185,7 +1185,7 @@ export async function generateReport(payload: ReportPayload): Promise<GeneratedR
       vcloWouldHave: "A VCLO would have ensured all vendor agreements were documented and dispute resolution clauses were in place before work began.",
       lesson: "A written contract costs ₹5,000. A verbal agreement dispute costs ₹12 Lakhs.",
     },
-    vcloPitch: `With a score of ${payload.total}/100 and ${payload.risk} risk, ${payload.company} in ${payload.city} needs proactive legal protection. Rest The Case's VCLO service provides dedicated legal counsel for ${payload.businessType}s starting at ₹4,999/month — a fraction of what a single dispute costs. Don't wait for a legal crisis to act.`,
+    vcloPitch: `${payload.company} scored ${payload.total}/100 (${payload.risk} risk), with contracts and compliance flagged as the areas needing the most attention for a ${payload.businessType} at this stage. A Rest The Case VCLO gives you a dedicated attorney who reviews every contract before you sign, tracks your compliance calendar, and is available on demand — replacing ad hoc legal help with continuous, business-focused support. Plans start at ₹4,999/month, a predictable cost compared to per-matter legal fees. The sooner these gaps are addressed, the fewer of them compound into larger issues.`,
   };
 
   interface ReportRaw {

@@ -88,6 +88,23 @@ const PILLAR_DESCRIPTIONS = [
   "Efficiency of legal spend and preparedness to avoid avoidable costs.",
 ];
 
+export interface ComparisonRow {
+  label: string;
+  traditional: string;
+  vclo: string;
+}
+
+export const VCLO_COMPARISON: ComparisonRow[] = [
+  { label: "Cost Efficiency", traditional: "Billed per hour or per matter; costs are unpredictable", vclo: "Fixed monthly retainer with predictable, budgetable costs" },
+  { label: "Legal Quality", traditional: "Varies by lawyer availability and matter urgency", vclo: "Dedicated attorneys who get to know your business over time" },
+  { label: "Response Time", traditional: "Typically days to schedule a consultation", vclo: "Same or next business day response" },
+  { label: "Ongoing Support", traditional: "Reactive — engaged only when a problem arises", vclo: "Continuous, proactive legal oversight all year round" },
+  { label: "Compliance Monitoring", traditional: "Manual tracking; easy to miss filing deadlines", vclo: "Structured tracking of licences, filings, and renewals" },
+  { label: "Contract Review", traditional: "Ad hoc, charged per document", vclo: "Ongoing review included as part of the service" },
+  { label: "Risk Prevention", traditional: "Issues are typically addressed after they occur", vclo: "Risks are identified and mitigated before they escalate" },
+  { label: "Business-Focused Guidance", traditional: "General legal advice, not tailored to your sector", vclo: "Guidance shaped around your sector, stage, and goals" },
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Strip characters jsPDF / Helvetica cannot render (emojis, ₹, etc.) */
@@ -948,31 +965,152 @@ export function generateReportPDF(data: ReportData): void {
     y += boxH + 6;
   });
 
-  // ── VCLO pitch box (if fits on page) ────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════
+  // PAGE — YOUR NEXT STEP (VCLO pitch + comparison table)
+  // ══════════════════════════════════════════════════════════════
+  doc.addPage();
+  page++;
+  pageHeader(doc, page);
+  pageFooter(doc);
+
+  y = 24;
+
+  doc.setFillColor(...DARK_P);
+  doc.roundedRect(ML, y, CW, 12, 2, 2, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10.5);
+  doc.setTextColor(...GOLD);
+  doc.text("YOUR NEXT STEP", ML + 6, y + 8.5);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(130, 120, 100);
+  doc.text("Rest The Case VCLO Service", W - ML - 6, y + 8.5, { align: "right" });
+  y += 18;
+
+  // Personalised pitch box
   if (data.vcloPitch) {
     const pitchLines = wrap(doc, data.vcloPitch, CW - 18);
-    const pitchH = pitchLines.length * 5.2 + 24;
-    if (y + pitchH < H - 20) {
-      y += 6;
-      doc.setFillColor(16, 14, 10);
-      doc.roundedRect(ML, y, CW, pitchH, 5, 5, "F");
-      doc.setFillColor(...GOLD);
-      doc.rect(ML, y, 4, pitchH, "F");
-      doc.setDrawColor(...GOLD);
-      doc.setLineWidth(0.4);
-      doc.roundedRect(ML, y, CW, pitchH, 5, 5, "S");
+    const pitchH = pitchLines.length * 5.2 + 20;
 
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      doc.setTextColor(...GOLD);
-      doc.text("YOUR NEXT STEP  |  Rest The Case VCLO Service", ML + 9, y + 11);
+    doc.setFillColor(16, 14, 10);
+    doc.roundedRect(ML, y, CW, pitchH, 5, 5, "F");
+    doc.setFillColor(...GOLD);
+    doc.rect(ML, y, 4, pitchH, "F");
+    doc.setDrawColor(...GOLD);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(ML, y, CW, pitchH, 5, 5, "S");
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(185, 178, 158);
-      doc.text(pitchLines, ML + 9, y + 19);
-    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...GOLD);
+    doc.text("HOW A VCLO HELPS YOUR BUSINESS", ML + 9, y + 11);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(210, 204, 190);
+    doc.text(pitchLines, ML + 9, y + 19);
+
+    y += pitchH + 10;
   }
+
+  // Comparison table: Traditional Legal Support vs. Rest The Case VCLO
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...INK1);
+  doc.text("Traditional Legal Support vs. Rest The Case VCLO", ML, y);
+  y += 7;
+
+  const col1W = CW * 0.30;
+  const col2W = CW * 0.35;
+  const col3W = CW - col1W - col2W;
+  const headerH = 9;
+
+  doc.setFillColor(...DARK_P);
+  doc.roundedRect(ML, y, CW, headerH, 2, 2, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...INK3);
+  doc.text("ASPECT", ML + 4, y + 6);
+  doc.setTextColor(200, 130, 60);
+  doc.text("TRADITIONAL LEGAL SUPPORT", ML + col1W + 4, y + 6);
+  doc.setTextColor(...GOLD);
+  doc.text("REST THE CASE VCLO", ML + col1W + col2W + 4, y + 6);
+  y += headerH;
+
+  VCLO_COMPARISON.forEach((row, i) => {
+    const labelLines = wrap(doc, row.label, col1W - 8);
+    const tradLines  = wrap(doc, row.traditional, col2W - 8);
+    const vcloLines  = wrap(doc, row.vclo, col3W - 8);
+    const rowLines = Math.max(labelLines.length, tradLines.length, vcloLines.length);
+    const rowH = rowLines * 4.3 + 6;
+
+    if (y + rowH > H - 20) {
+      doc.addPage();
+      page++;
+      pageHeader(doc, page);
+      pageFooter(doc);
+      y = 24;
+
+      doc.setFillColor(...DARK_P);
+      doc.roundedRect(ML, y, CW, headerH, 2, 2, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...INK3);
+      doc.text("ASPECT", ML + 4, y + 6);
+      doc.setTextColor(200, 130, 60);
+      doc.text("TRADITIONAL LEGAL SUPPORT", ML + col1W + 4, y + 6);
+      doc.setTextColor(...GOLD);
+      doc.text("REST THE CASE VCLO", ML + col1W + col2W + 4, y + 6);
+      y += headerH;
+    }
+
+    if (i % 2 === 0) {
+      doc.setFillColor(...PANEL);
+      doc.rect(ML, y, CW, rowH, "F");
+    }
+    doc.setDrawColor(...INK4);
+    doc.setLineWidth(0.15);
+    doc.line(ML, y + rowH, ML + CW, y + rowH);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...INK1);
+    doc.text(labelLines, ML + 4, y + 5);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...INK2);
+    doc.text(tradLines, ML + col1W + 4, y + 5);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(30, 120, 70);
+    doc.text(vcloLines, ML + col1W + col2W + 4, y + 5);
+
+    y += rowH;
+  });
+
+  y += 12;
+
+  // Strong CTA button
+  if (y + 24 > H - 20) {
+    doc.addPage();
+    page++;
+    pageHeader(doc, page);
+    pageFooter(doc);
+    y = 24;
+  }
+  const ctaBtnW = CW;
+  doc.setFillColor(...GOLD);
+  doc.roundedRect(ML, y, ctaBtnW, 20, 5, 5, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...DARK);
+  doc.text("Book Your Free Consultation", ML + ctaBtnW / 2, y + 9, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(50, 45, 35);
+  doc.text("restthecase.com/virtualCLOPackage  |  No commitment  |  30-minute call", ML + ctaBtnW / 2, y + 16, { align: "center" });
 
   // ══════════════════════════════════════════════════════════════
   // PAGE 5 — CALL TO ACTION

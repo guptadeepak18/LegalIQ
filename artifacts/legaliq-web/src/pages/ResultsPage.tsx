@@ -32,6 +32,17 @@ const TIMELINE_CONFIG: Record<string, { cls: string; icon: typeof Zap }> = {
   "90 DAYS":    { cls: "text-blue-500 bg-blue-500/10 border-blue-500/25",    icon: Target },
 };
 
+const VCLO_COMPARISON = [
+  { label: "Cost Efficiency",             traditional: "Billed per hour or per matter; costs are unpredictable",  vclo: "Fixed monthly retainer with predictable, budgetable costs" },
+  { label: "Legal Quality",               traditional: "Varies by lawyer availability and matter urgency",         vclo: "Dedicated attorneys who get to know your business over time" },
+  { label: "Response Time",               traditional: "Typically days to schedule a consultation",                vclo: "Same or next business day response" },
+  { label: "Ongoing Support",             traditional: "Reactive — engaged only when a problem arises",            vclo: "Continuous, proactive legal oversight all year round" },
+  { label: "Compliance Monitoring",       traditional: "Manual tracking; easy to miss filing deadlines",           vclo: "Structured tracking of licences, filings, and renewals" },
+  { label: "Contract Review",             traditional: "Ad hoc, charged per document",                             vclo: "Ongoing review included as part of the service" },
+  { label: "Risk Prevention",             traditional: "Issues are typically addressed after they occur",          vclo: "Risks are identified and mitigated before they escalate" },
+  { label: "Business-Focused Guidance",   traditional: "General legal advice, not tailored to your sector",        vclo: "Guidance shaped around your sector, stage, and goals" },
+];
+
 function gradeFromScore(score: number) {
   if (score >= 80) return "A";
   if (score >= 60) return "B";
@@ -766,15 +777,46 @@ export default function ResultsPage() {
           <div className="absolute inset-0 bg-gradient-to-br from-[#C9A84C]/8 via-transparent to-transparent pointer-events-none" />
           <div className="absolute -bottom-16 -right-16 w-64 h-64 bg-[#C9A84C]/5 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10">
-            <h2 className="font-serif text-2xl font-bold liq-text-1 mb-3">Your Next Step</h2>
-            {report.vcloPitch && <p className="liq-text-2 mb-6 leading-relaxed">{report.vcloPitch}</p>}
+            <h2 className="font-serif text-2xl font-bold liq-text-1 mb-1">Your Next Step</h2>
+            <p className="liq-text-3 text-xs mb-5">How a Rest The Case Virtual Chief Legal Officer (VCLO) supports a {store.businessType || "business like yours"}.</p>
+
+            {report.vcloPitch && (
+              <div className="mb-6 p-5 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.25)", background: "rgba(10,10,10,0.03)" }}>
+                <p className="text-[#C9A84C] text-xs font-bold uppercase tracking-wider mb-2">How a VCLO helps your business</p>
+                <p className="liq-text-2 leading-relaxed text-sm">{report.vcloPitch}</p>
+              </div>
+            )}
+
+            {/* Comparison table */}
+            <p className="font-serif text-base font-bold liq-text-1 mb-3">Traditional Legal Support vs. Rest The Case VCLO</p>
+            <div className="overflow-x-auto mb-6 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.15)" }}>
+              <table className="w-full text-sm border-collapse min-w-[560px]">
+                <thead>
+                  <tr style={{ background: "rgba(10,10,10,0.06)" }}>
+                    <th className="text-left px-4 py-3 liq-text-3 text-xs font-bold uppercase tracking-wider">Aspect</th>
+                    <th className="text-left px-4 py-3 text-amber-600 text-xs font-bold uppercase tracking-wider">Traditional Legal Support</th>
+                    <th className="text-left px-4 py-3 text-[#C9A84C] text-xs font-bold uppercase tracking-wider">Rest The Case VCLO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {VCLO_COMPARISON.map((row, i) => (
+                    <tr key={row.label} style={{ background: i % 2 === 0 ? "rgba(201,168,76,0.03)" : "transparent" }} className="border-t" >
+                      <td className="px-4 py-3 font-semibold liq-text-1 align-top" style={{ borderColor: "rgba(201,168,76,0.08)" }}>{row.label}</td>
+                      <td className="px-4 py-3 liq-text-3 align-top" style={{ borderColor: "rgba(201,168,76,0.08)" }}>{row.traditional}</td>
+                      <td className="px-4 py-3 text-emerald-600 font-medium align-top" style={{ borderColor: "rgba(201,168,76,0.08)" }}>{row.vclo}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <button onClick={() => navigate("/consult")}
+              className="w-full flex items-center justify-center gap-2 bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold py-5 rounded-xl transition-all shadow-lg shadow-[#C9A84C]/30 text-lg mb-3">
+              <Calendar size={20} /> Book Your Free Consultation
+            </button>
             <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={() => navigate("/consult")}
-                className="flex-1 flex items-center justify-center gap-2 bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold py-4 rounded-xl transition-all shadow-lg shadow-[#C9A84C]/22 text-base">
-                <Calendar size={18} /> Book Free 30-Min Consultation
-              </button>
               <a href={whatsappLink} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 font-semibold py-4 px-6 rounded-xl transition-all text-white"
+                className="flex-1 flex items-center justify-center gap-2 font-semibold py-3.5 px-6 rounded-xl transition-all text-white"
                 style={{ background: "#25D366" }}>
                 <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
                   <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.890-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
@@ -782,7 +824,7 @@ export default function ResultsPage() {
                 Share on WhatsApp
               </a>
               <button onClick={() => navigate("/review")}
-                className="flex items-center justify-center gap-2 border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/10 font-semibold py-4 px-6 rounded-xl transition-all">
+                className="flex items-center justify-center gap-2 border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/10 font-semibold py-3.5 px-6 rounded-xl transition-all">
                 <Star size={16} /> Leave a Review
               </button>
             </div>
