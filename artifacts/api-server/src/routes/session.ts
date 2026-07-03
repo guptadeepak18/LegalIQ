@@ -319,6 +319,23 @@ router.post("/session/answer", async (req, res) => {
       }
     }
 
+    const detailedAnswers = updatedAnswers.map((a) => {
+      const insight = a.fullQuestion?.insight;
+      return {
+        question: a.question,
+        pillar: a.pillar,
+        answer: a.answer,
+        score: a.score,
+        maxScore: 4,
+        weight: a.weight,
+        isSeed: a.isSeed,
+        info: insight?.info ?? "",
+        impact: insight?.impact ?? "",
+        suggestion: insight?.suggestion ?? "",
+        recommendation: insight?.recommendation ?? "",
+      };
+    });
+
     return res.json({
       success: true,
       type: "COMPLETE",
@@ -333,6 +350,7 @@ router.post("/session/answer", async (req, res) => {
       costScore: scoring.costScore,
       futureScore: scoring.futureScore,
       report: aiReport,
+      answers: detailedAnswers,
     });
   }
 

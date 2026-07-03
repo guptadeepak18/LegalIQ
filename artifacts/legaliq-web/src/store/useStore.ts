@@ -9,6 +9,20 @@ export interface SeedAnswer {
   isSeed: boolean;
 }
 
+export interface DetailedAnswer {
+  question: string;
+  pillar: string;
+  answer: string;
+  score: number;
+  maxScore: number;
+  weight: number;
+  isSeed: boolean;
+  info: string;
+  impact: string;
+  suggestion: string;
+  recommendation: string;
+}
+
 export interface AssessmentResult {
   assessmentId: string;
   totalScore: number;
@@ -20,6 +34,7 @@ export interface AssessmentResult {
   complianceScore: number;
   costScore: number;
   futureScore: number;
+  answers?: DetailedAnswer[];
   report: {
     summary: string;
     pillarAssessments: Record<string, string>;

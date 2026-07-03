@@ -18,6 +18,20 @@ export interface Action {
   timeline: "THIS WEEK" | "THIS MONTH" | "90 DAYS";
 }
 
+export interface AnswerHistoryItem {
+  question: string;
+  pillar: string;
+  answer: string;
+  score: number;
+  maxScore: number;
+  weight: number;
+  isSeed: boolean;
+  info: string;
+  impact: string;
+  suggestion: string;
+  recommendation: string;
+}
+
 export interface ReportData {
   company: string;
   name: string;
@@ -30,6 +44,7 @@ export interface ReportData {
   insights: Insight[];
   actions: Action[];
   vcloPitch?: string;
+  answerHistory?: AnswerHistoryItem[];
 }
 
 // ─── Color palette ────────────────────────────────────────────────────────────
@@ -52,6 +67,13 @@ const PILLAR_COLORS: [number,number,number][] = [
 ];
 
 const PILLAR_LABELS = ["LITIGATION", "CONTRACTS", "COMPLIANCE", "COST"];
+
+const PILLAR_DESCRIPTIONS = [
+  "Exposure to disputes, legal notices, and court proceedings.",
+  "Strength and enforceability of vendor, employee, and customer agreements.",
+  "Adherence to statutory filings, licenses, and regulatory obligations.",
+  "Efficiency of legal spend and preparedness to avoid avoidable costs.",
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -299,86 +321,100 @@ export function generateReportPDF(data: ReportData): void {
   doc.setFontSize(10.5);
   doc.setTextColor(...GOLD);
   doc.text("4-PILLAR LEGAL HEALTH BREAKDOWN", ML + 6, y + 8.5);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(150, 142, 120);
+  doc.text("Each pillar scored out of 25", ML + CW - 6, y + 8.5, { align: "right" });
   y += 18;
 
-  const barMaxW = CW - 70;
-  const rowH = 30;
-  const rowGap = 5;
+  const rowH = 40;
+  const rowGap = 6;
+  const barX = ML + 12;
+  const barW2 = CW - 24;
 
   data.pillars.forEach((p, i) => {
     const col = PILLAR_COLORS[i]!;
+    const lightCol = col.map((c) => Math.min(255, c + 190)) as [number, number, number];
     const pct = Math.min(1, p.score / 25);
-    const barW = barMaxW * pct;
     const rY = y + i * (rowH + rowGap);
     const pg = grade((p.score / 25) * 100);
+    const pgRGB = riskRGB((p.score / 25) * 100);
 
-    // Row card
+    // Card background + border
     doc.setFillColor(...PANEL);
     doc.roundedRect(ML, rY, CW, rowH, 3, 3, "F");
     doc.setDrawColor(...INK4);
     doc.setLineWidth(0.2);
     doc.roundedRect(ML, rY, CW, rowH, 3, 3, "S");
 
-    // Left colour accent strip
+    // Left colour accent strip (full height)
     doc.setFillColor(...col);
-    doc.roundedRect(ML, rY, 4, rowH, 2, 2, "F");
+    doc.roundedRect(ML, rY, 4.5, rowH, 2, 2, "F");
 
-    // Pillar number badge
+    // ── Header row: number badge · pillar name · tag  ||  score · grade chip ──
+    const headerY = rY + 13;
+
     doc.setFillColor(...col);
-    doc.circle(ML + 16, rY + 11, 6.5, "F");
+    doc.circle(ML + 17, headerY - 3, 7, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(...WHITE);
-    doc.text(`${i + 1}`, ML + 16, rY + 14.5, { align: "center" });
+    doc.text(`${i + 1}`, ML + 17, headerY, { align: "center" });
 
-    // Pillar label tag
-    const tagX = ML + 26;
-    doc.setFillColor(...col.map((c) => Math.min(255, c + 185)) as [number,number,number]);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11.5);
+    doc.setTextColor(...INK1);
+    doc.text(clean(p.label), ML + 30, headerY);
+    const nameW = doc.getTextWidth(clean(p.label));
+
+    const tagX = ML + 30 + nameW + 6;
+    doc.setFillColor(...lightCol);
     const tagW = doc.getTextWidth(PILLAR_LABELS[i]!) + 8;
-    doc.roundedRect(tagX, rY + 5, tagW, 8, 2, 2, "F");
+    doc.roundedRect(tagX, headerY - 8, tagW, 7.5, 2, 2, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.setTextColor(...col);
-    doc.text(PILLAR_LABELS[i]!, tagX + tagW / 2, rY + 11, { align: "center" });
+    doc.text(PILLAR_LABELS[i]!, tagX + tagW / 2, headerY - 3, { align: "center" });
 
-    // Pillar full name
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-    doc.setTextColor(...INK1);
-    doc.text(p.label, tagX + tagW + 5, rY + 11);
-
-    // Score (right side)
+    // Score + grade chip, right-aligned
+    const scoreStr = `${p.score}/25`;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(15);
     doc.setTextColor(...col);
-    doc.text(`${p.score}/25`, ML + CW - 6, rY + 12, { align: "right" });
+    doc.text(scoreStr, ML + CW - 8, headerY, { align: "right" });
+    const scoreW = doc.getTextWidth(scoreStr);
 
-    // Grade chip
-    const chipX = ML + CW - 6 - doc.getTextWidth(`${p.score}/25`) - 20;
-    doc.setFillColor(...col);
-    doc.roundedRect(chipX, rY + 4, 14, 8, 2, 2, "F");
+    const chipW = 20;
+    const chipX = ML + CW - 8 - scoreW - 8 - chipW;
+    doc.setFillColor(...pgRGB);
+    doc.roundedRect(chipX, headerY - 10, chipW, 9, 2, 2, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
+    doc.setFontSize(7.5);
     doc.setTextColor(...WHITE);
-    doc.text(`Grd ${pg}`, chipX + 7, rY + 9.5, { align: "center" });
+    doc.text(`${pg}`, chipX + chipW / 2, headerY - 3.5, { align: "center" });
 
-    // Progress bar track
-    const barY2 = rY + 20;
+    // ── Description line ──────────────────────────────────────────────────
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...INK3);
+    doc.text(clean(PILLAR_DESCRIPTIONS[i]!), ML + 30, headerY + 6.5);
+
+    // ── Progress bar ──────────────────────────────────────────────────────
+    const barY2 = rY + rowH - 8;
     doc.setFillColor(...INK4);
-    doc.roundedRect(ML + 26, barY2, barMaxW, 4.5, 2, 2, "F");
-
-    // Progress bar fill
+    doc.roundedRect(barX, barY2, barW2, 4.5, 2, 2, "F");
     doc.setFillColor(...col);
-    if (barW > 0) doc.roundedRect(ML + 26, barY2, Math.max(2, barW), 4.5, 2, 2, "F");
+    const fillW = barW2 * pct;
+    if (fillW > 0) doc.roundedRect(barX, barY2, Math.max(2, fillW), 4.5, 2, 2, "F");
   });
 
-  y += data.pillars.length * (rowH + rowGap) + 8;
+  y += data.pillars.length * (rowH + rowGap) + 4;
 
   // Legend
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(...INK3);
-  doc.text("Score guide:  0-8 = Grade D (At Risk)   8-12 = Grade C (Needs Attention)   12-16 = Grade B (Good)   16-20 = Grade A (Excellent)", ML, y);
+  doc.text("Score guide (per pillar, out of 25):  0-9 D (At Risk)   10-14 C (Needs Attention)   15-19 B (Good)   20-25 A (Excellent)", ML, y);
   y += 10;
 
   // Overall summary bar
@@ -492,6 +528,165 @@ export function generateReportPDF(data: ReportData): void {
 
     y += boxH + 7;
   });
+
+  // ══════════════════════════════════════════════════════════════
+  // PAGE — DETAILED ASSESSMENT HISTORY
+  // ══════════════════════════════════════════════════════════════
+  if (data.answerHistory && data.answerHistory.length > 0) {
+    doc.addPage();
+    page++;
+    pageHeader(doc, page);
+    pageFooter(doc);
+
+    y = 24;
+
+    doc.setFillColor(...DARK_P);
+    doc.roundedRect(ML, y, CW, 12, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    doc.setTextColor(...GOLD);
+    doc.text("DETAILED ASSESSMENT HISTORY", ML + 6, y + 8.5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(130, 120, 100);
+    doc.text(`${data.answerHistory.length} questions answered`, W - ML - 6, y + 8.5, { align: "right" });
+    y += 18;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...INK3);
+    doc.text(
+      wrap(doc, "Every question you answered, the choice you selected, the score it earned, and what that means for your business.", CW),
+      ML,
+      y
+    );
+    y += 12;
+
+    data.answerHistory.forEach((qa, i) => {
+      const pillarIdx = PILLAR_LABELS.findIndex((l) => qa.pillar.toUpperCase().startsWith(l)) >= 0
+        ? PILLAR_LABELS.findIndex((l) => qa.pillar.toUpperCase().startsWith(l))
+        : ["litigation", "contract", "compliance", "cost"].findIndex((k) => qa.pillar.toLowerCase().includes(k));
+      const col = PILLAR_COLORS[Math.max(0, pillarIdx)]!;
+      const isGood = qa.score >= 3;
+      const isMid = qa.score === 2;
+      const scoreColor: [number, number, number] = isGood ? [34, 180, 80] : isMid ? [210, 130, 20] : [220, 50, 50];
+      const scoreWord = isGood ? "Full/near-full marks" : isMid ? "Partial marks" : "Marks lost";
+
+      const outcome = qa.info || (isGood
+        ? "This answer reflects a healthy legal practice for this question."
+        : "This answer indicates a gap that increases legal exposure.");
+      const whyText = isGood
+        ? `Why: this response shows the safeguard is in place, so the question scored ${qa.score}/${qa.maxScore} with minimal risk carried forward.`
+        : `Why marks were lost: this response signals the safeguard is missing or incomplete, so only ${qa.score}/${qa.maxScore} was awarded out of ${qa.maxScore}.`;
+      const problemText = !isGood
+        ? (qa.impact || "This gap could expose the business to disputes, penalties, or unenforceable claims if not addressed.")
+        : "";
+      const recommendation = qa.recommendation || qa.suggestion || "Review this area with a lawyer to close the gap.";
+
+      const questionLines = wrap(doc, `Q${i + 1}. ${qa.question}`, CW - 20);
+      const outcomeLines = wrap(doc, outcome, CW - 20);
+      const whyLines = wrap(doc, whyText, CW - 20);
+      const problemLines = problemText && !isGood ? wrap(doc, `Potential business problem: ${problemText}`, CW - 20) : [];
+      const recLines = wrap(doc, `Recommendation: ${recommendation}`, CW - 20);
+
+      const boxH =
+        10 +
+        questionLines.length * 5 +
+        6 + // answer/score row
+        outcomeLines.length * 4.4 + 3 +
+        whyLines.length * 4.4 + 3 +
+        (problemLines.length > 0 ? problemLines.length * 4.4 + 3 : 0) +
+        recLines.length * 4.4 +
+        10;
+
+      if (y + boxH > H - 20) {
+        doc.addPage();
+        page++;
+        pageHeader(doc, page);
+        pageFooter(doc);
+        y = 24;
+      }
+
+      // Card
+      doc.setFillColor(...PANEL);
+      doc.roundedRect(ML, y, CW, boxH, 4, 4, "F");
+      doc.setDrawColor(...INK4);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(ML, y, CW, boxH, 4, 4, "S");
+
+      // Left accent
+      doc.setFillColor(...col);
+      doc.rect(ML, y, 4, boxH, "F");
+
+      let cy = y + 10;
+
+      // Pillar tag (top-left)
+      const pillarTagW = doc.getTextWidth(qa.pillar) + 8;
+      doc.setFillColor(...(col.map((c) => Math.min(255, c + 190)) as [number, number, number]));
+      doc.roundedRect(ML + 9, y + 5, pillarTagW, 7, 2, 2, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...col);
+      doc.text(clean(qa.pillar), ML + 9 + pillarTagW / 2, y + 9.8, { align: "center" });
+
+      // Score badge (top-right)
+      const scoreLbl = `${qa.score}/${qa.maxScore} — ${scoreWord}`;
+      const scoreLblW = doc.getTextWidth(scoreLbl) + 10;
+      doc.setFillColor(...scoreColor);
+      doc.roundedRect(ML + CW - 9 - scoreLblW, y + 5, scoreLblW, 7, 2, 2, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...WHITE);
+      doc.text(scoreLbl, ML + CW - 9 - scoreLblW / 2, y + 9.8, { align: "center" });
+
+      cy = y + 18;
+
+      // Question
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(...INK1);
+      doc.text(questionLines, ML + 9, cy);
+      cy += questionLines.length * 5 + 2;
+
+      // Selected answer
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.8);
+      doc.setTextColor(...col);
+      doc.text(`Your answer: ${clean(qa.answer)}`, ML + 9, cy);
+      cy += 6;
+
+      // Outcome / reason for score
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.8);
+      doc.setTextColor(...INK2);
+      doc.text(outcomeLines, ML + 9, cy);
+      cy += outcomeLines.length * 4.4 + 3;
+
+      // Why marks lost/gained
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...INK3);
+      doc.text(whyLines, ML + 9, cy);
+      cy += whyLines.length * 4.4 + 3;
+
+      // Business problem (only when marks were lost)
+      if (problemLines.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(175, 60, 20);
+        doc.text(problemLines, ML + 9, cy);
+        cy += problemLines.length * 4.4 + 3;
+      }
+
+      // Recommendation
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.8);
+      doc.setTextColor(20, 120, 90);
+      doc.text(recLines, ML + 9, cy);
+
+      y += boxH + 6;
+    });
+  }
 
   // ══════════════════════════════════════════════════════════════
   // PAGE 4 — ACTION PLAN

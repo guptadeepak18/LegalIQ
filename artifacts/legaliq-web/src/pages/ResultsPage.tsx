@@ -314,6 +314,19 @@ export default function ResultsPage() {
           timeline: act.timeline,
         })),
         vcloPitch: report.vcloPitch,
+        answerHistory: (result.answers || []).map((a) => ({
+          question: a.question,
+          pillar: a.pillar,
+          answer: a.answer,
+          score: a.score,
+          maxScore: a.maxScore,
+          weight: a.weight,
+          isSeed: a.isSeed,
+          info: a.info,
+          impact: a.impact,
+          suggestion: a.suggestion,
+          recommendation: a.recommendation,
+        })),
       });
     } catch (e) {
       console.error("PDF generation failed", e);
