@@ -12,9 +12,10 @@ import { logger } from "../lib/logger.js";
 import type { AssessmentPillar, AssessmentQuestion } from "../services/gemini.js";
 
 // How long to wait for AI seed generation before falling back to static questions.
-// A warm cache resolves in <50ms so a 200ms window captures those while
-// never blocking on a cold-miss AI call (which takes 10-30 seconds).
-const SEED_TIMEOUT_MS = 14000;
+// A warm (per-lead) cache resolves in <50ms. A cold call to Gemini typically
+// takes 8-20s, so this timeout is a generous safety net — it should only ever
+// be hit on genuine API failure/latency spikes, not as the routine path.
+const SEED_TIMEOUT_MS = 30000;
 
 const router = Router();
 
@@ -43,11 +44,12 @@ router.post("/session/start", async (req, res) => {
   const state = lead.city ?? "India";
   const employeeCount = "1-50";
 
-  // Cache-first with timeout: if AI questions are cached (same businessType+state
-  // seen before), they resolve in <50ms. On a cold miss we fall back to the
-  // static question bank immediately so the user never waits.
+  // Cache-first per lead: a warm cache (same lead retrying/refreshing) resolves
+  // in <50ms. On a cold miss we wait (up to SEED_TIMEOUT_MS) for Gemini to
+  // generate genuinely business-specific questions before ever touching the
+  // static fallback bank.
   const aiPromise = generateSeedQuestionsForAssessment(
-    companyName, businessType, registration, employeeCount, "2-5 years", industry, state
+    leadId, companyName, businessType, registration, employeeCount, "2-5 years", industry, state
   );
 
   let pillars: AssessmentPillar[];

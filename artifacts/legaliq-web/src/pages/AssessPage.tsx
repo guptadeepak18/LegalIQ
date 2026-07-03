@@ -38,9 +38,19 @@ type ServerAction =
   | { type: "PILLAR_TRANSITION"; question: AQuestion; pillarIndex: number; pillarName: string; pillarIcon: string; completedPillarIndex: number; completedPillarName: string; completedPillarIcon: string }
   | { type: "COMPLETE"; assessmentId: string; totalScore: number; riskLevel: string; litigationScore: number; contractualScore: number; complianceScore: number; costScore: number; futureScore: number; report: unknown };
 
-const PILLAR_COLORS = ["#EF4444","#F59E0B","#3B82F6","#8B5CF6"];
-const PILLAR_BG     = ["rgba(239,68,68,0.09)","rgba(245,158,11,0.09)","rgba(59,130,246,0.09)","rgba(139,92,246,0.09)"];
-const PILLAR_BORDER = ["rgba(239,68,68,0.24)","rgba(245,158,11,0.24)","rgba(59,130,246,0.24)","rgba(139,92,246,0.24)"];
+// Pillar accents are theme-aware CSS custom properties (see index.css) so the
+// same 4 semantic hues (red/amber/blue/violet) shift intensity automatically
+// between light and dark mode instead of using one fixed hex per theme.
+function pillarVar(index: number): string {
+  return `--pillar-rgb-${((index % 4) + 4) % 4}`;
+}
+function pillarColor(index: number, alphaPct?: number): string {
+  const v = pillarVar(index);
+  return alphaPct == null ? `rgb(var(${v}))` : `rgb(var(${v}) / ${alphaPct}%)`;
+}
+const PILLAR_COLORS = [0, 1, 2, 3].map((i) => pillarColor(i));
+const PILLAR_BG     = [0, 1, 2, 3].map((i) => pillarColor(i, 10));
+const PILLAR_BORDER = [0, 1, 2, 3].map((i) => pillarColor(i, 26));
 
 const LOAD_STEPS = [
   { icon: "🏢", label: "Reading your business profile" },
@@ -337,7 +347,7 @@ export default function AssessPage() {
             </div>
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={advancePillar}
               className="w-full py-4 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 shadow-lg"
-              style={{ background: nextColor, boxShadow: `0 8px 28px ${nextColor}45` }}>
+              style={{ background: nextColor, boxShadow: `0 8px 28px ${pillarColor(pendingTransition.pillarIndex, 27)}` }}>
               Next: {pendingTransition.pillarName} <ChevronRight size={20} />
             </motion.button>
             <p className="text-center liq-text-4 text-sm mt-4">{4 - pendingTransition.completedIndex - 1} pillar{4 - pendingTransition.completedIndex - 1 !== 1 ? "s" : ""} remaining</p>
@@ -349,14 +359,58 @@ export default function AssessPage() {
 
   if (phase === "checking") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-6">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-8 px-6 relative overflow-hidden">
         <LogoWatermark />
+        <div className="glow-orb w-72 h-72" style={{ background: pillarColor(pillarIndex, 22), top: "50%", left: "50%", transform: "translate(-50%,-50%)" }} />
         <PillarDots current={pillarIndex} colors={PILLAR_COLORS} />
-        <svg className="animate-spin mt-6" width={22} height={22} viewBox="0 0 24 24" fill="none" style={{ color }}>
-          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.2" />
-          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-        </svg>
-        <p className="liq-text-3 text-sm">Analysing your answer…</p>
+        <div className="relative flex items-center justify-center w-28 h-28">
+          {[0, 1, 2].map((ring) => (
+            <motion.span
+              key={ring}
+              className="absolute rounded-full"
+              style={{ border: `1.5px solid ${pillarColor(pillarIndex, 35)}`, width: 56, height: 56 }}
+              animate={{ scale: [1, 2.1, 2.1], opacity: [0.55, 0, 0] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: "easeOut", delay: ring * 0.7 }}
+            />
+          ))}
+          <motion.div
+            className="relative w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-sm"
+            style={{
+              background: `radial-gradient(circle at 35% 30%, ${pillarColor(pillarIndex, 30)}, ${pillarColor(pillarIndex, 10)})`,
+              border: `1px solid ${pillarColor(pillarIndex, 45)}`,
+              boxShadow: `0 0 30px ${pillarColor(pillarIndex, 35)}, 0 8px 24px rgba(0,0,0,0.18)`,
+            }}
+            animate={{ scale: [1, 1.06, 1] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "linear" }}
+            >
+              <Sparkles size={26} style={{ color }} strokeWidth={2} />
+            </motion.div>
+          </motion.div>
+        </div>
+        <div className="text-center">
+          <h3 className="liq-text-1 font-bold text-lg mb-1.5 flex items-center justify-center gap-1">
+            Analysing your answer
+            <motion.span
+              className="inline-flex gap-0.5 ml-0.5"
+              initial="hidden"
+            >
+              {[0, 1, 2].map((dot) => (
+                <motion.span
+                  key={dot}
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: color }}
+                  animate={{ opacity: [0.2, 1, 0.2] }}
+                  transition={{ duration: 1.2, repeat: Infinity, delay: dot * 0.2 }}
+                />
+              ))}
+            </motion.span>
+          </h3>
+          <p className="liq-text-3 text-sm">Tailoring your next question to {store.businessType || "your business"}</p>
+        </div>
       </div>
     );
   }
@@ -399,7 +453,7 @@ export default function AssessPage() {
           {currentQuestion.isFollowUp && (
             <>
               <span className="liq-text-4 text-sm">·</span>
-              <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background:`${color}20`, color }}>Follow-up</span>
+              <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: pillarColor(pillarIndex, 14), color }}>Follow-up</span>
             </>
           )}
         </div>
@@ -423,15 +477,15 @@ export default function AssessPage() {
                     {currentQuestion.text}
                   </h2>
                   {currentQuestion.hint && (
-                    <div className="mt-4 p-3 rounded-xl" style={{ background:`${color}12`, borderLeft:`3px solid ${color}60` }}>
-                      <p className="text-sm leading-relaxed" style={{ color:`${color}CC` }}>💡 {currentQuestion.hint}</p>
+                    <div className="mt-4 p-3 rounded-xl" style={{ background: pillarColor(pillarIndex, 8), borderLeft: `3px solid ${pillarColor(pillarIndex, 45)}` }}>
+                      <p className="text-sm leading-relaxed" style={{ color: pillarColor(pillarIndex, 88) }}>💡 {currentQuestion.hint}</p>
                     </div>
                   )}
                   {currentQuestion.exposureEstimate && (
                     <p className="mt-3 text-xs text-red-500/80">⚠ Potential exposure: {currentQuestion.exposureEstimate}</p>
                   )}
                   {previousAnswerLabel && (
-                    <p className="mt-4 text-xs font-semibold" style={{ color: `${color}CC` }}>
+                    <p className="mt-4 text-xs font-semibold" style={{ color: pillarColor(pillarIndex, 88) }}>
                       ✎ You previously answered this — pick again to update it.
                     </p>
                   )}
@@ -443,7 +497,7 @@ export default function AssessPage() {
                     <AnswerBtn
                       key={option.value}
                       option={option}
-                      accentColor={color}
+                      pillarIndex={pillarIndex}
                       border={border}
                       onSelect={handleAnswer}
                       selected={previousAnswerLabel === option.label}
@@ -455,7 +509,7 @@ export default function AssessPage() {
 
               {/* RIGHT COLUMN — Insight card (laptop/tablet only) */}
               <div className="hidden lg:block sticky top-6">
-                <InsightCard insight={currentQuestion.insight} color={color} bg={bg} border={border} />
+                <InsightCard insight={currentQuestion.insight} pillarIndex={pillarIndex} bg={bg} border={border} />
               </div>
             </div>
           </motion.div>
@@ -484,17 +538,18 @@ function scoreVisual(score: number): { iconClass: string; dot: string } {
   return { iconClass: "text-red-500", dot: "#EF4444" };
 }
 
-function AnswerBtn({ option, accentColor, border, onSelect, selected }: { option: AnswerOption; accentColor: string; border: string; onSelect: (o: AnswerOption) => void; selected?: boolean; }) {
+function AnswerBtn({ option, pillarIndex, border, onSelect, selected }: { option: AnswerOption; pillarIndex: number; border: string; onSelect: (o: AnswerOption) => void; selected?: boolean; }) {
   const visual = scoreVisual(option.score);
+  const accentColor = pillarColor(pillarIndex);
   return (
     <motion.button whileHover={{ x: 6, scale: 1.01, borderColor: accentColor }} whileTap={{ scale: 0.975 }}
       onClick={() => onSelect(option)}
       className="w-full flex items-center gap-5 px-6 py-5 rounded-2xl border text-left transition-all backdrop-blur-sm"
       style={{
-        borderColor: selected ? accentColor : border,
+        borderColor: selected ? accentColor : (border || "var(--answer-btn-border)"),
         borderWidth: selected ? "2px" : "1px",
-        background: selected ? `${accentColor}14` : "var(--answer-btn-bg)",
-        boxShadow: selected ? `0 0 0 1px ${accentColor}40` : undefined,
+        background: selected ? pillarColor(pillarIndex, 14) : "var(--answer-btn-bg)",
+        boxShadow: selected ? `0 0 0 1px ${pillarColor(pillarIndex, 40)}` : undefined,
       }}>
       <span className={`w-3 h-3 rounded-full flex-shrink-0 ${visual.iconClass}`} style={{ background: visual.dot }} />
       <div className="flex-1">
@@ -506,7 +561,8 @@ function AnswerBtn({ option, accentColor, border, onSelect, selected }: { option
   );
 }
 
-function InsightCard({ insight, color, bg, border }: { insight: QuestionInsight; color: string; bg: string; border: string }) {
+function InsightCard({ insight, pillarIndex, bg, border }: { insight: QuestionInsight; pillarIndex: number; bg: string; border: string }) {
+  const color = pillarColor(pillarIndex);
   const rows = [
     { icon: Lightbulb, label: "Why it matters", text: insight.info },
     { icon: TrendingDown, label: "Impact if ignored", text: insight.impact },

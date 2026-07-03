@@ -256,6 +256,13 @@ function normaliseInsight(raw: InsightRaw | undefined, riskIfNo: string | undefi
   };
 }
 
+const PILLAR_META: Array<{ id: number; name: PillarName; icon: string }> = [
+  { id: 1, name: "Litigation Health", icon: "⚖️" },
+  { id: 2, name: "Contractual Health", icon: "📄" },
+  { id: 3, name: "Compliance Health", icon: "✅" },
+  { id: 4, name: "Legal Cost Efficiency", icon: "💼" },
+];
+
 function buildSeedPrompt(
   companyName: string,
   businessType: string,
@@ -263,8 +270,13 @@ function buildSeedPrompt(
   employeeCount: string,
   businessAge: string,
   industry: string,
-  state: string
+  state: string,
+  onlyPillarId?: number
 ): string {
+  const targetPillar = onlyPillarId ? PILLAR_META.find((p) => p.id === onlyPillarId) : undefined;
+  const scopeInstruction = targetPillar
+    ? `YOUR TASK (THIS CALL): Generate exactly 5 main questions for ONLY PILLAR ${targetPillar.id} — "${targetPillar.name}". Ignore the other 3 pillars entirely for this call; they are generated separately. Return only that one pillar's JSON object (see OUTPUT shape below, but with a single pillar, not an array of 4).`
+    : `YOUR TASK: Generate exactly 5 main questions per pillar (20 questions total across 4 pillars). These are ALL of the main questions for each pillar — do not generate fewer or more.`;
   return `
 You are a senior Indian legal risk advisor with 20 years of experience 
 advising MSMEs, startups, and SMEs across India.
@@ -285,9 +297,7 @@ Has Physical Location: Yes
 Sells Online: Unknown
 Handles Customer Data: Unknown
 
-YOUR TASK:
-Generate exactly 5 main questions per pillar (20 questions total across 4 pillars).
-These are ALL of the main questions for each pillar — do not generate fewer or more.
+${scopeInstruction}
 A separate follow-up engine will add up to 2 extra questions after any single main
 question, but only when that specific answer reveals a risk worth exploring further.
 You do not need to plan for follow-ups here — just write 5 strong, distinct main
@@ -425,7 +435,39 @@ Risk: Expired licences, missed filings, or missing registrations that invite pen
 PILLAR 4 — LEGAL COST EFFICIENCY (score out of 25)
 Risk: Business is spending money fixing legal problems that prevention would have avoided.
 
-OUTPUT — return only this JSON, no explanations, no markdown:
+${targetPillar ? `OUTPUT — return only this JSON, no explanations, no markdown (ONE pillar object only, not wrapped in a "pillars" array):
+{
+  "id": ${targetPillar.id},
+  "name": "${targetPillar.name}",
+  "icon": "${targetPillar.icon}",
+  "questions": [
+    {
+      "id": "p${targetPillar.id}_q1",
+      "text": "QUESTION TEXT — max 20 words, plain language, practical",
+      "context": "why this question matters for THIS specific business type",
+      "risk_if_no": "exact financial or legal consequence if this is a gap",
+      "law_reference": "specific Indian law or authority e.g. Consumer Protection Act 2019",
+      "risk_area": "${targetPillar.name.toLowerCase()}",
+      "weight": 9,
+      "exposure_low": 50000,
+      "exposure_high": 500000,
+      "options": [
+        { "value": "A", "label": "answer option matching this question", "sublabel": "optional short helper text", "score": 4 },
+        { "value": "B", "label": "answer option matching this question", "score": 3 },
+        { "value": "C", "label": "answer option matching this question", "score": 1 },
+        { "value": "D", "label": "answer option matching this question", "score": 0 }
+      ],
+      "insight": {
+        "info": "what this risk area is and why it matters for this business",
+        "impact": "concrete ₹ or operational consequence",
+        "suggestion": "one practical suggestion",
+        "recommendation": "one specific recommendation",
+        "example": "short real-world-style example"
+      }
+    }
+    /* … continue this exact shape for "p${targetPillar.id}_q2" through "p${targetPillar.id}_q5" — 5 questions total, each covering a distinct risk area … */
+  ]
+}` : `OUTPUT — return only this JSON, no explanations, no markdown:
 {
   "pillars": [
     {
@@ -477,7 +519,7 @@ OUTPUT — return only this JSON, no explanations, no markdown:
     { "id": 3, "name": "Compliance Health", "icon": "✅", "questions": [...] },
     { "id": 4, "name": "Legal Cost Efficiency", "icon": "💼", "questions": [...] }
   ]
-}`;
+}`}`;
 }
 
 // ─── Static fallback: 2 seed questions × 4 pillars ────────────────────────
@@ -589,11 +631,15 @@ export const STATIC_ADAPTIVE_QUESTIONS: Record<number, AssessmentQuestion[]> = {
   ],
 };
 
-// ─── In-memory cache keyed by "businessType|state" ───────────────────────────
+// ─── In-memory cache keyed per-lead so every business gets its own
+// dynamically generated questions instead of sharing a businessType/city bucket.
+// The TTL only exists so a page refresh / retry within the same session reuses
+// the same AI-generated set rather than re-billing Gemini.
 const seedCache = new Map<string, { pillars: AssessmentPillar[]; ts: number }>();
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 export async function generateSeedQuestionsForAssessment(
+  leadId: string,
   companyName: string,
   businessType: string,
   registration: string,
@@ -602,72 +648,76 @@ export async function generateSeedQuestionsForAssessment(
   industry: string,
   state: string
 ): Promise<AssessmentPillar[]> {
-  const cacheKey = `${businessType}|${industry}|${state}`;
+  const cacheKey = leadId;
   const cached = seedCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
     logger.info({ cacheKey }, "Seed questions: cache hit");
     return cached.pillars;
   }
 
-  const prompt = buildSeedPrompt(companyName || "your business", businessType, registration, employeeCount, businessAge, industry, state);
+  function parsePillar(pIdx: number, p: SeedPillarRaw): AssessmentPillar {
+    const pillarName = p.name as PillarName;
+    return {
+      id: p.id ?? pIdx + 1,
+      name: pillarName,
+      icon: p.icon ?? STATIC_SEED_PILLARS[pIdx]!.icon,
+      definition: PILLAR_DEFINITIONS[pillarName] ?? "",
+      questions: (p.questions ?? []).slice(0, 5).map((q) => {
+        const expEstimate = q.exposure_estimate
+          ?? (q.exposure_low != null && q.exposure_high != null
+            ? `₹${q.exposure_low.toLocaleString("en-IN")} – ₹${q.exposure_high.toLocaleString("en-IN")}`
+            : undefined);
+        return {
+          id: q.id ?? `p${p.id}_q${Math.random()}`,
+          text: q.text,
+          hint: q.context ?? q.risk_if_no,
+          riskIfNo: q.risk_if_no,
+          weight: q.weight ?? 7,
+          isReverse: q.isReverse ?? false,
+          isFollowUp: false,
+          pillar: pillarName,
+          exposureEstimate: expEstimate,
+          options: normaliseOptions(q.options),
+          insight: normaliseInsight(q.insight, q.risk_if_no),
+        };
+      }),
+    };
+  }
 
-  async function tryParse(): Promise<AssessmentPillar[]> {
-    const raw = await callGemini(prompt, 12000, 0.25);
-    const parsed = JSON.parse(raw) as { pillars: SeedPillarRaw[] };
+  // Generate each pillar's 5 questions with its own smaller, focused Gemini
+  // call, run concurrently. A single "generate all 20 questions" call
+  // routinely took 30-40s (bigger than any reasonable request timeout); 4
+  // parallel per-pillar calls each produce far less output and typically
+  // resolve in well under half that time, so real AI-generated (not static
+  // fallback) questions actually make it back to the user in practice.
+  async function generateOnePillar(pillarMeta: { id: number; name: PillarName; icon: string }): Promise<AssessmentPillar> {
+    const prompt = buildSeedPrompt(companyName || "your business", businessType, registration, employeeCount, businessAge, industry, state, pillarMeta.id);
 
-    if (!parsed.pillars || parsed.pillars.length !== 4) {
-      throw new Error(`Expected 4 pillars, got ${parsed.pillars?.length ?? 0}`);
+    async function tryParse(): Promise<AssessmentPillar> {
+      const raw = await callGemini(prompt, 4000, 0.25);
+      const parsed = JSON.parse(raw) as SeedPillarRaw;
+      if ((parsed.questions?.length ?? 0) < 5) {
+        throw new Error(`Pillar "${pillarMeta.name}" has only ${parsed.questions?.length ?? 0} questions, expected 5`);
+      }
+      return parsePillar(pillarMeta.id - 1, parsed);
     }
-    const shortPillar = parsed.pillars.find((p) => (p.questions?.length ?? 0) < 5);
-    if (shortPillar) {
-      throw new Error(`Pillar "${shortPillar.name}" has only ${shortPillar.questions?.length ?? 0} questions, expected 5`);
-    }
 
-    return parsed.pillars.map((p, pIdx) => {
-      const pillarName = p.name as PillarName;
-      return {
-        id: p.id ?? pIdx + 1,
-        name: pillarName,
-        icon: p.icon ?? STATIC_SEED_PILLARS[pIdx]!.icon,
-        definition: PILLAR_DEFINITIONS[pillarName] ?? "",
-        questions: (p.questions ?? []).slice(0, 5).map((q) => {
-          const expEstimate = q.exposure_estimate
-            ?? (q.exposure_low != null && q.exposure_high != null
-              ? `₹${q.exposure_low.toLocaleString("en-IN")} – ₹${q.exposure_high.toLocaleString("en-IN")}`
-              : undefined);
-          return {
-            id: q.id ?? `p${p.id}_q${Math.random()}`,
-            text: q.text,
-            hint: q.context ?? q.risk_if_no,
-            riskIfNo: q.risk_if_no,
-            weight: q.weight ?? 7,
-            isReverse: q.isReverse ?? false,
-            isFollowUp: false,
-            pillar: pillarName,
-            exposureEstimate: expEstimate,
-            options: normaliseOptions(q.options),
-            insight: normaliseInsight(q.insight, q.risk_if_no),
-          };
-        }),
-      };
-    });
+    try {
+      return await tryParse();
+    } catch (err) {
+      logger.error({ err, pillar: pillarMeta.name }, "Pillar seed generation failed, retrying once");
+      return await tryParse();
+    }
   }
 
   try {
-    const pillars = await tryParse();
+    const pillars = await Promise.all(PILLAR_META.map((meta) => generateOnePillar(meta)));
     seedCache.set(cacheKey, { pillars, ts: Date.now() });
     logger.info({ cacheKey }, "Seed questions: Gemini generated and cached");
     return pillars;
   } catch (err) {
-    logger.error({ err }, "Seed generation failed, retrying once");
-    try {
-      const pillars = await tryParse();
-      seedCache.set(cacheKey, { pillars, ts: Date.now() });
-      return pillars;
-    } catch (err2) {
-      logger.error({ err: err2 }, "Seed generation retry failed, using static fallback");
-      return STATIC_SEED_PILLARS;
-    }
+    logger.error({ err, cacheKey }, "Seed generation failed for one or more pillars, using static fallback");
+    return STATIC_SEED_PILLARS;
   }
 }
 
@@ -1138,7 +1188,7 @@ export async function generateSeedQuestions(
   _contextTags: string[]
 ): Promise<Array<{ id: number; question: string; pillar: PillarName; isReverseScored: boolean; isSeed: boolean; contextNote?: string }>> {
   try {
-    const pillars = await generateSeedQuestionsForAssessment("your business", businessType, "Private Limited / LLP", "11-50", "2-5 years", businessType, city);
+    const pillars = await generateSeedQuestionsForAssessment(`legacy:${businessType}|${city}`, "your business", businessType, "Private Limited / LLP", "11-50", "2-5 years", businessType, city);
     return pillars.flatMap((p) =>
       p.questions.map((q, i) => ({
         id: i + 1,

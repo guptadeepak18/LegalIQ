@@ -2,3 +2,6 @@
 - [LegalIQ Gemini setup](legaliq-gemini-setup.md) — Uses Replit AI Integrations proxy; callGemini uses @google/genai SDK. Also: thinkingBudget must be set or JSON output truncates.
 - [LegalIQ admin credentials](legaliq-admin.md) — Seeded admin: admin@restthecase.com / Admin@123; JWT_SECRET set as shared env var.
 - [LegalIQ Clerk auth](legaliq-clerk-auth.md) — Onboard/results identity gate uses Clerk (Google + email/password + email OTP); redirect precedence must be a single effect to avoid a race.
+- [Gemini timeout via oversized single call](gemini-parallel-generation.md) — split one big multi-section structured-JSON Gemini call into parallel per-section calls to dodge request timeouts that silently trigger fallback data.
+- [rgb(var()) alpha syntax](css-rgb-var-alpha.md) — theme CSS custom-property colors need `rgb(var(--x) / N%)`; hex-alpha suffix concatenation on a var() string does not work.
+- [Clerk Google OAuth blocks e2e test subagent](clerk-oauth-testing-block.md) — "Continue with Google" on a Clerk sign-in screen reliably auto-blocks the Playwright testing subagent even with explicit instructions to skip it; use direct DB+curl or mockup-sandbox visual QA instead.

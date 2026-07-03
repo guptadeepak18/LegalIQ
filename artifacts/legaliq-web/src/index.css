@@ -86,7 +86,14 @@
   --nav-bg: rgba(244, 239, 228, 0.94);
   --nav-border: rgba(201,168,76,0.22);
   --answer-btn-bg: rgba(26,20,16,0.04);
+  --answer-btn-border: rgba(26,20,16,0.14);
   --pillar-dot-inactive: rgba(26,20,16,0.18);
+
+  /* ── Pillar accent colours — deepened for contrast on the light cream background ── */
+  --pillar-rgb-0: 220 38 38;    /* Litigation — red-600 */
+  --pillar-rgb-1: 180 90 9;     /* Contracts — amber-700 */
+  --pillar-rgb-2: 29 78 216;    /* Compliance — blue-700 */
+  --pillar-rgb-3: 109 40 217;   /* Cost — violet-700 */
 
   /* ── Adaptive text palette (light mode) ─────────────────── */
   --liq-text-1: #1a1410;
@@ -180,7 +187,14 @@
   --nav-bg: rgba(5, 8, 20, 0.93);
   --nav-border: rgba(201,168,76,0.10);
   --answer-btn-bg: rgba(255,255,255,0.03);
+  --answer-btn-border: rgba(255,255,255,0.12);
   --pillar-dot-inactive: rgba(255,255,255,0.19);
+
+  /* ── Pillar accent colours — brightened for contrast on the dark navy background ── */
+  --pillar-rgb-0: 248 113 113;  /* Litigation — red-400 */
+  --pillar-rgb-1: 251 191 36;   /* Contracts — amber-400 */
+  --pillar-rgb-2: 96 165 250;   /* Compliance — blue-400 */
+  --pillar-rgb-3: 167 139 250;  /* Cost — violet-400 */
 
   /* ── Adaptive text palette (dark mode) ──────────────────── */
   --liq-text-1: rgba(255,255,255, 1.0);

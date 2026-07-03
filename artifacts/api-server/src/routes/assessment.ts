@@ -42,6 +42,7 @@ router.post("/assessment/init", async (req, res) => {
   logger.info({ businessType, city }, "Assessment init: generating seed questions");
 
   const pillars = await generateSeedQuestionsForAssessment(
+    leadId,
     companyName,
     businessType,
     subCategory,

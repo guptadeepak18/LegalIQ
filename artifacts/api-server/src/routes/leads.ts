@@ -82,6 +82,7 @@ router.post("/leads", async (req, res) => {
   // Warm the seed question cache immediately so questions are AI-personalised
   // by the time the user starts the assessment (usually 10–30 seconds later).
   generateSeedQuestionsForAssessment(
+    lead.id,
     company ?? "your business",
     businessType,
     subCategory ?? businessType,
