@@ -8,9 +8,11 @@ interface Question {
 }
 
 // ─── Expert-curated seed questions per Indian business type ─────────────────
-// 10 questions per type (2 per pillar × 5 pillars)
+// 10 questions per type, tagged across 4 core scored pillars plus a separate
+// "Future Risk Exposure" dimension (reported alongside the score, not one of
+// the 4 pillars that make up the 100-point Legal Health Score).
 // Pillar order: Litigation Health, Contractual Health, Compliance Health,
-//               Legal Cost Efficiency, Future Risk Exposure
+//               Legal Cost Efficiency, (+ Future Risk Exposure)
 
 const Q: Record<string, Question[]> = {
 

@@ -187,7 +187,7 @@ async function callGemini(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROMPT 1 — Seed Question Generator
-// Generates 5 questions per pillar (25 total) at session start
+// Generates 5 questions per pillar (20 total across 4 pillars) at session start
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PILLAR_DEFINITIONS: Record<PillarName, string> = {

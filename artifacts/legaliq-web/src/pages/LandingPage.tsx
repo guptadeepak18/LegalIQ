@@ -23,7 +23,7 @@ const HOW_IT_WORKS = [
   },
   {
     step: "02", title: "AI-Powered Assessment",
-    hook:   "25 plain-language questions. No jargon. No legal knowledge required.",
+    hook:   "20 plain-language questions. No jargon. No legal knowledge required.",
     detail: "Our AI adapts every question based on what you just answered — going deeper where your risk is highest, moving faster where you are covered.",
   },
   {
@@ -356,7 +356,7 @@ export default function LandingPage() {
                   {[
                     {
                       title: "Pillar-by-pillar score with written findings",
-                      desc:  "Five pillars. Five scores. Five written explanations of what your answers revealed — and what stays at risk if you take no action.",
+                      desc:  "Four pillars. Four scores. Four written explanations of what your answers revealed — and what stays at risk if you take no action.",
                     },
                     {
                       title: "Top 5 risks ranked by ₹ exposure",
