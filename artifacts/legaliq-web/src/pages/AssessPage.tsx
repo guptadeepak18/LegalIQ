@@ -25,7 +25,7 @@ interface QuestionInsight {
 
 interface AQuestion {
   id: string; text: string; hint?: string; riskIfNo?: string;
-  weight: number; isReverse: boolean; isFollowUp: boolean; parentId?: string;
+  weight: number; isReverse: boolean;
   pillar: string; exposureEstimate?: string;
   options: AnswerOption[];
   insight: QuestionInsight;
@@ -48,7 +48,7 @@ interface DetailedAnswerRecord {
 }
 
 type ServerAction =
-  | { type: "QUESTION"; question: AQuestion; pillarIndex: number; pillarName: string; pillarIcon: string; isFollowUp: boolean }
+  | { type: "QUESTION"; question: AQuestion; pillarIndex: number; pillarName: string; pillarIcon: string }
   | { type: "PILLAR_TRANSITION"; question: AQuestion; pillarIndex: number; pillarName: string; pillarIcon: string; completedPillarIndex: number; completedPillarName: string; completedPillarIcon: string }
   | { type: "COMPLETE"; assessmentId: string; totalScore: number; riskLevel: string; grade?: string; gradeLabel?: string; litigationScore: number; contractualScore: number; complianceScore: number; costScore: number; futureScore: number; report: unknown; answers: DetailedAnswerRecord[] };
 
@@ -266,7 +266,7 @@ export default function AssessPage() {
     setPreviousAnswerLabel(null);
     setAllAnswers((prev) => [...prev, { pillar: currentQuestion.pillar, label: option.label, score: option.score }]);
     try {
-      const res = await apiFetch<ServerAction>("/session/answer", { method: "POST", body: JSON.stringify({ sessionId, questionId: currentQuestion.id, questionText: currentQuestion.text, pillarName: currentQuestion.pillar, answer: option.label, score: option.score, isSeed: !currentQuestion.isFollowUp, weight: currentQuestion.weight, question: currentQuestion, pillarIcon, isFollowUp: currentQuestion.isFollowUp }) });
+      const res = await apiFetch<ServerAction>("/session/answer", { method: "POST", body: JSON.stringify({ sessionId, questionId: currentQuestion.id, questionText: currentQuestion.text, pillarName: currentQuestion.pillar, answer: option.label, score: option.score, isSeed: true, weight: currentQuestion.weight, question: currentQuestion, pillarIcon }) });
       if (res.type === "COMPLETE") {
         setPhase("submitting");
         store.setResult({ assessmentId: (res as { type: "COMPLETE"; assessmentId: string }).assessmentId, totalScore: res.totalScore, riskLevel: res.riskLevel as "HEALTHY"|"STABLE"|"RISKY"|"CRITICAL"|"MODERATE", grade: res.grade as "A"|"B"|"C"|"D"|undefined, gradeLabel: res.gradeLabel as "Healthy"|"Stable"|"Risky"|"Critical"|undefined, litigationScore: res.litigationScore, contractualScore: res.contractualScore, complianceScore: res.complianceScore, costScore: res.costScore, futureScore: res.futureScore, report: res.report as Parameters<typeof store.setResult>[0]["report"], answers: res.answers ?? [] });
@@ -287,7 +287,7 @@ export default function AssessPage() {
     try {
       const res = await apiFetch<{
         success: boolean; type: "QUESTION"; question: AQuestion; pillarIndex: number;
-        pillarName: string; pillarIcon: string; isFollowUp: boolean; previousAnswer: string;
+        pillarName: string; pillarIcon: string; previousAnswer: string;
       }>("/session/back", { method: "POST", body: JSON.stringify({ sessionId }) });
       setCurrentQuestion(res.question); setPillarIndex(res.pillarIndex); setPillarName(res.pillarName); setPillarIcon(res.pillarIcon);
       setPreviousAnswerLabel(res.previousAnswer);
@@ -464,12 +464,6 @@ export default function AssessPage() {
         <div className="flex items-center gap-3">
           <span className="liq-text-3 text-sm">Pillar {pillarIndex + 1} of 4</span>
           {totalAnswered > 0 && <span className="liq-text-4 text-sm">· {totalAnswered} answered</span>}
-          {currentQuestion.isFollowUp && (
-            <>
-              <span className="liq-text-4 text-sm">·</span>
-              <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: pillarColor(pillarIndex, 14), color }}>Follow-up</span>
-            </>
-          )}
         </div>
       </div>
 
@@ -481,12 +475,6 @@ export default function AssessPage() {
               <div className="max-w-2xl mx-auto lg:mx-0 w-full">
                 {/* Question Card */}
                 <div className="rounded-3xl p-8 md:p-10 mb-6 border backdrop-blur-sm" style={{ background: bg, borderColor: border }}>
-                  {currentQuestion.isFollowUp && (
-                    <div className="mb-4 flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-                      <span className="text-sm font-semibold opacity-80" style={{ color }}>Digging deeper…</span>
-                    </div>
-                  )}
                   <h2 className="liq-text-1 text-2xl md:text-3xl font-bold leading-snug mb-4">
                     {currentQuestion.text}
                   </h2>

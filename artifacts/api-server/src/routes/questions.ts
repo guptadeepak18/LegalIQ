@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { generateFollowUpQuestions } from "../services/gemini.js";
 import { getSeedQuestions } from "../services/questions-bank.js";
 import { getNextQuestion, PILLAR_META, type Answer } from "../services/question-tree.js";
 
@@ -63,61 +62,16 @@ function getContextTags(businessType: string): string[] {
   return CONTEXT_TAGS[businessType] ?? ["GST", "Labour Law", "MSME", "Indian Contract Act", "Consumer Protection Act"];
 }
 
-router.post("/questions", async (req, res): Promise<void> => {
-  const {
-    businessType,
-    category,
-    city,
-    contextTags: providedTags,
-    seedAnswers,
-    mode,
-  } = req.body as {
-    businessType: string;
-    category?: string;
-    city?: string;
-    contextTags?: string[];
-    seedAnswers?: Array<{ pillar: string; answer: string; question?: string }>;
-    mode: "seed" | "followup";
-  };
+router.post("/questions", (req, res): void => {
+  const { businessType } = req.body as { businessType: string };
 
   if (!businessType) {
     res.status(400).json({ success: false, message: "businessType is required" });
     return;
   }
 
-  const resolvedCategory = category ?? "Business";
-  const resolvedCity = city ?? "India";
-  const contextTags = providedTags?.length ? providedTags : getContextTags(businessType);
-
-  if (mode === "seed" || !mode) {
-    const questions = getSeedQuestions(businessType);
-    res.json({ success: true, questions });
-    return;
-  }
-
-  if (!seedAnswers?.length) {
-    res.json({ success: true, questions: [] });
-    return;
-  }
-
-  const riskyAnswers = seedAnswers.filter(
-    (a) => a.answer === "NO" || a.answer === "UNSURE"
-  );
-
-  if (riskyAnswers.length === 0) {
-    res.json({ success: true, questions: [] });
-    return;
-  }
-
-  const followUps = await generateFollowUpQuestions(
-    businessType,
-    resolvedCategory,
-    resolvedCity,
-    contextTags,
-    riskyAnswers as Array<{ pillar: string; answer: "YES" | "NO" | "UNSURE"; question?: string }>
-  );
-
-  res.json({ success: true, questions: followUps });
+  const questions = getSeedQuestions(businessType);
+  res.json({ success: true, questions });
 });
 
 // ─── NEW: Pillar-by-pillar adaptive questioning ────────────────────────────────

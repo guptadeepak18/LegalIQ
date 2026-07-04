@@ -80,7 +80,6 @@ router.post("/session/start", async (req, res) => {
       answersJson: [],
       currentPillarIndex: 0,
       currentQuestionIndex: 0,
-      followUpCount: 0,
       status: "in_progress",
     })
     .returning();
@@ -101,7 +100,6 @@ router.post("/session/start", async (req, res) => {
     pillarIndex: 0,
     pillarName: firstPillar.name,
     pillarIcon: firstPillar.icon,
-    isFollowUp: false,
     totalPillars: pillars.length,
   });
 });
@@ -122,7 +120,6 @@ router.post("/session/answer", async (req, res) => {
     weight,
     question,
     pillarIcon,
-    isFollowUp,
   } = req.body as {
     sessionId: string;
     questionId: string;
@@ -136,7 +133,6 @@ router.post("/session/answer", async (req, res) => {
     weight: number;
     question?: AssessmentQuestion;
     pillarIcon?: string;
-    isFollowUp?: boolean;
   };
 
   if (!sessionId || !questionId || !answer || score === undefined || score === null) {
@@ -173,11 +169,9 @@ router.post("/session/answer", async (req, res) => {
     weight: weight ?? 7,
     fullQuestion: question,
     pillarIcon,
-    isFollowUp,
     prevState: {
       currentPillarIndex: session.currentPillarIndex ?? 0,
       currentQuestionIndex: session.currentQuestionIndex ?? 0,
-      followUpCount: session.followUpCount ?? 0,
     },
   };
   const updatedAnswers = [...storedAnswers, newAnswer];
@@ -187,7 +181,6 @@ router.post("/session/answer", async (req, res) => {
     sessionId,
     currentPillarIndex: session.currentPillarIndex ?? 0,
     currentQuestionIndex: session.currentQuestionIndex ?? 0,
-    followUpCount: session.followUpCount ?? 0,
     pillars,
     answers: updatedAnswers,
     companyName,
@@ -359,7 +352,6 @@ router.post("/session/answer", async (req, res) => {
   const advance = nextAction.advanceTo;
   const newPillarIndex = advance.currentPillarIndex ?? session.currentPillarIndex ?? 0;
   const newQuestionIndex = advance.currentQuestionIndex ?? session.currentQuestionIndex ?? 0;
-  const newFollowUpCount = advance.followUpCount ?? session.followUpCount ?? 0;
 
   await db
     .update(sessions)
@@ -367,7 +359,6 @@ router.post("/session/answer", async (req, res) => {
       answersJson: updatedAnswers as unknown as Record<string, unknown>[],
       currentPillarIndex: newPillarIndex,
       currentQuestionIndex: newQuestionIndex,
-      followUpCount: newFollowUpCount,
     })
     .where(eq(sessions.id, sessionId));
 
@@ -386,7 +377,6 @@ router.post("/session/answer", async (req, res) => {
       completedPillarIndex: nextAction.completedPillarIndex,
       completedPillarName: completedPillar?.name ?? "",
       completedPillarIcon: completedPillar?.icon ?? "",
-      isFollowUp: false,
     });
   }
 
@@ -398,7 +388,6 @@ router.post("/session/answer", async (req, res) => {
     pillarIndex: newPillarIndex,
     pillarName: nextPillar?.name ?? "",
     pillarIcon: nextPillar?.icon ?? "",
-    isFollowUp: nextAction.isFollowUp,
   });
 });
 
@@ -442,7 +431,6 @@ router.post("/session/back", async (req, res) => {
       answersJson: remainingAnswers as unknown as Record<string, unknown>[],
       currentPillarIndex: lastAnswer.prevState.currentPillarIndex,
       currentQuestionIndex: lastAnswer.prevState.currentQuestionIndex,
-      followUpCount: lastAnswer.prevState.followUpCount,
     })
     .where(eq(sessions.id, sessionId));
 
@@ -453,7 +441,6 @@ router.post("/session/back", async (req, res) => {
     pillarIndex: lastAnswer.pillarIndex,
     pillarName: lastAnswer.pillar,
     pillarIcon: lastAnswer.pillarIcon ?? "",
-    isFollowUp: lastAnswer.isFollowUp ?? false,
     previousAnswer: lastAnswer.answer,
     canGoBack: remainingAnswers.length > 0,
   });

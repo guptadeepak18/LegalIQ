@@ -1556,13 +1556,13 @@ export async function generateCertificatePDF(data: CertificateData): Promise<voi
 
   // Subtle radial-style corner washes (soft rectangles standing in for glow)
   doc.setFillColor(...CERT_BG2);
-  doc.roundedRect(-40, -40, 140, 140, 60, 60, "F");
-  doc.roundedRect(W - 100, H - 100, 140, 140, 60, 60, "F");
+  doc.roundedRect(-40, -40, 130, 130, 60, 60, "F");
+  doc.roundedRect(W - 90, H - 90, 130, 130, 60, 60, "F");
 
   // ── Large background watermark logo (very light, centered) ──
   if (logoDataUrl) {
-    const wmSize = 150;
-    const gState = new (doc as any).GState({ opacity: 0.06 });
+    const wmSize = 130;
+    const gState = new (doc as any).GState({ opacity: 0.05 });
     doc.setGState(gState);
     doc.addImage(logoDataUrl, "PNG", cx - wmSize / 2, H / 2 - wmSize / 2, wmSize, wmSize);
     doc.setGState(new (doc as any).GState({ opacity: 1 }));
@@ -1585,66 +1585,85 @@ export async function generateCertificatePDF(data: CertificateData): Promise<voi
   cornerOrnament(doc, om, H - om, 1, -1);
   cornerOrnament(doc, W - om, H - om, -1, -1);
 
+  // ─────────────────────────────────────────────────────────────
+  // Layout: a fixed vertical rhythm from the top margin so every
+  // element gets guaranteed clearance from its neighbours — no
+  // element position is derived from another element's font size.
+  // ─────────────────────────────────────────────────────────────
+  const top = 24;
+
   // ── Header: logo mark + wordmark ──────────────────────────
-  let headY = 30;
   if (logoDataUrl) {
-    const logoS = 14;
-    doc.addImage(logoDataUrl, "PNG", cx - logoS / 2, headY - logoS + 4, logoS, logoS);
-    headY += 6;
+    const logoS = 13;
+    doc.addImage(logoDataUrl, "PNG", cx - logoS / 2, top - logoS + 3, logoS, logoS);
   }
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
+  doc.setFontSize(19);
   doc.setTextColor(...CERT_GOLD);
-  doc.text("LegalIQ", cx, headY + 12, { align: "center" });
+  doc.text("LegalIQ", cx, top + 9, { align: "center" });
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(...CERT_INK3);
-  doc.text("LEGAL HEALTH ASSESSMENT  |  BY REST THE CASE", cx, headY + 19, { align: "center" });
+  doc.text("LEGAL HEALTH ASSESSMENT  |  BY REST THE CASE", cx, top + 15, { align: "center" });
 
   doc.setDrawColor(...CERT_GOLD_LT);
   doc.setLineWidth(0.3);
-  doc.line(cx - 30, headY + 24, cx + 30, headY + 24);
+  doc.line(cx - 26, top + 19.5, cx + 26, top + 19.5);
 
   // ── Title ──────────────────────────────────────────────────
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(30);
+  doc.setFontSize(27);
   doc.setTextColor(...CERT_INK1);
-  doc.text("Certificate of Legal Health", cx, headY + 40, { align: "center" });
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10.5);
-  doc.setTextColor(...CERT_INK2);
-  doc.text("This certifies that", cx, headY + 50, { align: "center" });
-
-  // ── Business name (hero) ──────────────────────────────────
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(26);
-  doc.setTextColor(...CERT_GOLD);
-  const nameLines = wrap(doc, data.company, W - 100);
-  doc.text(nameLines.slice(0, 1), cx, headY + 63, { align: "center" });
+  doc.text("Certificate of Legal Health", cx, top + 33, { align: "center" });
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.setTextColor(...CERT_INK3);
-  doc.text(clean(`${data.businessType}  |  ${data.city}`), cx, headY + 71, { align: "center" });
+  doc.setTextColor(...CERT_INK2);
+  doc.text("This certifies that", cx, top + 41.5, { align: "center" });
+
+  // ── Business name (hero) ──────────────────────────────────
+  // Shrink the font a step at a time until the name fits on at most
+  // two lines, so long legal names wrap instead of being truncated.
+  doc.setFont("helvetica", "bold");
+  let nameFontSize = 24;
+  let nameLines = wrap(doc, data.company, W - 100);
+  while (nameLines.length > 2 && nameFontSize > 15) {
+    nameFontSize -= 2;
+    doc.setFontSize(nameFontSize);
+    nameLines = wrap(doc, data.company, W - 100);
+  }
+  doc.setFontSize(nameFontSize);
+  doc.setTextColor(...CERT_GOLD);
+  const nameLineH = nameFontSize * 1.15 * 0.3528;
+  const nameBlockY = top + 53 - ((nameLines.length - 1) * nameLineH) / 2;
+  doc.text(nameLines, cx, nameBlockY, { align: "center", lineHeightFactor: 1.15 });
+  const nameBottom = nameBlockY + (nameLines.length - 1) * nameLineH;
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10.5);
+  doc.setFontSize(9.5);
+  doc.setTextColor(...CERT_INK3);
+  const metaY = nameBottom + 7;
+  doc.text(clean(`${data.businessType}  |  ${data.city}`), cx, metaY, { align: "center" });
+
+  // Certifying paragraph — capped width so long lines never approach
+  // the medallion's horizontal footprint, with guaranteed clearance below.
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
   doc.setTextColor(...CERT_INK2);
-  doc.text(
-    "has successfully completed the LegalIQ Legal Health Assessment,",
-    cx, headY + 82, { align: "center" }
+  const paraLines = wrap(
+    doc,
+    "has successfully completed the LegalIQ Legal Health Assessment, evaluating litigation exposure, contracts, compliance, and legal cost efficiency.",
+    150
   );
-  doc.text(
-    "evaluating litigation exposure, contracts, compliance, and legal cost efficiency.",
-    cx, headY + 88, { align: "center" }
-  );
+  const paraY = metaY + 10;
+  doc.text(paraLines, cx, paraY, { align: "center", lineHeightFactor: 1.45 });
+  const paraBottom = paraY + (paraLines.length - 1) * 10 * 1.45 * 0.3528;
 
   // ── Score medallion + grade badge ─────────────────────────
-  const medY = headY + 105;
-  const medR = 20;
+  const medR = 19;
+  const medY = paraBottom + medR + 12; // guaranteed gap below the paragraph's last line
 
   // outer ring
   doc.setDrawColor(...CERT_GOLD);
@@ -1657,31 +1676,32 @@ export async function generateCertificatePDF(data: CertificateData): Promise<voi
   doc.circle(cx, medY, medR - 3.2, "F");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(28);
+  doc.setFontSize(26);
   doc.setTextColor(...CERT_GOLD);
-  doc.text(`${data.totalScore}`, cx, medY + 4, { align: "center" });
+  doc.text(`${data.totalScore}`, cx, medY + 3.5, { align: "center" });
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   doc.setTextColor(...CERT_INK3);
-  doc.text("OUT OF 100", cx, medY + 11, { align: "center" });
+  doc.text("OUT OF 100", cx, medY + 10, { align: "center" });
 
   // Grade badge to the right of medallion
-  const badgeX = cx + medR + 14;
+  const badgeW = 44;
+  const badgeX = cx + medR + 16;
   doc.setFillColor(...rc);
-  doc.roundedRect(badgeX, medY - 11, 46, 22, 5, 5, "F");
+  doc.roundedRect(badgeX, medY - 10.5, badgeW, 21, 5, 5, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
+  doc.setFontSize(12.5);
   doc.setTextColor(...WHITE);
-  doc.text(`Grade ${g}`, badgeX + 23, medY - 1, { align: "center" });
-  doc.setFontSize(8.5);
-  doc.text(clean(gl).toUpperCase(), badgeX + 23, medY + 7, { align: "center" });
+  doc.text(`Grade ${g}`, badgeX + badgeW / 2, medY - 0.5, { align: "center" });
+  doc.setFontSize(8);
+  doc.text(clean(gl).toUpperCase(), badgeX + badgeW / 2, medY + 7, { align: "center" });
 
   // Label to the left of medallion
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(...CERT_INK3);
-  doc.text("LEGAL HEALTH", cx - medR - 14, medY - 1, { align: "right" });
-  doc.text("SCORE", cx - medR - 14, medY + 7, { align: "right" });
+  doc.text("LEGAL HEALTH", cx - medR - 16, medY - 0.5, { align: "right" });
+  doc.text("SCORE", cx - medR - 16, medY + 7, { align: "right" });
 
   // ── Footer: signature line, date, certificate id ──────────
   const footY = H - 30;
@@ -1690,23 +1710,23 @@ export async function generateCertificatePDF(data: CertificateData): Promise<voi
 
   // Left: date issued
   doc.line(om + 6, footY, om + 66, footY);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(...CERT_INK3);
-  doc.text("DATE ISSUED", om + 6, footY + 6);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   doc.setTextColor(...CERT_INK1);
   doc.text(issuedDate, om + 6, footY - 3);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...CERT_INK3);
+  doc.text("DATE ISSUED", om + 6, footY + 6);
 
   // Right: authorised signature (Rest The Case)
   doc.line(W - om - 66, footY, W - om - 6, footY);
   doc.setFont("helvetica", "italic");
-  doc.setFontSize(13);
+  doc.setFontSize(12.5);
   doc.setTextColor(...CERT_GOLD);
   doc.text("Rest The Case", W - om - 36, footY - 3, { align: "center" });
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(...CERT_INK3);
   doc.text("AUTHORISED ISSUER", W - om - 36, footY + 6, { align: "center" });
 
