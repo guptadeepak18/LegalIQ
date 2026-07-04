@@ -215,7 +215,7 @@ function pillarDot(doc: jsPDF, x: number, y: number, color: [number,number,numbe
 
 // ─── Main export ───────────────────────────────────────────────────────────────
 
-export function generateReportPDF(data: ReportData): void {
+export async function generateReportPDF(data: ReportData): Promise<void> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const W   = doc.internal.pageSize.getWidth();   // 210
   const H   = doc.internal.pageSize.getHeight();  // 297
@@ -1366,118 +1366,19 @@ export function generateReportPDF(data: ReportData): void {
   doc.text("restthecase.com/virtualCLOPackage  |  No commitment  |  30-minute call", ML + ctaBtnW / 2, y + 16, { align: "center" });
 
   // ══════════════════════════════════════════════════════════════
-  // PAGE 5 — CALL TO ACTION
+  // FINAL PAGE — the same premium light-theme certificate used for the
+  // standalone certificate download, so the report never shows a separate
+  // dark-theme "badge" summary.
   // ══════════════════════════════════════════════════════════════
-  doc.addPage();
+  doc.addPage("a4", "landscape");
   page++;
-
-  // Dark background
-  doc.setFillColor(...DARK);
-  doc.rect(0, 0, W, H, "F");
-
-  // Accent bars
-  doc.setFillColor(...GOLD);
-  doc.rect(0, 0, W, 3.5, "F");
-  doc.rect(0, 0, 3.5, H, "F");
-
-  const cx = W / 2;
-
-  // ── Big tagline ─────────────────────────────────────────────
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(24);
-  doc.setTextColor(...GOLD);
-  doc.text("Ready to fix these gaps?", cx, 72, { align: "center" });
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.setTextColor(175, 168, 152);
-  doc.text("Book a free 30-minute consultation with a Rest The Case attorney.", cx, 84, { align: "center" });
-
-  // ── Score recap box ─────────────────────────────────────────
-  const sbW = 120;
-  const sbX = cx - sbW / 2;
-  doc.setFillColor(22, 20, 15);
-  doc.roundedRect(sbX, 96, sbW, 38, 6, 6, "F");
-  doc.setDrawColor(...GOLD);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(sbX, 96, sbW, 38, 6, 6, "S");
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(...INK3);
-  doc.text("YOUR LEGAL HEALTH SCORE", cx, 108, { align: "center" });
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(28);
-  doc.setTextColor(...GOLD);
-  doc.text(`${data.totalScore} / 100`, cx, 124, { align: "center" });
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(...rc);
-  doc.text(`Grade ${g}  |  ${clean(gl).toUpperCase()}`, cx, 133, { align: "center" });
-
-  // ── CTA button ──────────────────────────────────────────────
-  const ctaW = 130;
-  const ctaX = cx - ctaW / 2;
-  doc.setFillColor(...GOLD);
-  doc.roundedRect(ctaX, 150, ctaW, 20, 5, 5, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11.5);
-  doc.setTextColor(...DARK);
-  doc.text("Book Free Consultation Now", cx, 162.5, { align: "center" });
-
-  // ── URL ─────────────────────────────────────────────────────
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...GOLD);
-  doc.text("restthecase.com/virtualCLOPackage", cx, 183, { align: "center" });
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(...INK3);
-  doc.text("India's first AI-powered Legal Health Platform for Businesses", cx, 194, { align: "center" });
-
-  // Pillars recap mini
-  const miniY = 210;
-  doc.setFillColor(22, 20, 15);
-  doc.roundedRect(ML + 10, miniY, CW - 20, 44, 5, 5, "F");
-
-  const miniCols = data.pillars.length;
-  const colW2 = (CW - 20) / miniCols;
-  data.pillars.forEach((p, i) => {
-    const col = PILLAR_COLORS[i]!;
-    const cx2 = ML + 10 + i * colW2 + colW2 / 2;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(...col);
-    doc.text(PILLAR_LABELS[i]!, cx2, miniY + 10, { align: "center" });
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(...WHITE);
-    doc.text(`${p.score}`, cx2, miniY + 24, { align: "center" });
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(...INK3);
-    doc.text("/25", cx2, miniY + 31, { align: "center" });
-
-    // Mini bar
-    const mbarW = colW2 - 12;
-    doc.setFillColor(40, 38, 32);
-    doc.roundedRect(cx2 - mbarW / 2, miniY + 35, mbarW, 3.5, 1, 1, "F");
-    doc.setFillColor(...col);
-    const fill = Math.max(1, (p.score / 25) * mbarW);
-    doc.roundedRect(cx2 - mbarW / 2, miniY + 35, fill, 3.5, 1, 1, "F");
+  await drawCertificatePage(doc, {
+    company: data.company,
+    name: data.name,
+    businessType: data.businessType,
+    city: data.city,
+    totalScore: data.totalScore,
   });
-
-  // ── Footer ──────────────────────────────────────────────────
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(70, 65, 55);
-  doc.text(clean(`Report prepared for ${data.company}  |  ${today}  |  LegalIQ by Rest The Case`), cx, H - 18, { align: "center" });
-  doc.text("Confidential  |  Not legal advice", cx, H - 11, { align: "center" });
 
   // ── Save ────────────────────────────────────────────────────
   const fname = `LegalIQ-Report-${clean(data.company).replace(/[^a-zA-Z0-9]/g, "-")}-${data.totalScore}.pdf`;
@@ -1536,10 +1437,14 @@ function cornerOrnament(doc: jsPDF, x: number, y: number, flipX: number, flipY: 
   doc.circle(x + 2 * flipX, y + 2 * flipY, 0.9, "F");
 }
 
-export async function generateCertificatePDF(data: CertificateData): Promise<void> {
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const W = doc.internal.pageSize.getWidth();   // 297
-  const H = doc.internal.pageSize.getHeight();  // 210
+/**
+ * Draws the full premium light-theme certificate onto the current page of
+ * `doc`. Shared by the standalone certificate PDF and the final page of the
+ * main report PDF so both surfaces are pixel-identical in design.
+ */
+async function drawCertificatePage(doc: jsPDF, data: CertificateData): Promise<void> {
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
   const cx = W / 2;
 
   const g  = grade(data.totalScore);
@@ -1684,24 +1589,34 @@ export async function generateCertificatePDF(data: CertificateData): Promise<voi
   doc.setTextColor(...CERT_INK3);
   doc.text("OUT OF 100", cx, medY + 10, { align: "center" });
 
-  // Grade badge to the right of medallion
-  const badgeW = 44;
-  const badgeX = cx + medR + 16;
+  // Grade badge and label are equal-width chips flanking the medallion so
+  // the circle sits at the true visual center of the whole cluster instead
+  // of looking pulled toward the heavier (filled) badge side.
+  const chipW = 44;
+  const chipGap = 16;
+  const chipH = 21;
+
+  // Grade badge (filled) to the right of medallion
+  const badgeX = cx + medR + chipGap;
   doc.setFillColor(...rc);
-  doc.roundedRect(badgeX, medY - 10.5, badgeW, 21, 5, 5, "F");
+  doc.roundedRect(badgeX, medY - chipH / 2, chipW, chipH, 5, 5, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12.5);
   doc.setTextColor(...WHITE);
-  doc.text(`Grade ${g}`, badgeX + badgeW / 2, medY - 0.5, { align: "center" });
+  doc.text(`Grade ${g}`, badgeX + chipW / 2, medY - 0.5, { align: "center" });
   doc.setFontSize(8);
-  doc.text(clean(gl).toUpperCase(), badgeX + badgeW / 2, medY + 7, { align: "center" });
+  doc.text(clean(gl).toUpperCase(), badgeX + chipW / 2, medY + 7, { align: "center" });
 
-  // Label to the left of medallion
+  // Label chip (outlined, same footprint as badge) to the left of medallion
+  const labelX = cx - medR - chipGap - chipW;
+  doc.setDrawColor(...CERT_GOLD_LT);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(labelX, medY - chipH / 2, chipW, chipH, 5, 5, "S");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(...CERT_INK3);
-  doc.text("LEGAL HEALTH", cx - medR - 16, medY - 0.5, { align: "right" });
-  doc.text("SCORE", cx - medR - 16, medY + 7, { align: "right" });
+  doc.text("LEGAL HEALTH", labelX + chipW / 2, medY - 0.5, { align: "center" });
+  doc.text("SCORE", labelX + chipW / 2, medY + 7, { align: "center" });
 
   // ── Footer: signature line, date, certificate id ──────────
   const footY = H - 30;
@@ -1737,8 +1652,12 @@ export async function generateCertificatePDF(data: CertificateData): Promise<voi
   doc.text(clean(`Certificate ID: ${certId}  |  Prepared for ${data.name}`), cx, footY + 6, { align: "center" });
   doc.setFontSize(7);
   doc.text("Verify at restthecase.com/virtualCLOPackage  |  Not legal advice", cx, H - 15, { align: "center" });
+}
 
-  // ── Save ───────────────────────────────────────────────────
+export async function generateCertificatePDF(data: CertificateData): Promise<void> {
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  await drawCertificatePage(doc, data);
+
   const fname = `LegalIQ-Certificate-${clean(data.company).replace(/[^a-zA-Z0-9]/g, "-")}-${data.totalScore}.pdf`;
   doc.save(fname);
 }

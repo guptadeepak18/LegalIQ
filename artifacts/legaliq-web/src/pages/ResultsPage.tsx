@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -110,7 +110,6 @@ export default function ResultsPage() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [benchmark, setBenchmark] = useState<Benchmark | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [badgeGenerating, setBadgeGenerating] = useState(false);
   const [certGenerating, setCertGenerating] = useState(false);
 
   useEffect(() => {
@@ -141,101 +140,6 @@ export default function ResultsPage() {
       })
       .catch(() => {});
   }, [store.businessType, result]);
-
-  const generateBadge = useCallback(() => {
-    if (!result) return;
-    setBadgeGenerating(true);
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 900;
-      canvas.height = 420;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      const score = result.totalScore;
-      const grade = gradeFromScore(score);
-      const gradeLabel = gradeLabelFromScore(score);
-      const riskColor = riskColorFromScore(score);
-
-      ctx.fillStyle = "#0A0A0A";
-      ctx.fillRect(0, 0, 900, 420);
-
-      const grad = ctx.createLinearGradient(0, 0, 900, 0);
-      grad.addColorStop(0, "#6B4F10");
-      grad.addColorStop(0.45, "#C9A84C");
-      grad.addColorStop(1, "#E2C97E");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 900, 5);
-
-      ctx.fillStyle = "rgba(201,168,76,0.06)";
-      ctx.beginPath();
-      ctx.arc(820, 210, 220, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = "#C9A84C";
-      ctx.font = "bold 30px Georgia, 'Times New Roman', serif";
-      ctx.fillText("LegalIQ", 60, 76);
-
-      ctx.fillStyle = "#555555";
-      ctx.font = "15px Arial, sans-serif";
-      ctx.fillText("Legal Health Assessment  ·  Rest The Case", 60, 104);
-
-      ctx.strokeStyle = "rgba(201,168,76,0.15)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(60, 120);
-      ctx.lineTo(840, 120);
-      ctx.stroke();
-
-      ctx.fillStyle = "#C9A84C";
-      ctx.font = "bold 130px Arial, sans-serif";
-      const scoreStr = score.toString();
-      ctx.fillText(scoreStr, 60, 278);
-
-      const scoreWidth = ctx.measureText(scoreStr).width;
-      ctx.fillStyle = "#555555";
-      ctx.font = "36px Arial, sans-serif";
-      ctx.fillText("/ 100", 60 + scoreWidth + 12, 278);
-
-      const gradeBg = ctx.createLinearGradient(60, 300, 60, 360);
-      gradeBg.addColorStop(0, `${riskColor}30`);
-      gradeBg.addColorStop(1, `${riskColor}10`);
-      ctx.fillStyle = gradeBg;
-      ctx.beginPath();
-      ctx.roundRect(60, 305, 90, 44, 8);
-      ctx.fill();
-      ctx.strokeStyle = `${riskColor}60`;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.fillStyle = riskColor;
-      ctx.font = "bold 22px Arial, sans-serif";
-      ctx.fillText(`Grade ${grade}`, 78, 334);
-
-      ctx.fillStyle = riskColor;
-      ctx.font = "bold 15px Arial, sans-serif";
-      ctx.fillText(gradeLabel.toUpperCase(), 168, 334);
-
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 22px Arial, sans-serif";
-      ctx.fillText(store.company || "Business", 60, 384);
-
-      ctx.fillStyle = "#666666";
-      ctx.font = "15px Arial, sans-serif";
-      ctx.fillText(store.businessType + "  ·  " + (store.city || "India"), 60, 407);
-
-      ctx.fillStyle = "rgba(201,168,76,0.8)";
-      ctx.font = "14px Arial, sans-serif";
-      ctx.textAlign = "right";
-      ctx.fillText("restthecase.com/virtualCLOPackage", 840, 407);
-
-      const link = document.createElement("a");
-      link.download = `legaliq-score-${score}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    } finally {
-      setBadgeGenerating(false);
-    }
-  }, [result, store.company, store.businessType, store.city]);
 
   if (!isLoaded || !isSignedIn) {
     return (
@@ -296,11 +200,11 @@ export default function ResultsPage() {
     }
   }
 
-  function handleDownloadPdf() {
+  async function handleDownloadPdf() {
     if (!result) return;
     setDownloading(true);
     try {
-      generateReportPDF({
+      await generateReportPDF({
         company: store.company || "Your Business",
         name: store.name || "Business Owner",
         businessType: store.businessType || "",
@@ -477,12 +381,6 @@ export default function ResultsPage() {
                 </svg>
                 WhatsApp
               </a>
-
-              <button onClick={generateBadge} disabled={badgeGenerating}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold liq-text-1 border border-[#C9A84C]/25 hover:border-[#C9A84C]/50 hover:bg-[#C9A84C]/8 transition-all">
-                <Download size={14} className="text-[#C9A84C]" />
-                {badgeGenerating ? "Generating…" : "Download Badge"}
-              </button>
 
               <button onClick={handleDownloadCertificate} disabled={certGenerating}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#0A0A0A] transition-all"
