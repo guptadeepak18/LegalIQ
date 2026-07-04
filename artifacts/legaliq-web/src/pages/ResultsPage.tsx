@@ -33,14 +33,13 @@ const TIMELINE_CONFIG: Record<string, { cls: string; icon: typeof Zap }> = {
 };
 
 const VCLO_COMPARISON = [
-  { label: "Cost Efficiency",             traditional: "Billed per hour or per matter; costs are unpredictable",  vclo: "Fixed monthly retainer with predictable, budgetable costs" },
-  { label: "Legal Quality",               traditional: "Varies by lawyer availability and matter urgency",         vclo: "Dedicated attorneys who get to know your business over time" },
-  { label: "Response Time",               traditional: "Typically days to schedule a consultation",                vclo: "Same or next business day response" },
-  { label: "Ongoing Support",             traditional: "Reactive — engaged only when a problem arises",            vclo: "Continuous, proactive legal oversight all year round" },
-  { label: "Compliance Monitoring",       traditional: "Manual tracking; easy to miss filing deadlines",           vclo: "Structured tracking of licences, filings, and renewals" },
-  { label: "Contract Review",             traditional: "Ad hoc, charged per document",                             vclo: "Ongoing review included as part of the service" },
-  { label: "Risk Prevention",             traditional: "Issues are typically addressed after they occur",          vclo: "Risks are identified and mitigated before they escalate" },
-  { label: "Business-Focused Guidance",   traditional: "General legal advice, not tailored to your sector",        vclo: "Guidance shaped around your sector, stage, and goals" },
+  { label: "Cost Efficiency",             traditional: "Typically billed hourly or per matter, so costs vary with case complexity and volume", vclo: "Flat monthly subscription, making legal costs predictable and easier to budget" },
+  { label: "Ongoing Support",             traditional: "Usually engaged on a case-by-case basis when an issue comes up",                        vclo: "Continuous access to legal support as part of the subscription, not only when problems arise" },
+  { label: "Response Time",               traditional: "Response depends on the lawyer's availability and may need advance scheduling",          vclo: "Direct access to a legal point of contact, without having to find a new lawyer each time" },
+  { label: "Compliance Monitoring",       traditional: "Tracking filings, licences, and renewal deadlines is usually left to the business",       vclo: "Structured tracking of key compliance deadlines, filings, and renewals" },
+  { label: "Contract Review",             traditional: "Each contract review is typically a separate, billable engagement",                       vclo: "Contract review is included as part of the ongoing service" },
+  { label: "Risk Prevention",             traditional: "Legal issues are often addressed only after they arise",                                  vclo: "Regular check-ins help identify and address risks before they escalate" },
+  { label: "Business-Focused Guidance",   traditional: "Advice is often general and not tailored to a specific industry or stage",                vclo: "Guidance is shaped around your business model, sector, and stage of growth" },
 ];
 
 function gradeFromScore(score: number) {
