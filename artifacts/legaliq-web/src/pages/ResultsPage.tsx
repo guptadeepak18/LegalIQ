@@ -348,6 +348,23 @@ export default function ResultsPage() {
           suggestion: a.suggestion,
           recommendation: a.recommendation,
         })),
+        example: report.example
+          ? {
+              businessName: report.example.businessName,
+              whatHappened: report.example.whatHappened,
+              consequences: report.example.consequences,
+              vcloWouldHave: report.example.vcloWouldHave,
+              lesson: report.example.lesson,
+            }
+          : undefined,
+        benchmark: benchmark
+          ? {
+              avgScore: benchmark.avgScore,
+              minScore: benchmark.minScore,
+              maxScore: benchmark.maxScore,
+              sampleSize: benchmark.sampleSize,
+            }
+          : undefined,
       });
     } catch (e) {
       console.error("PDF generation failed", e);

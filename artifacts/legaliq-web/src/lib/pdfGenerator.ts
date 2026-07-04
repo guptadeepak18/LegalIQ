@@ -44,6 +44,21 @@ export interface AnswerHistoryItem {
   recommendation: string;
 }
 
+export interface CaseStudyExample {
+  businessName: string;
+  whatHappened: string;
+  consequences: string;
+  vcloWouldHave: string;
+  lesson: string;
+}
+
+export interface BenchmarkData {
+  avgScore: number;
+  minScore: number;
+  maxScore: number;
+  sampleSize: number;
+}
+
 export interface ReportData {
   company: string;
   name: string;
@@ -58,6 +73,8 @@ export interface ReportData {
   actions: Action[];
   vcloPitch?: string;
   answerHistory?: AnswerHistoryItem[];
+  example?: CaseStudyExample;
+  benchmark?: BenchmarkData;
 }
 
 // ─── Color palette ────────────────────────────────────────────────────────────
@@ -469,6 +486,55 @@ export function generateReportPDF(data: ReportData): void {
   doc.setFontSize(18);
   doc.setTextColor(...rc);
   doc.text(`${data.totalScore}/100  Grade ${g}`, W - ML - 4, y + 17, { align: "right" });
+
+  // ── Industry benchmark strip ──────────────────────────────────
+  if (data.benchmark) {
+    y += 26 + 10;
+    if (y + 30 > H - 20) {
+      doc.addPage();
+      page++;
+      pageHeader(doc, page);
+      pageFooter(doc);
+      y = 24;
+    }
+    const bm = data.benchmark;
+    doc.setFillColor(...PANEL);
+    doc.roundedRect(ML, y, CW, 30, 4, 4, "F");
+    doc.setDrawColor(...INK4);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(ML, y, CW, 30, 4, 4, "S");
+    doc.setFillColor(...GOLD);
+    doc.rect(ML, y, 3.5, 30, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...INK1);
+    doc.text(`How ${clean(data.businessType)} businesses compare`, ML + 9, y + 10);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...INK3);
+    doc.text(clean(`Based on ${bm.sampleSize} LegalIQ assessments in this category`), ML + 9, y + 16.5);
+
+    const stats: [string, number][] = [
+      ["YOUR SCORE", data.totalScore],
+      ["CATEGORY AVG", Math.round(bm.avgScore)],
+      ["LOWEST", Math.round(bm.minScore)],
+      ["HIGHEST", Math.round(bm.maxScore)],
+    ];
+    const statW = (CW - 18) / stats.length;
+    stats.forEach(([label, val], i) => {
+      const sx = ML + 9 + i * statW + statW / 2;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(i === 0 ? GOLD[0] : INK2[0], i === 0 ? GOLD[1] : INK2[1], i === 0 ? GOLD[2] : INK2[2]);
+      doc.text(`${val}`, sx, y + 22, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+      doc.setTextColor(...INK3);
+      doc.text(label, sx, y + 27, { align: "center" });
+    });
+    y += 30;
+  }
 
   // ══════════════════════════════════════════════════════════════
   // PAGE 3 — KEY RISK INSIGHTS
@@ -965,6 +1031,184 @@ export function generateReportPDF(data: ReportData): void {
   });
 
   // ══════════════════════════════════════════════════════════════
+  // PAGE — CASE STUDY (real-world parallel)
+  // ══════════════════════════════════════════════════════════════
+  if (data.example) {
+    const ex = data.example;
+    doc.addPage();
+    page++;
+    pageHeader(doc, page);
+    pageFooter(doc);
+
+    y = 24;
+
+    doc.setFillColor(...DARK_P);
+    doc.roundedRect(ML, y, CW, 12, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    doc.setTextColor(...GOLD);
+    doc.text("CASE STUDY: A SIMILAR BUSINESS", ML + 6, y + 8.5);
+    y += 18;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...INK1);
+    doc.text(clean(ex.businessName), ML, y);
+    y += 9;
+
+    const blocks: [string, string, [number, number, number]][] = [
+      ["WHAT HAPPENED", ex.whatHappened, INK2],
+      ["CONSEQUENCES", ex.consequences, [180, 40, 40]],
+      ["HOW A VCLO WOULD HAVE HELPED", ex.vcloWouldHave, [30, 130, 70]],
+      ["THE LESSON", ex.lesson, [176, 137, 58]],
+    ];
+
+    blocks.forEach(([label, text, color]) => {
+      if (!text) return;
+      const lines = wrap(doc, text, CW - 18);
+      const boxH = 12 + lines.length * 4.6 + 6;
+      if (y + boxH > H - 20) {
+        doc.addPage();
+        page++;
+        pageHeader(doc, page);
+        pageFooter(doc);
+        y = 24;
+      }
+      doc.setFillColor(...PANEL);
+      doc.roundedRect(ML, y, CW, boxH, 4, 4, "F");
+      doc.setDrawColor(...INK4);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(ML, y, CW, boxH, 4, 4, "S");
+      doc.setFillColor(...color);
+      doc.rect(ML, y, 4, boxH, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(...color);
+      doc.text(label, ML + 9, y + 9);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...INK2);
+      doc.text(lines, ML + 9, y + 16);
+
+      y += boxH + 6;
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // PAGE — CERTIFICATE DETAILS
+  // ══════════════════════════════════════════════════════════════
+  {
+    doc.addPage();
+    page++;
+    pageHeader(doc, page);
+    pageFooter(doc);
+
+    y = 24;
+
+    doc.setFillColor(...DARK_P);
+    doc.roundedRect(ML, y, CW, 12, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    doc.setTextColor(...GOLD);
+    doc.text("CERTIFICATE OF LEGAL HEALTH ASSESSMENT", ML + 6, y + 8.5);
+    y += 24;
+
+    const certId = `LIQ-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+    // Certificate panel
+    const certH = 110;
+    doc.setFillColor(16, 14, 10);
+    doc.roundedRect(ML, y, CW, certH, 6, 6, "F");
+    doc.setDrawColor(...GOLD);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(ML, y, CW, certH, 6, 6, "S");
+    doc.setDrawColor(...GOLD);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(ML + 4, y + 4, CW - 8, certH - 8, 4, 4, "S");
+
+    const ccx = ML + CW / 2;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(...GOLD);
+    doc.text("LegalIQ", ccx, y + 18, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...INK3);
+    doc.text("LEGAL HEALTH ASSESSMENT  |  BY REST THE CASE", ccx, y + 24, { align: "center" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(210, 204, 190);
+    doc.text("This certifies that", ccx, y + 35, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(17);
+    doc.setTextColor(...WHITE);
+    doc.text(wrap(doc, data.company, CW - 40).slice(0, 1), ccx, y + 45, { align: "center" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...INK3);
+    doc.text(clean(`${data.businessType}  |  ${data.city}`), ccx, y + 52, { align: "center" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(180, 174, 160);
+    doc.text("has successfully completed the LegalIQ Legal Health Assessment,", ccx, y + 61, { align: "center" });
+    doc.text("evaluating litigation exposure, contracts, compliance, and legal cost efficiency.", ccx, y + 66.5, { align: "center" });
+
+    // Score medallion
+    const medY = y + 84;
+    doc.setDrawColor(...GOLD);
+    doc.setLineWidth(0.8);
+    doc.circle(ccx, medY, 15, "S");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(...GOLD);
+    doc.text(`${data.totalScore}`, ccx, medY + 3, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6);
+    doc.setTextColor(...INK3);
+    doc.text("OUT OF 100", ccx, medY + 8.5, { align: "center" });
+
+    const cbadgeX = ccx + 26;
+    doc.setFillColor(...rc);
+    doc.roundedRect(cbadgeX, medY - 9, 40, 18, 4, 4, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...WHITE);
+    doc.text(`Grade ${g}`, cbadgeX + 20, medY - 1, { align: "center" });
+    doc.setFontSize(7);
+    doc.text(clean(gl).toUpperCase(), cbadgeX + 20, medY + 6, { align: "center" });
+
+    y += certH + 10;
+
+    // Metadata row
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...INK3);
+    doc.text("CERTIFICATE ID", ML, y);
+    doc.text("DATE ISSUED", ML + CW / 2, y);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...INK1);
+    doc.text(certId, ML, y + 6);
+    doc.text(today, ML + CW / 2, y + 6);
+    y += 16;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...INK3);
+    doc.text(
+      wrap(doc, "A full shareable certificate (landscape, print-ready) is also available for separate download from your Results page — ideal for displaying to investors, partners, or clients.", CW),
+      ML,
+      y
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
   // PAGE — YOUR NEXT STEP (VCLO pitch + comparison table)
   // ══════════════════════════════════════════════════════════════
   doc.addPage();
@@ -985,6 +1229,16 @@ export function generateReportPDF(data: ReportData): void {
   doc.setTextColor(130, 120, 100);
   doc.text("Rest The Case VCLO Service", W - ML - 6, y + 8.5, { align: "right" });
   y += 18;
+
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...INK3);
+  doc.text(
+    wrap(doc, "We recommend booking a free consultation with a Rest The Case attorney to walk through this report and the risks specific to your business in detail.", CW),
+    ML,
+    y
+  );
+  y += 14;
 
   // Personalised pitch box
   if (data.vcloPitch) {
