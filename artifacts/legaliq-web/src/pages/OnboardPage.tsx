@@ -309,7 +309,7 @@ export default function OnboardPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold liq-text-3 mb-1.5 block">Your Name *</label>
                     <input className="liq-input" placeholder="Rajesh Kumar" value={name} onChange={(e) => setName(e.target.value)} />

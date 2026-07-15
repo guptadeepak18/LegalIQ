@@ -81,8 +81,9 @@ export default function LandingPage() {
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <button onClick={() => navigate("/onboard")}
-            className="text-sm font-bold text-[#0A0A0A] bg-[#C9A84C] hover:bg-[#E2C97E] px-5 py-2.5 rounded-lg transition-all shadow-md shadow-[#C9A84C]/25">
-            Start Free Assessment →
+            className="text-sm font-bold text-[#0A0A0A] bg-[#C9A84C] hover:bg-[#E2C97E] px-4 sm:px-5 py-2.5 rounded-lg transition-all shadow-md shadow-[#C9A84C]/25">
+            <span className="sm:hidden">Free Score →</span>
+            <span className="hidden sm:inline">Start Free Assessment →</span>
           </button>
         </div>
       </nav>
@@ -94,18 +95,18 @@ export default function LandingPage() {
 
           {/* Badge */}
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-            className="glass-badge mb-8 mx-auto w-fit">
+            className="glass-badge mb-8 mx-auto max-w-[calc(100vw-3rem)] text-center">
             <span className="w-2 h-2 rounded-full bg-[#C9A84C] animate-pulse flex-shrink-0" />
             India's first AI-powered Legal Health Score Platform
           </motion.div>
 
           {/* Headline */}
-          <h1 className="font-serif font-medium leading-[1.1] mb-6" style={{ fontSize: "clamp(2.25rem, 5.5vw, 5rem)", letterSpacing: "-0.01em" }}>
-            <span className="liq-text-1 whitespace-nowrap">
+          <h1 className="font-serif font-medium leading-[1.1] mb-6" style={{ fontSize: "clamp(1.5rem, 7vw, 5rem)", letterSpacing: "-0.01em" }}>
+            <span className="liq-text-1 sm:whitespace-nowrap">
               Does Your Business Have
             </span>
             <br />
-            <span className="text-gold-gradient gold-glow-text whitespace-nowrap">
+            <span className="text-gold-gradient gold-glow-text sm:whitespace-nowrap">
               Legal Blind Spots?
             </span>
           </h1>
@@ -163,7 +164,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 gap-10 items-center">
             <motion.div initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>About Rest The Case</p>
-              <h2 className="font-serif text-4xl md:text-5xl font-medium liq-text-1 mb-5 leading-tight">
+              <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-medium liq-text-1 mb-5 leading-tight">
                 India's Leading Virtual Chief Legal Officer Service
               </h2>
               <p className="liq-text-2 leading-relaxed mb-5">
@@ -204,7 +205,7 @@ export default function LandingPage() {
           <div className="text-center mb-10">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>Why LegalIQ</p>
-              <h2 className="font-serif text-4xl md:text-5xl font-medium liq-text-1 mb-4">
+              <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-medium liq-text-1 mb-4">
                 Built to Find What You're Missing
               </h2>
               <p className="liq-text-2 max-w-xl mx-auto">
@@ -243,7 +244,7 @@ export default function LandingPage() {
           <div className="text-center mb-12">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>Assessment Framework</p>
-              <h2 className="font-serif text-4xl md:text-5xl font-medium liq-text-1 mb-4">
+              <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-medium liq-text-1 mb-4">
                 4 Pillars of Legal Health
               </h2>
               <p className="liq-text-3 max-w-lg mx-auto text-sm leading-relaxed"
@@ -313,7 +314,7 @@ export default function LandingPage() {
           <div className="text-center mb-10">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>The Process</p>
-              <h2 className="font-serif text-4xl md:text-5xl font-medium liq-text-1">
+              <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-medium liq-text-1">
                 How It Works
               </h2>
             </motion.div>
@@ -463,7 +464,7 @@ export default function LandingPage() {
       <section className="py-14 px-6">
         <div className="max-w-3xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="glass-card rounded-2xl p-10 md:p-14 text-center relative overflow-hidden">
+            className="glass-card rounded-2xl p-7 sm:p-10 md:p-14 text-center relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-[#C9A84C]/8 to-transparent pointer-events-none" />
             <div className="absolute -top-20 -right-20 w-56 h-56 bg-[#C9A84C]/6 rounded-full blur-3xl pointer-events-none" />
             <AlertTriangle size={36} className="text-[#C9A84C] mx-auto mb-4 relative z-10 float" />
