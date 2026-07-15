@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Scale, Download, Calendar, Star, AlertTriangle, Shield, TrendingUp,
   FileText, CheckCircle, ArrowRight, Lightbulb, Clock, Zap, Target,
-  BookOpen, Share2, BarChart2, History, ChevronDown, ChevronUp, Loader2, Award,
+  BookOpen, Share2, BarChart2, History, ChevronDown, ChevronUp, Award,
 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { useStore } from "@/store/useStore";
@@ -144,7 +144,10 @@ export default function ResultsPage() {
   if (!isLoaded || !isSignedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 size={28} className="animate-spin liq-text-3" />
+        <motion.div animate={{ scale: [1, 1.1, 1], opacity: [0.6, 1, 0.6] }} transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}>
+          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-16 w-16 object-contain dark:hidden" />
+          <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-16 w-16 object-contain hidden dark:block" />
+        </motion.div>
       </div>
     );
   }
@@ -559,7 +562,7 @@ export default function ResultsPage() {
                 const sev = SEVERITY_CONFIG[ins.severity] ?? SEVERITY_CONFIG.LOW;
                 return (
                   <motion.div key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 + i * 0.06 }}
-                    className="p-5 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.12)", background: "rgba(201,168,76,0.03)" }}>
+                    className="p-5 rounded-xl border border-gray-100 dark:border-[rgba(201,168,76,0.12)] bg-white dark:bg-[rgba(201,168,76,0.02)]">
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <h3 className="font-bold liq-text-1 text-sm flex items-center gap-2">
                         <span>{sev.icon}</span>{ins.title}
@@ -606,7 +609,7 @@ export default function ResultsPage() {
                 const sev = SEVERITY_CONFIG[fr.level] ?? SEVERITY_CONFIG.LOW;
                 return (
                   <motion.div key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + i * 0.06 }}
-                    className="p-5 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.12)", background: "rgba(201,168,76,0.03)" }}>
+                    className="p-5 rounded-xl border border-gray-100 dark:border-[rgba(201,168,76,0.12)] bg-white dark:bg-[rgba(201,168,76,0.02)]">
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <h3 className="font-bold liq-text-1 text-sm flex items-center gap-2">
                         <span>{sev.icon}</span>{fr.title}
@@ -639,7 +642,7 @@ export default function ResultsPage() {
                 const TLIcon = tl.icon;
                 return (
                   <motion.div key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45 + i * 0.05 }}
-                    className="flex gap-4 p-5 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.10)", background: "rgba(201,168,76,0.025)" }}>
+                    className="flex gap-4 p-5 rounded-xl border border-gray-100 dark:border-[rgba(201,168,76,0.10)] bg-white dark:bg-[rgba(201,168,76,0.02)]">
                     <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
                       <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border whitespace-nowrap flex items-center gap-1 ${tl.cls}`}>
                         <TLIcon size={10} />{act.timeline}
@@ -688,8 +691,6 @@ export default function ResultsPage() {
 
         {/* ── VCLO CTA ───────────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="glass-card rounded-2xl p-8 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#C9A84C]/8 via-transparent to-transparent pointer-events-none" />
-          <div className="absolute -bottom-16 -right-16 w-64 h-64 bg-[#C9A84C]/5 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10">
             <h2 className="font-serif text-2xl font-bold liq-text-1 mb-1">Your Next Step</h2>
             <p className="liq-text-3 text-xs mb-5">How a Rest The Case Virtual Chief Legal Officer (VCLO) supports a {store.businessType || "business like yours"}.</p>

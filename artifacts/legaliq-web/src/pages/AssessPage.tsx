@@ -110,13 +110,9 @@ function AssessLoadingScreen({ businessType, city }: { businessType: string; cit
       <LogoWatermark />
       <ThemeToggle className="fixed top-4 right-4 z-50" />
 
-      {/* Logo */}
-      <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-16 w-16 object-contain mb-8 float dark:hidden" />
-      <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-16 w-16 object-contain mb-8 float hidden dark:block" />
-
       {/* Card */}
       <div className="w-full max-w-sm glass-card rounded-3xl p-8 flex flex-col items-center gap-6">
-        {/* Animated ring */}
+        {/* Animated ring with RTC logo */}
         <div className="relative w-20 h-20 flex items-center justify-center">
           <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 80 80">
             <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(201,168,76,0.1)" strokeWidth="6" />
@@ -129,14 +125,14 @@ function AssessLoadingScreen({ businessType, city }: { businessType: string; cit
               strokeDashoffset={2 * Math.PI * 34 * (1 - progress / 100)}
             />
           </svg>
-          <motion.span
-            key={step}
-            initial={{ scale: 0.6, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="text-2xl"
+          <motion.div
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            className="flex items-center justify-center"
           >
-            {LOAD_STEPS[Math.min(step, LOAD_STEPS.length - 1)]?.icon ?? "⚖️"}
-          </motion.span>
+            <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="w-10 h-10 object-contain dark:hidden" />
+            <img src="/rtc-logo-dark.png" alt="Rest The Case" className="w-10 h-10 object-contain hidden dark:block" />
+          </motion.div>
         </div>
 
         {/* Title */}
@@ -317,13 +313,26 @@ export default function AssessPage() {
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center gap-8">
         <LogoWatermark />
         <ThemeToggle className="fixed top-4 right-4 z-50" />
-        <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-20 w-20 object-contain float dark:hidden" />
-        <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-20 w-20 object-contain float hidden dark:block" />
-        <div className="relative w-20 h-20">
-          <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(201,168,76,0.12)" strokeWidth="8" />
-            <circle cx="50" cy="50" r="42" fill="none" stroke="#C9A84C" strokeWidth="8" strokeDasharray="60 264" strokeLinecap="round" className="animate-spin" style={{ animationDuration:"1.4s" }} />
+        <div className="relative w-24 h-24">
+          <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(201,168,76,0.12)" strokeWidth="7" />
+            <motion.circle
+              cx="50" cy="50" r="42" fill="none" stroke="#C9A84C" strokeWidth="7"
+              strokeLinecap="round" strokeDasharray="60 264"
+              animate={{ rotate: 360 }}
+              style={{ originX: "50px", originY: "50px" }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+            />
           </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <motion.div
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            >
+              <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="w-12 h-12 object-contain dark:hidden" />
+              <img src="/rtc-logo-dark.png" alt="Rest The Case" className="w-12 h-12 object-contain hidden dark:block" />
+            </motion.div>
+          </div>
         </div>
         <div>
           <h2 className="liq-text-1 font-bold text-2xl mb-3">Calculating Your Legal Score</h2>
