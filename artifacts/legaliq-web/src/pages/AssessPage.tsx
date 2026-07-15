@@ -386,41 +386,30 @@ export default function AssessPage() {
         <LogoWatermark />
         <div className="glow-orb w-72 h-72" style={{ background: pillarColor(pillarIndex, 22), top: "50%", left: "50%", transform: "translate(-50%,-50%)" }} />
         <PillarDots current={pillarIndex} colors={PILLAR_COLORS} />
-        <div className="relative flex items-center justify-center w-28 h-28">
-          {[0, 1, 2].map((ring) => (
-            <motion.span
-              key={ring}
-              className="absolute rounded-full"
-              style={{ border: `1.5px solid ${pillarColor(pillarIndex, 35)}`, width: 56, height: 56 }}
-              animate={{ scale: [1, 2.1, 2.1], opacity: [0.55, 0, 0] }}
-              transition={{ duration: 2.2, repeat: Infinity, ease: "easeOut", delay: ring * 0.7 }}
-            />
-          ))}
-          <motion.div
-            className="relative w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-sm"
-            style={{
-              background: `radial-gradient(circle at 35% 30%, ${pillarColor(pillarIndex, 30)}, ${pillarColor(pillarIndex, 10)})`,
-              border: `1px solid ${pillarColor(pillarIndex, 45)}`,
-              boxShadow: `0 0 30px ${pillarColor(pillarIndex, 35)}, 0 8px 24px rgba(0,0,0,0.18)`,
-            }}
-            animate={{ scale: [1, 1.06, 1] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <motion.div
+        <div className="relative w-24 h-24 flex items-center justify-center">
+          <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" fill="none" stroke={pillarColor(pillarIndex, 12)} strokeWidth="6" />
+            <motion.circle
+              cx="50" cy="50" r="42" fill="none" stroke={color} strokeWidth="6"
+              strokeLinecap="round" strokeDasharray="50 264"
               animate={{ rotate: 360 }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: "linear" }}
-            >
-              <Sparkles size={26} style={{ color }} strokeWidth={2} />
-            </motion.div>
+              style={{ originX: "50px", originY: "50px" }}
+              transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+            />
+          </svg>
+          <motion.div
+            animate={{ scale: [1, 1.12, 1] }}
+            transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+            className="flex items-center justify-center"
+          >
+            <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="w-12 h-12 object-contain dark:hidden" />
+            <img src="/rtc-logo-dark.png" alt="Rest The Case" className="w-12 h-12 object-contain hidden dark:block" />
           </motion.div>
         </div>
         <div className="text-center">
           <h3 className="liq-text-1 font-bold text-lg mb-1.5 flex items-center justify-center gap-1">
             Analysing your answer
-            <motion.span
-              className="inline-flex gap-0.5 ml-0.5"
-              initial="hidden"
-            >
+            <motion.span className="inline-flex gap-0.5 ml-0.5">
               {[0, 1, 2].map((dot) => (
                 <motion.span
                   key={dot}
@@ -587,8 +576,7 @@ function InsightCard({ insight, pillarIndex, bg, border }: { insight: QuestionIn
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="rounded-3xl p-6 border backdrop-blur-sm flex flex-col gap-4"
-      style={{ background: bg, borderColor: border }}
+      className="rounded-3xl p-6 border border-gray-100 dark:border-[rgba(201,168,76,0.15)] bg-white dark:bg-[rgba(6,11,30,0.85)] flex flex-col gap-4"
     >
       <div className="flex items-center gap-2">
         <Sparkles size={16} style={{ color }} />
