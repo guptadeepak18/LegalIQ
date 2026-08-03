@@ -122,64 +122,73 @@ const FAQ_GROUPS: Array<{
 ];
 
 function FAQAccordion() {
+  const [activeTab, setActiveTab] = useState(0);
   const [openId, setOpenId] = useState<string | null>(null);
+  const group = FAQ_GROUPS[activeTab];
+
+  function switchTab(i: number) {
+    setActiveTab(i);
+    setOpenId(null);
+  }
+
   return (
-    <div className="space-y-8">
-      {FAQ_GROUPS.map((group) => (
-        <div key={group.category}>
-          {/* Group header */}
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgba(201,168,76,0.10)", border: "1px solid rgba(201,168,76,0.22)" }}>
-              <group.icon size={14} className="text-[#C9A84C]" />
+    <div>
+      {/* Category tabs */}
+      <div className="flex flex-wrap gap-2 mb-8">
+        {FAQ_GROUPS.map((g, i) => (
+          <button key={g.category} onClick={() => switchTab(i)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+              activeTab === i
+                ? "bg-[#C9A84C] text-[#0A0A0A] shadow-md shadow-[#C9A84C]/25"
+                : "border liq-text-2 hover:text-[#C9A84C]"
+            }`}
+            style={activeTab !== i ? { borderColor: "rgba(201,168,76,0.22)" } : {}}>
+            <g.icon size={13} />
+            {g.category}
+          </button>
+        ))}
+      </div>
+
+      {/* Q&A list */}
+      <div className="rounded-2xl overflow-hidden border" style={{ borderColor: "rgba(201,168,76,0.15)" }}>
+        {group.items.map((item, idx) => {
+          const id = `${group.category}-${idx}`;
+          const isOpen = openId === id;
+          const isLast = idx === group.items.length - 1;
+          return (
+            <div key={id} className={isLast ? "" : "border-b"} style={{ borderColor: "rgba(201,168,76,0.12)" }}>
+              <button onClick={() => setOpenId(isOpen ? null : id)}
+                className="w-full flex items-start justify-between gap-6 px-6 py-5 text-left group transition-colors hover:bg-[#C9A84C]/[0.03]">
+                <span className="text-sm font-semibold liq-text-1 leading-snug group-hover:text-[#C9A84C] transition-colors pt-0.5">
+                  {item.q}
+                </span>
+                <motion.span animate={{ rotate: isOpen ? 45 : 0 }} transition={{ duration: 0.2 }}
+                  className={`flex-shrink-0 w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
+                    isOpen ? "bg-[#C9A84C] border-[#C9A84C]" : "border-current/20"
+                  }`}>
+                  <ChevronDown size={13} className={isOpen ? "text-[#0A0A0A]" : "liq-text-3"} />
+                </motion.span>
+              </button>
+              <AnimatePresence initial={false}>
+                {isOpen && (
+                  <motion.div key="body"
+                    initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22, ease: "easeInOut" }}
+                    style={{ overflow: "hidden" }}>
+                    <div className="px-6 pb-5" style={{ borderTop: "1px solid rgba(201,168,76,0.10)" }}>
+                      <p className="pt-4 text-sm liq-text-2 leading-[1.75]">{item.a}</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#C9A84C]">{group.category}</span>
-          </div>
-          {/* Items */}
-          <div className="space-y-2">
-            {group.items.map((item, idx) => {
-              const id = `${group.category}-${idx}`;
-              const isOpen = openId === id;
-              return (
-                <div key={id} className="rounded-xl border overflow-hidden"
-                  style={{ borderColor: isOpen ? "rgba(201,168,76,0.30)" : "rgba(201,168,76,0.12)", background: isOpen ? "rgba(201,168,76,0.04)" : "transparent" }}>
-                  <button onClick={() => setOpenId(isOpen ? null : id)}
-                    className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left group">
-                    <span className="text-sm font-semibold liq-text-1 leading-snug group-hover:text-[#C9A84C] transition-colors">{item.q}</span>
-                    <motion.span animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.22 }} className="flex-shrink-0">
-                      <ChevronDown size={16} className={isOpen ? "text-[#C9A84C]" : "liq-text-3"} />
-                    </motion.span>
-                  </button>
-                  <AnimatePresence initial={false}>
-                    {isOpen && (
-                      <motion.div key="body"
-                        initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22, ease: "easeInOut" }}
-                        style={{ overflow: "hidden" }}>
-                        <div className="px-5 pb-4 text-sm liq-text-2 leading-relaxed border-t"
-                          style={{ borderColor: "rgba(201,168,76,0.12)" }}>
-                          <p className="pt-3">{item.a}</p>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-// ─── Grade scale visual data ───────────────────────────────────────────────────
-const GRADE_SCALE = [
-  { grade: "A", range: "80–100", label: "Healthy",  color: "#22C55E", bg: "rgba(34,197,94,0.08)",  border: "rgba(34,197,94,0.25)",  desc: "Strong legal position. Continue monitoring." },
-  { grade: "B", range: "60–79",  label: "Stable",   color: "#F59E0B", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.25)", desc: "Generally sound with a few gaps to address." },
-  { grade: "C", range: "40–59",  label: "Risky",    color: "#F97316", bg: "rgba(249,115,22,0.08)", border: "rgba(249,115,22,0.25)", desc: "Significant gaps that need priority action." },
-  { grade: "D", range: "0–39",   label: "Critical", color: "#EF4444", bg: "rgba(239,68,68,0.08)",  border: "rgba(239,68,68,0.25)",  desc: "Immediate legal intervention required." },
-];
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -262,6 +271,59 @@ export default function LandingPage() {
           </div>
         </motion.div>
 
+      </section>
+
+      {/* ── ABOUT THE LEGAL HEALTH SCORE ─────────────────────────────────── */}
+      <section id="about-lhs" className="py-16 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+              <p className="type-label liq-text-3 mb-3">How It Works</p>
+              <h2 className="type-h2 liq-text-1 mb-4 tracking-tight">About the Legal Health Score</h2>
+              <p className="liq-text-3 text-sm leading-relaxed max-w-2xl mx-auto">
+                The LHS is India's first structured legal risk benchmark for businesses — a single score that tells you exactly where your legal exposure sits and what to do about it.
+              </p>
+            </motion.div>
+          </div>
+
+          {/* Overview paragraph */}
+          <motion.div initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className="glass-card rounded-2xl p-6 mb-8 max-w-3xl mx-auto text-center">
+            <p className="text-sm liq-text-2 leading-relaxed">
+              Your Legal Health Score is calculated from your answers to a business-specific assessment across{" "}
+              <span className="font-semibold liq-text-1">four independent pillars</span>, each scored out of 25 points.
+              The combined score out of 100 maps to a grade that describes your overall legal risk level — and drives a personalised action plan with specific steps for your business type.
+            </p>
+          </motion.div>
+
+          {/* 4 Pillar mini-cards */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {([
+              { icon: Scale,      label: "Litigation Health",     score: "25 pts", color: "#EF4444", desc: "Exposure to disputes, legal notices, and court proceedings." },
+              { icon: FileText,   label: "Contractual Health",    score: "25 pts", color: "#F59E0B", desc: "Strength and enforceability of vendor, employee, and client agreements." },
+              { icon: Shield,     label: "Compliance Health",     score: "25 pts", color: "#3B82F6", desc: "Adherence to statutory filings, licences, and regulatory obligations." },
+              { icon: TrendingUp, label: "Legal Cost Efficiency", score: "25 pts", color: "#8B5CF6", desc: "Efficiency of legal spend and preparedness to avoid avoidable costs." },
+            ] as const).map((p, i) => (
+              <motion.div key={p.label}
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.08 }} viewport={{ once: true }}
+                className="glass-card rounded-xl p-5 flex flex-col">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center"
+                    style={{ background: `${p.color}12`, border: `1.5px solid ${p.color}30` }}>
+                    <p.icon size={16} style={{ color: p.color }} />
+                  </div>
+                  <span className="text-xs font-bold" style={{ color: p.color }}>{p.score}</span>
+                </div>
+                <p className="text-sm font-bold liq-text-1 mb-2 leading-snug">{p.label}</p>
+                <p className="text-xs liq-text-3 leading-relaxed flex-1">{p.desc}</p>
+                <div className="mt-3 h-1 rounded-full" style={{ background: `${p.color}15` }}>
+                  <div className="h-full rounded-full" style={{ width: "100%", background: `linear-gradient(90deg, ${p.color}50, ${p.color})` }} />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ── WHAT IS VCLO ─────────────────────────────────────────────────── */}
@@ -677,75 +739,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── ABOUT THE LEGAL HEALTH SCORE ─────────────────────────────────── */}
-      <section id="about-lhs" className="py-16 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-              <p className="type-label liq-text-3 mb-3">How It Works</p>
-              <h2 className="type-h2 liq-text-1 mb-4 tracking-tight">About the Legal Health Score</h2>
-              <p className="liq-text-3 text-sm leading-relaxed max-w-2xl mx-auto">
-                The LHS is India's first structured legal risk benchmark for businesses — a single score that tells you exactly where your legal exposure sits and what to do about it.
-              </p>
-            </motion.div>
-          </div>
-
-          {/* Overview paragraph */}
-          <motion.div initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="glass-card rounded-2xl p-6 mb-8 max-w-3xl mx-auto text-center">
-            <p className="text-sm liq-text-2 leading-relaxed">
-              Your Legal Health Score is calculated from your answers to a business-specific assessment across{" "}
-              <span className="font-semibold liq-text-1">four independent pillars</span>, each scored out of 25 points.
-              The combined score out of 100 maps to a grade that describes your overall legal risk level — and drives a personalised action plan with specific steps for your business type.
-            </p>
-          </motion.div>
-
-          {/* 4 Pillar mini-cards */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-            {([
-              { icon: Scale,      label: "Litigation Health",     score: "25 pts", color: "#EF4444", desc: "Exposure to disputes, legal notices, and court proceedings." },
-              { icon: FileText,   label: "Contractual Health",    score: "25 pts", color: "#F59E0B", desc: "Strength and enforceability of vendor, employee, and client agreements." },
-              { icon: Shield,     label: "Compliance Health",     score: "25 pts", color: "#3B82F6", desc: "Adherence to statutory filings, licences, and regulatory obligations." },
-              { icon: TrendingUp, label: "Legal Cost Efficiency", score: "25 pts", color: "#8B5CF6", desc: "Efficiency of legal spend and preparedness to avoid avoidable costs." },
-            ] as const).map((p, i) => (
-              <motion.div key={p.label}
-                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.08 }} viewport={{ once: true }}
-                className="glass-card rounded-xl p-5 flex flex-col">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center"
-                    style={{ background: `${p.color}12`, border: `1.5px solid ${p.color}30` }}>
-                    <p.icon size={16} style={{ color: p.color }} />
-                  </div>
-                  <span className="text-xs font-bold" style={{ color: p.color }}>{p.score}</span>
-                </div>
-                <p className="text-sm font-bold liq-text-1 mb-2 leading-snug">{p.label}</p>
-                <p className="text-xs liq-text-3 leading-relaxed flex-1">{p.desc}</p>
-                <div className="mt-3 h-1 rounded-full" style={{ background: `${p.color}15` }}>
-                  <div className="h-full rounded-full" style={{ width: "100%", background: `linear-gradient(90deg, ${p.color}50, ${p.color})` }} />
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Grade scale visual */}
-          <motion.div initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="glass-card rounded-2xl p-6 max-w-3xl mx-auto">
-            <p className="text-xs font-bold uppercase tracking-widest text-[#C9A84C] mb-5 text-center">Score to Grade Mapping</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {GRADE_SCALE.map((g) => (
-                <div key={g.grade} className="rounded-xl p-4 text-center border"
-                  style={{ background: g.bg, borderColor: g.border }}>
-                  <div className="text-3xl font-black mb-1" style={{ color: g.color }}>{g.grade}</div>
-                  <div className="text-xs font-bold mb-1" style={{ color: g.color }}>{g.label}</div>
-                  <div className="text-[10px] font-semibold liq-text-3 mb-2">{g.range} / 100</div>
-                  <p className="text-[10px] liq-text-3 leading-snug">{g.desc}</p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </section>
 
       {/* ── REPORT PREVIEW ───────────────────────────────────────────────── */}
       <section className="py-14 px-6">
