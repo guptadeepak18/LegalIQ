@@ -1,3 +1,5 @@
+import { Info } from "lucide-react";
+
 interface LegalDisclaimerCardProps {
   context?: "assessment" | "report";
   className?: string;
@@ -7,60 +9,70 @@ export function LegalDisclaimerCard({
   context = "assessment",
   className = "",
 }: LegalDisclaimerCardProps) {
-  const contextPhrase =
-    context === "report"
-      ? "this report and the Legal Health Score contained herein"
-      : "this assessment and the Legal Health Score";
-
   return (
     <div
-      className={`disclaimer-card ${className}`}
+      className={`flex gap-5 rounded-2xl px-6 py-5 ${className}`}
       style={{
-        borderTop: "1px solid var(--disclaimer-divider)",
-        borderBottom: "1px solid var(--disclaimer-divider)",
-        padding: "1.5rem 0",
+        background: "var(--disclaimer-bg)",
+        border: "1px solid var(--disclaimer-border)",
+        boxShadow: "var(--disclaimer-shadow)",
       }}
     >
-      {/* Label */}
-      <p
-        className="text-[10px] font-bold uppercase tracking-[0.18em] mb-3"
-        style={{ color: "#C9A84C" }}
-      >
-        Legal Disclaimer
-      </p>
+      {/* Left accent + icon */}
+      <div className="flex flex-col items-center gap-2 flex-shrink-0 pt-0.5">
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center"
+          style={{
+            background: "rgba(201,168,76,0.12)",
+            border: "1px solid rgba(201,168,76,0.25)",
+          }}
+        >
+          <Info size={13} className="text-[#C9A84C]" strokeWidth={2.5} />
+        </div>
+        <div
+          className="w-px flex-1 min-h-[1.5rem]"
+          style={{ background: "rgba(201,168,76,0.18)" }}
+        />
+      </div>
 
-      {/* Single paragraph */}
-      <p
-        className="liq-text-3 leading-[1.75] text-[12.5px]"
-        style={{ maxWidth: "none" }}
-      >
-        {contextPhrase.charAt(0).toUpperCase() + contextPhrase.slice(1)}{" "}
-        is produced by LegalIQ, a service of{" "}
-        <span className="liq-text-2 font-medium">Rest The Case</span>, for
-        informational purposes only. It does not constitute legal advice, a
-        legal opinion, or professional counsel of any kind, and should not be
-        relied upon as a substitute for consultation with a qualified legal
-        professional. The results are generated using artificial intelligence
-        based solely on the information provided during the assessment and may
-        be incomplete, inaccurate, or inapplicable to your specific legal
-        circumstances. Rest The Case, LegalIQ, and their associated attorneys,
-        employees, and agents expressly disclaim all liability for any loss,
-        damage, cost, or expense — direct or consequential — arising from
-        reliance on, or action taken in response to, the contents of{" "}
-        {context === "report" ? "this report" : "this assessment"}. For
-        professional legal guidance tailored to your business, please consult a
-        qualified Advocate or engage{" "}
-        <a
-          href="https://restthecase.com/virtualCLOPackage"
-          target="_blank"
-          rel="noreferrer"
-          className="font-medium underline underline-offset-2 decoration-[#C9A84C]/50 hover:decoration-[#C9A84C] transition-colors"
+      {/* Content */}
+      <div className="flex-1 min-w-0 space-y-3">
+        {/* Label */}
+        <p
+          className="text-[10px] font-bold tracking-[0.16em] uppercase"
           style={{ color: "#C9A84C" }}
         >
-          Rest The Case's Virtual Chief Legal Officer (VCLO) service
-        </a>
-        .
-      </p>
+          Legal Disclaimer
+        </p>
+
+        {/* Paragraph */}
+        <p className="text-[12.5px] liq-text-3 leading-[1.8]">
+          This {context === "report" ? "report" : "assessment"} and the Legal
+          Health Score are produced by <span className="liq-text-2 font-medium">LegalIQ by Rest The Case</span> for
+          informational purposes only. They do not constitute legal advice, a
+          legal opinion, or professional counsel of any kind, and must not be
+          relied upon as a substitute for consultation with a qualified legal
+          professional. Results are AI-generated from the information you
+          provided and may be incomplete or inapplicable to your specific
+          circumstances. Rest The Case expressly disclaims all liability for
+          any action taken or not taken in reliance on this{" "}
+          {context === "report" ? "report" : "assessment"}.
+        </p>
+
+        {/* Inline CTA */}
+        <p className="text-[11.5px] liq-text-4">
+          Need personalised legal guidance?{" "}
+          <a
+            href="https://restthecase.com/virtualCLOPackage"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold transition-colors hover:text-[#C9A84C]"
+            style={{ color: "#C9A84C" }}
+          >
+            Explore the Rest The Case VCLO Service →
+          </a>
+        </p>
+      </div>
     </div>
   );
 }
