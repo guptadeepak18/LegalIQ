@@ -5,6 +5,7 @@ import {
   Scale, Download, Calendar, Star, AlertTriangle, Shield, TrendingUp,
   FileText, CheckCircle, ArrowRight, Lightbulb, Clock, Zap, Target,
   BookOpen, Share2, BarChart2, History, ChevronDown, ChevronUp, Award,
+  ExternalLink, IndianRupee, Briefcase, AlertCircle,
 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { useStore } from "@/store/useStore";
@@ -31,6 +32,12 @@ const TIMELINE_CONFIG: Record<string, { cls: string; icon: typeof Zap }> = {
   "THIS WEEK":  { cls: "text-red-500 bg-red-500/10 border-red-500/25",       icon: Zap },
   "THIS MONTH": { cls: "text-amber-500 bg-amber-500/10 border-amber-500/25", icon: Clock },
   "90 DAYS":    { cls: "text-blue-500 bg-blue-500/10 border-blue-500/25",    icon: Target },
+};
+
+const PRIORITY_CONFIG: Record<string, { label: string; cls: string; headerCls: string; borderColor: string }> = {
+  "Immediate":  { label: "Immediate",  cls: "text-red-500 bg-red-500/10 border-red-500/25",       headerCls: "bg-red-500/8 border-red-500/20",   borderColor: "rgba(239,68,68,0.25)"  },
+  "Short-Term": { label: "Short-Term", cls: "text-amber-500 bg-amber-500/10 border-amber-500/25", headerCls: "bg-amber-500/8 border-amber-500/20", borderColor: "rgba(245,158,11,0.25)" },
+  "Long-Term":  { label: "Long-Term",  cls: "text-blue-500 bg-blue-500/10 border-blue-500/25",   headerCls: "bg-blue-500/8 border-blue-500/20",   borderColor: "rgba(59,130,246,0.25)" },
 };
 
 const VCLO_COMPARISON = [
@@ -241,7 +248,13 @@ export default function ResultsPage() {
           action: act.action,
           description: act.description,
           timeline: act.timeline,
+          priority: act.priority,
+          costMin: act.costMin,
+          costMax: act.costMax,
+          delayImpact: act.delayImpact,
         })),
+        costSummary: report.costSummary,
+        similarCases: report.similarCases,
         vcloPitch: report.vcloPitch,
         answerHistory: (result.answers || []).map((a) => ({
           question: a.question,
@@ -631,32 +644,146 @@ export default function ResultsPage() {
         )}
 
         {/* ── ACTION PLAN ────────────────────────────────────────────────── */}
-        {report.actions?.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card rounded-2xl p-6">
+        {report.actions?.length > 0 && (() => {
+          const tiers = ["Immediate", "Short-Term", "Long-Term"] as const;
+          const grouped = tiers.map(t => ({
+            tier: t,
+            cfg: PRIORITY_CONFIG[t],
+            items: report.actions.filter(a => (a.priority ?? "Long-Term") === t),
+          })).filter(g => g.items.length > 0);
+          return (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card rounded-2xl p-6">
+              <h2 className="type-h2 liq-text-1 mb-6 flex items-center gap-2">
+                <CheckCircle size={18} className="text-[#C9A84C]" /> Prioritised Action Plan
+                <span className="ml-auto liq-text-3 type-caption font-normal">{report.actions.length} actions</span>
+              </h2>
+
+              <div className="space-y-6">
+                {grouped.map(({ tier, cfg, items }) => (
+                  <div key={tier}>
+                    {/* Tier header */}
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border mb-3 ${cfg.headerCls}`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${cfg.cls}`}>{cfg.label}</span>
+                      <span className="liq-text-3 text-xs">{items.length} action{items.length > 1 ? "s" : ""}</span>
+                    </div>
+
+                    <div className="space-y-3 pl-1">
+                      {items.map((act, i) => {
+                        const tl = TIMELINE_CONFIG[act.timeline] ?? TIMELINE_CONFIG["90 DAYS"];
+                        const TLIcon = tl.icon;
+                        return (
+                          <motion.div key={i}
+                            initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.45 + i * 0.05 }}
+                            className="rounded-xl border p-4 bg-white dark:bg-[rgba(255,255,255,0.02)]"
+                            style={{ borderColor: cfg.borderColor }}>
+                            {/* Top row: timeline badge + step number */}
+                            <div className="flex items-center gap-2 mb-2.5">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${tl.cls}`}>
+                                <TLIcon size={9} /> {act.timeline}
+                              </span>
+                              {act.costMin && (
+                                <span className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-[#C9A84C] bg-[#C9A84C]/10 border border-[#C9A84C]/25 px-2 py-0.5 rounded">
+                                  <IndianRupee size={9} />
+                                  {act.costMin}{act.costMax ? ` – ${act.costMax}` : ""}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Title */}
+                            <h3 className="font-bold liq-text-1 text-sm mb-1.5 leading-snug">{act.action}</h3>
+
+                            {/* Delay impact */}
+                            {act.delayImpact && (
+                              <div className="flex items-start gap-1.5 mb-2.5 p-2 rounded-lg bg-red-500/5 border border-red-500/10">
+                                <AlertCircle size={11} className="text-red-500 flex-shrink-0 mt-0.5" />
+                                <p className="text-[11px] text-red-600 dark:text-red-400 leading-relaxed">{act.delayImpact}</p>
+                              </div>
+                            )}
+
+                            {/* Link */}
+                            {act.link?.url && (
+                              <a href={act.link.url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#C9A84C] hover:text-[#E2C97E] transition-colors mt-1">
+                                <ExternalLink size={11} />
+                                {act.link.label ?? "Learn More"}
+                              </a>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          );
+        })()}
+
+        {/* ── COST ESTIMATION ────────────────────────────────────────────── */}
+        {(report.costSummary?.length ?? 0) > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="glass-card rounded-2xl p-6">
             <h2 className="type-h2 liq-text-1 mb-5 flex items-center gap-2">
-              <CheckCircle size={18} className="text-[#C9A84C]" /> Your Prioritised Action Plan
-              <span className="ml-auto liq-text-3 type-caption font-normal">{report.actions.length} actions</span>
+              <IndianRupee size={18} className="text-[#C9A84C]" /> Cost Estimation
             </h2>
-            <div className="space-y-3">
-              {report.actions.map((act, i) => {
-                const tl = TIMELINE_CONFIG[act.timeline] ?? TIMELINE_CONFIG["90 DAYS"];
-                const TLIcon = tl.icon;
-                return (
-                  <motion.div key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45 + i * 0.05 }}
-                    className="flex gap-4 p-5 rounded-xl border border-gray-100 dark:border-[rgba(201,168,76,0.10)] bg-white dark:bg-[rgba(201,168,76,0.02)]">
-                    <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border whitespace-nowrap flex items-center gap-1 ${tl.cls}`}>
-                        <TLIcon size={10} />{act.timeline}
-                      </span>
-                      <div className="w-0.5 flex-1 rounded-full" style={{ background: "rgba(201,168,76,0.12)", minHeight: 16 }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold liq-text-1 text-sm mb-1.5">{act.action}</h3>
-                      <p className="liq-text-2 text-sm leading-relaxed">{act.description}</p>
-                    </div>
-                  </motion.div>
-                );
-              })}
+            <p className="type-body-sm liq-text-3 mb-5">Estimated resolution costs for identified legal gaps, and the financial impact of delay.</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#C9A84C]/15">
+                    <th className="text-left pb-3 pr-4 type-label liq-text-3 font-semibold uppercase tracking-wider">Legal Issue</th>
+                    <th className="text-left pb-3 pr-4 type-label liq-text-3 font-semibold uppercase tracking-wider whitespace-nowrap">Resolution Cost</th>
+                    <th className="text-left pb-3 type-label liq-text-3 font-semibold uppercase tracking-wider">Impact of Delay</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#C9A84C]/08">
+                  {report.costSummary!.map((row, i) => (
+                    <tr key={i} className="hover:bg-[#C9A84C]/04 transition-colors">
+                      <td className="py-3 pr-4 liq-text-1 font-medium text-sm align-top">{row.issue}</td>
+                      <td className="py-3 pr-4 align-top whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 text-[#C9A84C] font-semibold text-sm">
+                          <IndianRupee size={12} />{row.costRange.replace(/₹/g, "")}
+                        </span>
+                      </td>
+                      <td className="py-3 liq-text-3 text-sm leading-relaxed align-top">{row.delayImpact}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── SIMILAR CASES ──────────────────────────────────────────────── */}
+        {(report.similarCases?.length ?? 0) > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card rounded-2xl p-6">
+            <h2 className="type-h2 liq-text-1 mb-2 flex items-center gap-2">
+              <Briefcase size={18} className="text-[#C9A84C]" /> Similar Cases
+            </h2>
+            <p className="type-body-sm liq-text-3 mb-5">Representative cases from Indian businesses with comparable legal risk profiles.</p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {report.similarCases!.map((c, i) => (
+                <motion.div key={i}
+                  initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.52 + i * 0.05 }}
+                  className="rounded-xl border border-[rgba(201,168,76,0.15)] bg-[rgba(201,168,76,0.03)] p-4 flex flex-col gap-3">
+                  {/* Relevance tag */}
+                  <span className="self-start text-[10px] font-bold uppercase tracking-widest text-[#C9A84C] bg-[#C9A84C]/10 border border-[#C9A84C]/20 px-2 py-0.5 rounded">
+                    {c.relevance}
+                  </span>
+                  {/* Title */}
+                  <h3 className="font-bold liq-text-1 text-sm leading-snug">{c.title}</h3>
+                  {/* Summary */}
+                  <p className="type-body-sm liq-text-3 leading-relaxed flex-1">{c.summary}</p>
+                  {/* Read More */}
+                  {c.readMoreUrl && (
+                    <a href={c.readMoreUrl} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#C9A84C] hover:text-[#E2C97E] transition-colors mt-auto pt-1 border-t border-[#C9A84C]/12">
+                      <ExternalLink size={11} /> Read More
+                    </a>
+                  )}
+                </motion.div>
+              ))}
             </div>
           </motion.div>
         )}

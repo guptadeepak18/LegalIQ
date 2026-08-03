@@ -28,6 +28,10 @@ export interface Action {
   action: string;
   description: string;
   timeline: "THIS WEEK" | "THIS MONTH" | "90 DAYS";
+  priority?: "Immediate" | "Short-Term" | "Long-Term";
+  costMin?: string;
+  costMax?: string;
+  delayImpact?: string;
 }
 
 export interface AnswerHistoryItem {
@@ -71,6 +75,8 @@ export interface ReportData {
   insights: Insight[];
   futureRisks?: FutureRisk[];
   actions: Action[];
+  costSummary?: Array<{ issue: string; costRange: string; delayImpact: string }>;
+  similarCases?: Array<{ title: string; summary: string; relevance: string; readMoreUrl: string }>;
   vcloPitch?: string;
   answerHistory?: AnswerHistoryItem[];
   example?: CaseStudyExample;
@@ -953,82 +959,164 @@ export async function generateReportPDF(data: ReportData): Promise<void> {
   doc.text("PRIORITISED ACTION PLAN", ML + 6, y + 8.5);
   y += 18;
 
-  data.actions.forEach((act, i) => {
-    const tc = tlRGB(act.timeline);
-    // Wrap BOTH action title AND description
-    const titleLines = wrap(doc, act.action, CW - 36);
-    // Show description only if it differs meaningfully from title
-    const cleanTitle = clean(act.action).toLowerCase().replace(/\s+/g, " ");
-    const cleanDesc  = clean(act.description).toLowerCase().replace(/\s+/g, " ");
-    const showDesc   = cleanDesc.trim() !== "" && !cleanDesc.startsWith(cleanTitle.slice(0, 40));
-    const descLines2 = showDesc ? wrap(doc, act.description, CW - 36) : [];
+  // Group by priority tier for PDF rendering
+  const priorityOrder = ["Immediate", "Short-Term", "Long-Term"] as const;
+  const priorityColors: Record<string, [number,number,number]> = {
+    "Immediate":  [220, 60, 60],
+    "Short-Term": [210, 130, 20],
+    "Long-Term":  [50, 120, 220],
+  };
 
-    const boxH = Math.max(26,
-      16                         // top padding + badge + gap
-      + titleLines.length * 5.5
-      + (descLines2.length > 0 ? 3 + descLines2.length * 4.8 : 0)
-      + 10                       // bottom padding
-    );
+  priorityOrder.forEach((tier) => {
+    const tierActions = data.actions.filter(a => (a.priority ?? "Long-Term") === tier);
+    if (tierActions.length === 0) return;
 
-    if (y + boxH > H - 20) {
-      doc.addPage();
-      page++;
-      pageHeader(doc, page);
-      pageFooter(doc);
-      y = 24;
-    }
+    const tierColor = priorityColors[tier] as [number,number,number];
 
-    // Card background
-    doc.setFillColor(...PANEL);
-    doc.roundedRect(ML, y, CW, boxH, 4, 4, "F");
-    doc.setDrawColor(...INK4);
-    doc.setLineWidth(0.2);
-    doc.roundedRect(ML, y, CW, boxH, 4, 4, "S");
-
-    // Left colour accent
-    doc.setFillColor(...tc);
-    doc.rect(ML, y, 4, boxH, "F");
-
-    // Number circle
-    const circY = y + boxH / 2;
-    doc.setFillColor(...tc);
-    doc.circle(ML + 14, circY, 7, "F");
+    // Tier sub-header
+    if (y + 10 > H - 20) { doc.addPage(); page++; pageHeader(doc, page); pageFooter(doc); y = 24; }
+    doc.setFillColor(...tierColor.map(c => Math.min(255, c + 190)) as [number,number,number]);
+    doc.roundedRect(ML, y, CW, 8, 2, 2, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(...WHITE);
-    doc.text(`${i + 1}`, ML + 14, circY + 3.5, { align: "center" });
+    doc.setFontSize(7);
+    doc.setTextColor(...tierColor);
+    doc.text(tier.toUpperCase(), ML + 5, y + 5.5);
+    y += 12;
 
-    // Timeline badge (top right inside card)
-    const tlW = doc.getTextWidth(act.timeline) + 8;
-    doc.setFillColor(...tc.map((c) => Math.min(255, c + 185)) as [number,number,number]);
-    doc.roundedRect(W - ML - tlW - 6, y + 6, tlW, 8, 2, 2, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
-    doc.setTextColor(...tc);
-    doc.text(act.timeline, W - ML - tlW / 2 - 6, y + 11.5, { align: "center" });
+    tierActions.forEach((act, i) => {
+      const titleLines = wrap(doc, act.action, CW - 36);
+      const costText = act.costMin ? `${act.costMin}${act.costMax ? ` - ${act.costMax}` : ""}` : "";
+      const delayLines = act.delayImpact ? wrap(doc, act.delayImpact, CW - 36) : [];
 
-    // Action title (wrapped, left-aligned after circle)
-    const textX = ML + 26;
-    const textW = CW - 26 - tlW - 10;
-    const wrappedTitle = wrap(doc, act.action, textW);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-    doc.setTextColor(...INK1);
-    let innerY = y + 12;
-    doc.text(wrappedTitle, textX, innerY);
-    innerY += wrappedTitle.length * 5.5;
+      const boxH = Math.max(26,
+        16
+        + titleLines.length * 5.5
+        + (costText ? 7 : 0)
+        + (delayLines.length > 0 ? 4 + delayLines.length * 4.6 : 0)
+        + 8
+      );
 
-    // Description (only if distinct from title)
-    if (descLines2.length > 0) {
-      innerY += 3;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(...INK2);
-      doc.text(descLines2, textX, innerY);
-    }
+      if (y + boxH > H - 20) {
+        doc.addPage(); page++; pageHeader(doc, page); pageFooter(doc); y = 24;
+      }
 
-    y += boxH + 6;
+      // Card
+      doc.setFillColor(...PANEL);
+      doc.roundedRect(ML, y, CW, boxH, 4, 4, "F");
+      doc.setDrawColor(...INK4);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(ML, y, CW, boxH, 4, 4, "S");
+
+      // Left accent bar in tier colour
+      doc.setFillColor(...tierColor);
+      doc.rect(ML, y, 4, boxH, "F");
+
+      // Step circle
+      const circY = y + boxH / 2;
+      doc.setFillColor(...tierColor);
+      doc.circle(ML + 14, circY, 6, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(...WHITE);
+      doc.text(`${i + 1}`, ML + 14, circY + 3, { align: "center" });
+
+      // Timeline badge top-right
+      const tlW = doc.getTextWidth(act.timeline) + 8;
+      doc.setFillColor(...tierColor.map(c => Math.min(255, c + 185)) as [number,number,number]);
+      doc.roundedRect(W - ML - tlW - 6, y + 5, tlW, 7.5, 2, 2, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6);
+      doc.setTextColor(...tierColor);
+      doc.text(act.timeline, W - ML - tlW / 2 - 6, y + 10, { align: "center" });
+
+      const textX = ML + 26;
+      const textW = CW - 26 - tlW - 10;
+      let innerY = y + 11;
+
+      // Title
+      const wTitle = wrap(doc, act.action, textW);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(...INK1);
+      doc.text(wTitle, textX, innerY);
+      innerY += wTitle.length * 5.5;
+
+      // Cost range
+      if (costText) {
+        innerY += 3;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...GOLD);
+        doc.text(`Est. Cost: ${costText}`, textX, innerY);
+        innerY += 5.5;
+      }
+
+      // Delay impact
+      if (delayLines.length > 0) {
+        innerY += 2;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...INK3);
+        doc.text(delayLines, textX, innerY);
+      }
+
+      y += boxH + 5;
+    });
+
+    y += 4; // spacing between tiers
   });
+
+  // Cost Summary block on action plan page
+  if (data.costSummary && data.costSummary.length > 0) {
+    if (y + 14 > H - 20) { doc.addPage(); page++; pageHeader(doc, page); pageFooter(doc); y = 24; }
+
+    // Header
+    doc.setFillColor(...DARK_P);
+    doc.roundedRect(ML, y, CW, 10, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...GOLD);
+    doc.text("COST SUMMARY", ML + 5, y + 7);
+    y += 14;
+
+    data.costSummary.forEach((row) => {
+      const issueLines = wrap(doc, row.issue, CW * 0.4);
+      const delayLines = wrap(doc, row.delayImpact, CW * 0.42);
+      const rowH = Math.max(14, Math.max(issueLines.length, delayLines.length) * 4.6 + 6);
+
+      if (y + rowH > H - 20) { doc.addPage(); page++; pageHeader(doc, page); pageFooter(doc); y = 24; }
+
+      doc.setFillColor(...PANEL);
+      doc.roundedRect(ML, y, CW, rowH, 2, 2, "F");
+      doc.setDrawColor(...INK4);
+      doc.setLineWidth(0.15);
+      doc.roundedRect(ML, y, CW, rowH, 2, 2, "S");
+
+      const col1X = ML + 4;
+      const col2X = ML + CW * 0.42;
+      const col3X = ML + CW * 0.62;
+      const ry = y + 5;
+
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...INK1);
+      doc.text(issueLines, col1X, ry);
+
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...GOLD);
+      doc.text(row.costRange, col2X, ry);
+
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...INK2);
+      doc.text(delayLines, col3X, ry);
+
+      y += rowH + 3;
+    });
+
+    // Note about interactive report
+    y += 4;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...INK3);
+    doc.text("For Similar Cases and clickable action links, view the full interactive report at restthecase.com/legaliq", ML, y);
+    y += 8;
+  }
 
   // ══════════════════════════════════════════════════════════════
   // PAGE — CASE STUDY (real-world parallel)

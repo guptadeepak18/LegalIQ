@@ -59,6 +59,22 @@ export interface AssessmentResult {
       action: string;
       description: string;
       timeline: "THIS WEEK" | "THIS MONTH" | "90 DAYS";
+      priority: "Immediate" | "Short-Term" | "Long-Term";
+      costMin: string;
+      costMax: string;
+      delayImpact: string;
+      link: { url: string; label: string } | null;
+    }>;
+    costSummary?: Array<{
+      issue: string;
+      costRange: string;
+      delayImpact: string;
+    }>;
+    similarCases?: Array<{
+      title: string;
+      summary: string;
+      relevance: string;
+      readMoreUrl: string;
     }>;
     example: {
       businessName: string;

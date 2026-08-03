@@ -101,6 +101,8 @@ export const reports = pgTable("reports", {
   insights: jsonb("insights").default([]),
   futureRisks: jsonb("future_risks").default([]),
   actions: jsonb("actions").default([]),
+  costSummary: jsonb("cost_summary").default([]),
+  similarCases: jsonb("similar_cases").default([]),
   example: jsonb("example").default({}),
   vcloPitch: text("vclo_pitch"),
   createdAt: timestamp("created_at").defaultNow(),

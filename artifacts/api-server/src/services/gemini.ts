@@ -126,6 +126,22 @@ export interface GeneratedReport {
     action: string;
     description: string;
     timeline: "THIS WEEK" | "THIS MONTH" | "90 DAYS";
+    priority: "Immediate" | "Short-Term" | "Long-Term";
+    costMin: string;
+    costMax: string;
+    delayImpact: string;
+    link: { url: string; label: string } | null;
+  }>;
+  costSummary: Array<{
+    issue: string;
+    costRange: string;
+    delayImpact: string;
+  }>;
+  similarCases: Array<{
+    title: string;
+    summary: string;
+    relevance: string;
+    readMoreUrl: string;
   }>;
   example: {
     businessName: string;
@@ -775,7 +791,11 @@ SECTIONS TO GENERATE:
    - reason (why this business specifically is exposed, based on their profile/answers)
    - action (recommended action to take now to reduce this future risk)
 
-4. ACTION PLAN — 3 prioritised actions only. Specific and doable. Include ₹ cost estimate. Timeline: This Week / This Month / This Quarter.
+4. ACTION PLAN — Up to 6 prioritised actions distributed across 3 tiers: Immediate (This Week), Short-Term (This Month), Long-Term (This Quarter). For each action provide: priority tier, timeline, a specific action title, cost_min and cost_max in ₹ (realistic Indian market ranges), delay_impact (what happens financially or operationally if this is delayed 3–6 months), and a link object with a url (use official Indian government portals such as mca.gov.in, gst.gov.in, labour.gov.in, ipindia.gov.in, indiankanoon.org, or restthecase.com service pages) and a label for the link.
+
+8. COST SUMMARY — 3–4 rows summarising the resolution cost of the most critical legal issues identified. For each, provide: issue (plain-language name of the legal gap), cost_range (e.g. "₹5,000 – ₹25,000"), and delay_impact (financial or operational consequence of delaying resolution).
+
+9. SIMILAR CASES — 2–3 representative Indian business case summaries relevant to this business type and the identified risk gaps. For each, provide: title (plain language, max 8 words), summary (2–3 sentences describing what happened and the outcome), relevance (one sentence explaining why this applies to this specific business), and read_more_url (a real URL from indiankanoon.org, mca.gov.in, or a credible Indian legal news source; use a plausible URL if an exact one is not known).
 
 5. CONSULTATION NOTE — 1–2 sentences, specific to their risk profile.
 
@@ -809,9 +829,22 @@ OUTPUT FORMAT — return only this JSON:
     { "title": "...", "level": "LOW", "impact": "...", "reason": "...", "action": "..." }
   ],
   "action_plan": [
-    { "step": 1, "timeline": "This Week", "action": "...", "cost": "₹0 / ₹X,000" },
-    { "step": 2, "timeline": "This Month", "action": "...", "cost": "..." },
-    { "step": 3, "timeline": "This Quarter", "action": "...", "cost": "..." }
+    { "step": 1, "priority": "Immediate", "timeline": "This Week",    "action": "...", "cost_min": "₹0",      "cost_max": "₹X,000", "delay_impact": "...", "link": { "url": "https://...", "label": "..." } },
+    { "step": 2, "priority": "Immediate", "timeline": "This Week",    "action": "...", "cost_min": "₹X,000",  "cost_max": "₹Y,000", "delay_impact": "...", "link": { "url": "https://...", "label": "..." } },
+    { "step": 3, "priority": "Short-Term","timeline": "This Month",   "action": "...", "cost_min": "₹X,000",  "cost_max": "₹Y,000", "delay_impact": "...", "link": { "url": "https://...", "label": "..." } },
+    { "step": 4, "priority": "Short-Term","timeline": "This Month",   "action": "...", "cost_min": "₹X,000",  "cost_max": "₹Y,000", "delay_impact": "...", "link": { "url": "https://...", "label": "..." } },
+    { "step": 5, "priority": "Long-Term", "timeline": "This Quarter", "action": "...", "cost_min": "₹X,000",  "cost_max": "₹Y,000", "delay_impact": "...", "link": { "url": "https://...", "label": "..." } },
+    { "step": 6, "priority": "Long-Term", "timeline": "This Quarter", "action": "...", "cost_min": "₹X,000",  "cost_max": "₹Y,000", "delay_impact": "...", "link": { "url": "https://...", "label": "..." } }
+  ],
+  "cost_summary": [
+    { "issue": "...", "cost_range": "₹X,000 – ₹Y,000", "delay_impact": "..." },
+    { "issue": "...", "cost_range": "₹X,000 – ₹Y,000", "delay_impact": "..." },
+    { "issue": "...", "cost_range": "₹X,000 – ₹Y,000", "delay_impact": "..." }
+  ],
+  "similar_cases": [
+    { "title": "...", "summary": "...", "relevance": "...", "read_more_url": "https://..." },
+    { "title": "...", "summary": "...", "relevance": "...", "read_more_url": "https://..." },
+    { "title": "...", "summary": "...", "relevance": "...", "read_more_url": "https://..." }
   ],
   "consultation_note": "specific 1-2 sentence recommendation",
   "example": {
@@ -892,9 +925,19 @@ export async function generateReport(payload: ReportPayload): Promise<GeneratedR
       },
     ],
     actions: [
-      { action: "Audit all contracts and agreements", description: "List every vendor, employee, and client relationship and confirm each has a signed written agreement in place.", timeline: "THIS WEEK" },
-      { action: "File all pending statutory returns", description: "Check GST portal, MCA21, and Income Tax portal for any overdue returns or notices and file immediately.", timeline: "THIS MONTH" },
-      { action: "Engage a Virtual CLO on retainer", description: "A Virtual CLO provides proactive legal coverage for your business at a fraction of in-house counsel costs.", timeline: "90 DAYS" },
+      { action: "Audit all contracts and agreements", description: "List every vendor, employee, and client relationship and confirm each has a signed written agreement in place.", timeline: "THIS WEEK",  priority: "Immediate",  costMin: "₹0",      costMax: "₹5,000",  delayImpact: "Unwritten agreements remain unenforceable, increasing dispute liability.", link: { url: "https://www.restthecase.com", label: "Get Contract Review" } },
+      { action: "File all pending statutory returns", description: "Check GST portal, MCA21, and Income Tax portal for any overdue returns or notices and file immediately.",                timeline: "THIS MONTH", priority: "Short-Term", costMin: "₹2,000",  costMax: "₹15,000", delayImpact: "Late filing penalties compound monthly and may trigger scrutiny.", link: { url: "https://www.gst.gov.in", label: "GST Portal" } },
+      { action: "Engage a Virtual CLO on retainer",   description: "A Virtual CLO provides proactive legal coverage for your business at a fraction of in-house counsel costs.",            timeline: "90 DAYS",    priority: "Long-Term",  costMin: "₹4,999",  costMax: "₹9,999",  delayImpact: "Without ongoing legal oversight, risks accumulate across all four pillars.", link: { url: "https://www.restthecase.com/virtualCLOPackage", label: "View VCLO Plans" } },
+    ],
+    costSummary: [
+      { issue: "Unwritten vendor/client agreements",   costRange: "₹0 – ₹5,000",    delayImpact: "Potential ₹2–12 Lakh dispute liability if contested without written proof." },
+      { issue: "Statutory filing non-compliance",      costRange: "₹2,000 – ₹15,000", delayImpact: "Late fees and penalties compound monthly; may trigger regulatory notices." },
+      { issue: "Intellectual property registration",  costRange: "₹5,000 – ₹20,000", delayImpact: "Unregistered IP is unprotected; loss of exclusive rights if a competitor files first." },
+    ],
+    similarCases: [
+      { title: "Vendor Dispute Without Written Contract",        summary: "A Mumbai-based service firm entered a verbal agreement with a key vendor. When the vendor raised a payment dispute, the firm had no written agreement to rely on, leading to a ₹8 Lakh arbitration settlement and 6 months of disruption.", relevance: "Businesses without standard vendor contracts face identical exposure.", readMoreUrl: "https://indiankanoon.org/search/?formInput=vendor+contract+dispute" },
+      { title: "GST Notice for Missed Return Filing",            summary: "A Delhi-based trading company missed two consecutive GST returns during a growth phase. The GST authority issued a scrutiny notice with ₹1.5 Lakh in late fees and required a detailed reconciliation audit covering 12 months.", relevance: "Compliance gaps during rapid growth are among the most common risk triggers.", readMoreUrl: "https://www.gst.gov.in/miscellaneous/FAQ" },
+      { title: "Trademark Infringement After Delayed Filing",    summary: "A Bengaluru startup delayed trademark registration for 18 months. A competitor registered an identical name first, forcing a costly rebrand and loss of domain rights, estimated at ₹6 Lakh in rebranding and legal fees.", relevance: "Early-stage businesses that delay IP registration face this risk directly.", readMoreUrl: "https://ipindia.gov.in/trade-marks.htm" },
     ],
     example: {
       businessName: "Sunrise Enterprises",
@@ -929,7 +972,17 @@ export async function generateReport(payload: ReportPayload): Promise<GeneratedR
       reason: string;
       action: string;
     }>;
-    action_plan?: Array<{ action: string; timeline: string }>;
+    action_plan?: Array<{
+      action: string;
+      timeline: string;
+      priority?: string;
+      cost_min?: string;
+      cost_max?: string;
+      delay_impact?: string;
+      link?: { url: string; label: string } | null;
+    }>;
+    cost_summary?: Array<{ issue: string; cost_range: string; delay_impact: string }>;
+    similar_cases?: Array<{ title: string; summary: string; relevance: string; read_more_url: string }>;
     consultation_note?: string;
     example?: { businessName: string; whatHappened: string; consequences: string; vcloWouldHave: string; lesson: string };
     vcloPitch?: string;
@@ -967,14 +1020,40 @@ export async function generateReport(payload: ReportPayload): Promise<GeneratedR
         reason: r.reason || fallback.futureRisks[i]?.reason || "",
         action: r.action || fallback.futureRisks[i]?.action || "",
       })),
-      actions: (raw.action_plan ?? []).slice(0, 3).map((a) => ({
-        action: a.action,
-        description: a.action,
-        timeline: (
-          a.timeline?.includes("Week") || a.timeline?.includes("WEEK") ? "THIS WEEK" :
+      actions: (raw.action_plan ?? []).slice(0, 6).map((a) => {
+        const tl = (
+          a.timeline?.includes("Week")  || a.timeline?.includes("WEEK")  ? "THIS WEEK"  :
           a.timeline?.includes("Month") || a.timeline?.includes("MONTH") ? "THIS MONTH" :
           "90 DAYS"
-        ) as "THIS WEEK" | "THIS MONTH" | "90 DAYS",
+        ) as "THIS WEEK" | "THIS MONTH" | "90 DAYS";
+        const rawPriority = (a.priority ?? "").trim();
+        const priority = (
+          rawPriority.toLowerCase().includes("immediate") ? "Immediate" :
+          rawPriority.toLowerCase().includes("short")     ? "Short-Term" :
+          rawPriority.toLowerCase().includes("long")      ? "Long-Term" :
+          tl === "THIS WEEK" ? "Immediate" : tl === "THIS MONTH" ? "Short-Term" : "Long-Term"
+        ) as "Immediate" | "Short-Term" | "Long-Term";
+        return {
+          action: a.action,
+          description: a.action,
+          timeline: tl,
+          priority,
+          costMin:      a.cost_min      ?? "₹0",
+          costMax:      a.cost_max      ?? "",
+          delayImpact:  a.delay_impact  ?? "",
+          link:         a.link?.url ? { url: a.link.url, label: a.link.label ?? "Learn More" } : null,
+        };
+      }),
+      costSummary: (raw.cost_summary ?? []).slice(0, 4).map((c) => ({
+        issue:       c.issue,
+        costRange:   c.cost_range,
+        delayImpact: c.delay_impact,
+      })),
+      similarCases: (raw.similar_cases ?? []).slice(0, 3).map((s) => ({
+        title:      s.title,
+        summary:    s.summary,
+        relevance:  s.relevance,
+        readMoreUrl: s.read_more_url,
       })),
       example: raw.example ?? fallback.example,
       vcloPitch: raw.vcloPitch ?? raw.consultation_note ?? fallback.vcloPitch,
