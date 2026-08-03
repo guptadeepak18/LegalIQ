@@ -287,10 +287,10 @@ export default function LandingPage() {
                 </div>
 
                 {/* Content */}
-                <h3 className="text-[14px] font-semibold liq-text-1 leading-snug mb-3 pr-4">
+                <h3 className="type-body liq-text-1 font-bold leading-snug mb-2.5">
                   {f.title}
                 </h3>
-                <p className="text-[12.5px] liq-text-3 leading-relaxed flex-1">
+                <p className="type-body-sm liq-text-3 leading-relaxed flex-1">
                   {f.desc}
                 </p>
 
