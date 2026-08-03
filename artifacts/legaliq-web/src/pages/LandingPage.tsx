@@ -153,26 +153,6 @@ export default function LandingPage() {
           </div>
         </motion.div>
 
-        {/* Trust stats — glass cards */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-          className="mt-14 w-full max-w-3xl mx-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              { val: "2,000+", label: "Businesses Served" },
-              { val: "40+",    label: "Practising Attorneys" },
-              { val: "25+",    label: "Cities Covered" },
-              { val: "98%",    label: "Client Satisfaction" },
-            ].map((s, i) => (
-              <motion.div key={s.label}
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.55 + i * 0.08 }}
-                className="glass-card rounded-2xl p-4 text-center">
-                <div className="type-stat text-[#C9A84C] mb-2">{s.val}</div>
-                <div className="type-caption liq-text-3 font-semibold uppercase">{s.label}</div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
       </section>
 
       {/* ── WHAT IS VCLO ─────────────────────────────────────────────────── */}
@@ -212,6 +192,78 @@ export default function LandingPage() {
                 ))}
               </div>
             </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── CREDIBILITY STATS ────────────────────────────────────────────── */}
+      <section className="py-10 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {([
+              {
+                icon: Briefcase,
+                stat: "10,000+",
+                label: "Legal Services Delivered",
+                trust: false,
+              },
+              {
+                icon: Award,
+                stat: null,
+                label: "Verified Lawyers & Professionals",
+                trust: true,
+              },
+              {
+                icon: Shield,
+                stat: null,
+                label: "Secure & Confidential",
+                trust: true,
+              },
+              {
+                icon: Users,
+                stat: "5,000+",
+                label: "Verified Advocates Network",
+                trust: false,
+              },
+            ] as const).map((s, i) => (
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.08, duration: 0.45 }}
+                viewport={{ once: true }}
+                className="glass-card rounded-2xl px-5 py-6 flex flex-col items-center text-center gap-3"
+              >
+                {/* Icon badge */}
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(201,168,76,0.09)", border: "1.5px solid rgba(201,168,76,0.22)" }}
+                >
+                  <s.icon size={20} className="text-[#C9A84C]" strokeWidth={1.7} />
+                </div>
+
+                {/* Stat or verified badge */}
+                {s.stat ? (
+                  <span
+                    className="text-3xl font-black leading-none text-[#C9A84C]"
+                    style={{ fontFamily: "var(--app-font-grotesk)" }}
+                  >
+                    {s.stat}
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+                    style={{ background: "rgba(201,168,76,0.10)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.25)" }}
+                  >
+                    <CheckCircle size={11} strokeWidth={2.5} />
+                    Verified
+                  </span>
+                )}
+
+                {/* Label */}
+                <p className="type-body-sm liq-text-3 font-medium leading-snug">{s.label}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
