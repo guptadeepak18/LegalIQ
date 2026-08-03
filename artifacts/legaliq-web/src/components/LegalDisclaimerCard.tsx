@@ -46,7 +46,7 @@ export function LegalDisclaimerCard({
         </p>
 
         {/* Paragraph */}
-        <p className="text-[12.5px] liq-text-3 leading-[1.8]">
+        <p className="text-[12.5px] liq-text-3 leading-[1.8] font-semibold">
           This {context === "report" ? "report" : "assessment"} and the Legal
           Health Score are produced by <span className="liq-text-2 font-medium">LegalIQ by Rest The Case</span> for
           informational purposes only. They do not constitute legal advice, a
