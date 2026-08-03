@@ -5,7 +5,7 @@ import {
   Scale, Download, Calendar, Star, AlertTriangle, Shield, TrendingUp,
   FileText, CheckCircle, ArrowRight, Lightbulb, Clock, Zap, Target,
   BookOpen, Share2, BarChart2, History, ChevronDown, ChevronUp, Award,
-  ExternalLink, IndianRupee, Briefcase, AlertCircle,
+  ExternalLink, IndianRupee, Briefcase, AlertCircle, HelpCircle, X,
 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { useStore } from "@/store/useStore";
@@ -209,6 +209,7 @@ export default function ResultsPage() {
   const result = store.result;
   const [downloading, setDownloading] = useState(false);
   const [brochureDownloading, setBrochureDownloading] = useState(false);
+  const [showAboutLhs, setShowAboutLhs] = useState(true);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [benchmark, setBenchmark] = useState<Benchmark | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -484,6 +485,33 @@ export default function ResultsPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* ── ABOUT LHS CARD ─────────────────────────────────────────────── */}
+        <AnimatePresence>
+          {showAboutLhs && (
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+              className="rounded-2xl border px-5 py-4 flex items-start gap-4"
+              style={{ background: "rgba(201,168,76,0.04)", borderColor: "rgba(201,168,76,0.20)" }}>
+              <div className="w-8 h-8 rounded-lg bg-[#C9A84C]/10 border border-[#C9A84C]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <HelpCircle size={15} className="text-[#C9A84C]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold liq-text-1 mb-1">What is your Legal Health Score?</p>
+                <p className="text-xs liq-text-2 leading-relaxed">
+                  Your LHS is calculated across 4 pillars — Litigation, Contracts, Compliance, and Legal Costs — each scored out of 25.
+                  A score of <strong>{totalScore}/100</strong> maps to <strong>Grade {grade} ({gradeLabel})</strong>.{" "}
+                  <a href="/#about-lhs" target="_blank" rel="noopener noreferrer" className="text-[#C9A84C] underline underline-offset-2 hover:opacity-80 transition-opacity">
+                    Learn more about how LHS is calculated →
+                  </a>
+                </p>
+              </div>
+              <button onClick={() => setShowAboutLhs(false)} className="liq-text-3 hover:text-[#C9A84C] transition-colors flex-shrink-0 mt-0.5" aria-label="Dismiss">
+                <X size={14} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── SHARE + BENCHMARK STRIP ─────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
