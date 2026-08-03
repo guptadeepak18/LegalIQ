@@ -747,6 +747,35 @@ export default function ResultsPage() {
           </div>
         </motion.div>
 
+        {/* ── DISCLAIMER ─────────────────────────────────────────────────── */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}
+          className="rounded-2xl border border-[#C9A84C]/15 bg-[#C9A84C]/03 p-6">
+          <div className="flex items-start gap-3">
+            <Scale size={16} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="type-label text-[#C9A84C] mb-2">Important Disclaimer</p>
+              <p className="type-body-sm liq-text-3 leading-relaxed mb-2">
+                The Legal Health Score (LHS) is an <strong className="liq-text-2">informational assessment</strong> designed
+                to help identify potential legal and compliance gaps in your business. It is{" "}
+                <strong className="liq-text-2">not legal advice, a legal opinion, or a substitute for consultation with a
+                qualified legal professional.</strong>
+              </p>
+              <p className="type-body-sm liq-text-3 leading-relaxed mb-2">
+                The results are based solely on the responses you provided and are generated using artificial intelligence.
+                Rest The Case does not accept liability for actions taken or not taken based on this assessment.
+              </p>
+              <p className="type-body-sm liq-text-3 leading-relaxed">
+                For professional legal guidance specific to your circumstances, please consult a qualified Advocate or
+                engage{" "}
+                <a href="https://restthecase.com/virtualCLOPackage" target="_blank" rel="noreferrer"
+                  className="text-[#C9A84C] hover:underline font-medium">
+                  Rest The Case's Virtual Chief Legal Officer (VCLO) service
+                </a>.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
         <div className="text-center pb-6">
           <button onClick={() => { store.reset(); navigate("/"); }} className="text-sm liq-text-3 hover:text-[#C9A84C] transition-colors flex items-center gap-1 mx-auto">
             <ArrowRight size={14} className="rotate-180" /> Assess another business
