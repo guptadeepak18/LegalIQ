@@ -1119,6 +1119,233 @@ export async function generateReportPDF(data: ReportData): Promise<void> {
   }
 
   // ══════════════════════════════════════════════════════════════
+  // PAGE — YOUR NEXT PLAN (personalised roadmap)
+  // ══════════════════════════════════════════════════════════════
+  {
+    doc.addPage();
+    page++;
+    pageHeader(doc, page);
+    pageFooter(doc);
+    y = 24;
+
+    // Section title bar
+    doc.setFillColor(...DARK_P);
+    doc.roundedRect(ML, y, CW, 12, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    doc.setTextColor(...GOLD);
+    doc.text("YOUR NEXT PLAN", ML + 6, y + 8.5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(150, 142, 120);
+    doc.text("Derived from your assessment findings", ML + CW - 6, y + 8.5, { align: "right" });
+    y += 18;
+
+    // Score-contextual intro
+    const pillarRankedPdf = [
+      { label: "Litigation",  score: data.pillars.find(p => p.label.includes("Litigation"))?.score ?? 0 },
+      { label: "Contracts",   score: data.pillars.find(p => p.label.includes("Contract"))?.score ?? 0 },
+      { label: "Compliance",  score: data.pillars.find(p => p.label.includes("Compliance"))?.score ?? 0 },
+      { label: "Legal Costs", score: data.pillars.find(p => p.label.includes("Cost"))?.score ?? 0 },
+    ].sort((a, b) => a.score - b.score);
+    const w0pdf = pillarRankedPdf[0]?.label ?? "Litigation";
+    const w1pdf = pillarRankedPdf[1]?.label ?? "Contracts";
+    const scoreDescPdf = data.totalScore >= 80 ? "strong" : data.totalScore >= 60 ? "stable but improvable" : data.totalScore >= 40 ? "at risk" : "critically exposed";
+    const introTextPdf = `With a Legal Health Score of ${data.totalScore}/100 (${scoreDescPdf}), your business has identified gaps in ${w0pdf} and ${w1pdf} that need structured action. Here is your recommended action sequence.`;
+    const introLinesPdf = wrap(doc, introTextPdf, CW);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...INK2);
+    doc.text(introLinesPdf, ML, y);
+    y += introLinesPdf.length * 5 + 8;
+
+    // Phase blocks
+    const phaseConfig: Array<{
+      tier: string; timeLabel: string;
+      outcomeBuilder: (w0: string, w1: string) => string;
+      vcloNotes: Record<string, string>;
+      defaultNote: string;
+      filterFn: (a: Action) => boolean;
+      rgb: [number,number,number]; headerRgb: [number,number,number];
+    }> = [
+      {
+        tier: "Immediate", timeLabel: "Week 1",
+        outcomeBuilder: (w0) => `Address highest-risk legal exposure in ${w0} before gaps compound into disputes or penalties.`,
+        vcloNotes: {
+          "Litigation":  "A VCLO helps you respond to notices correctly the first time and prevents escalation.",
+          "Contracts":   "A VCLO reviews agreements before signing, ensuring enforceability.",
+          "Compliance":  "A VCLO tracks your statutory filing calendar so you never miss a deadline.",
+          "Legal Costs": "A VCLO's flat retainer replaces unpredictable per-matter billing.",
+        },
+        defaultNote: "A VCLO provides immediate guidance on your most urgent legal gaps.",
+        filterFn: (a) => (a.priority ?? "Long-Term") === "Immediate" || a.timeline === "THIS WEEK",
+        rgb: [220, 60, 60], headerRgb: [240, 200, 200],
+      },
+      {
+        tier: "Short-Term", timeLabel: "Month 1",
+        outcomeBuilder: (_w0, w1) => `Strengthen ${w1} foundations and build legal documentation that protects ongoing operations.`,
+        vcloNotes: {
+          "Litigation":  "A VCLO prepares dispute-response templates and advises on pending notices.",
+          "Contracts":   "A VCLO prepares standard contract templates and reviews vendor agreements.",
+          "Compliance":  "A VCLO sets up a compliance calendar and reviews outstanding regulatory obligations.",
+          "Legal Costs": "A VCLO consolidates your legal needs into a single predictable monthly fee.",
+        },
+        defaultNote: "A VCLO prepares a compliance calendar and reviews key contracts.",
+        filterFn: (a) => (a.priority ?? "Long-Term") === "Short-Term" || a.timeline === "THIS MONTH",
+        rgb: [200, 130, 20], headerRgb: [240, 220, 180],
+      },
+      {
+        tier: "Long-Term", timeLabel: "90 Days",
+        outcomeBuilder: () => "Establish continuous legal monitoring and proactive risk prevention across all four pillars.",
+        vcloNotes: {},
+        defaultNote: "A VCLO provides ongoing monitoring, monthly check-ins, and on-demand legal guidance as your business grows.",
+        filterFn: (a) => (a.priority ?? "Long-Term") === "Long-Term" || a.timeline === "90 DAYS",
+        rgb: [50, 110, 210], headerRgb: [190, 210, 240],
+      },
+    ];
+
+    phaseConfig.forEach((cfg) => {
+      const phaseActions = data.actions.filter(cfg.filterFn).slice(0, 3);
+      if (phaseActions.length === 0) return;
+
+      const outcome = cfg.outcomeBuilder(w0pdf, w1pdf);
+      const vcloNote = cfg.vcloNotes[w0pdf] ?? cfg.defaultNote;
+      const actionLines = phaseActions.map(a => wrap(doc, `- ${a.action}`, CW - 20));
+      const totalActionLines = actionLines.reduce((s, l) => s + l.length, 0);
+      const boxH = 10 + 5 + wrap(doc, outcome, CW - 20).length * 4.5 + totalActionLines * 4.5 + wrap(doc, vcloNote, CW - 20).length * 4.5 + 18;
+
+      if (y + boxH > H - 20) {
+        doc.addPage(); page++;
+        pageHeader(doc, page); pageFooter(doc);
+        y = 24;
+      }
+
+      // Card background
+      doc.setFillColor(...PANEL);
+      doc.roundedRect(ML, y, CW, boxH, 4, 4, "F");
+      doc.setDrawColor(...cfg.rgb);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(ML, y, CW, boxH, 4, 4, "S");
+
+      // Left accent strip
+      doc.setFillColor(...cfg.rgb);
+      doc.roundedRect(ML, y, 5, boxH, 3, 3, "F");
+
+      // Phase header
+      doc.setFillColor(...cfg.rgb);
+      doc.roundedRect(ML + 9, y + 4, 32, 7.5, 2, 2, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(...WHITE);
+      doc.text(cfg.tier.toUpperCase(), ML + 25, y + 9, { align: "center" });
+
+      doc.setFillColor(...cfg.headerRgb);
+      doc.roundedRect(ML + 44, y + 4, 22, 7.5, 2, 2, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...cfg.rgb);
+      doc.text(cfg.timeLabel, ML + 55, y + 9, { align: "center" });
+
+      let iy = y + 16;
+
+      // Outcome sentence
+      const outcomeLines = wrap(doc, outcome, CW - 20);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...INK1);
+      doc.text(outcomeLines, ML + 9, iy);
+      iy += outcomeLines.length * 4.5 + 5;
+
+      // Action list
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(...INK3);
+      doc.text("ACTIONS", ML + 9, iy);
+      iy += 4.5;
+      actionLines.forEach((lines) => {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(...INK2);
+        doc.text(lines, ML + 9, iy);
+        iy += lines.length * 4.5 + 1.5;
+      });
+      iy += 2;
+
+      // VCLO note
+      doc.setFillColor(...cfg.rgb);
+      doc.roundedRect(ML + 9, iy, CW - 14, 5, 1.5, 1.5, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...WHITE);
+      doc.text("VCLO ACCELERATES THIS:", ML + 12, iy + 3.5);
+      iy += 6.5;
+      const vcloNoteLines = wrap(doc, vcloNote, CW - 20);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...cfg.rgb);
+      doc.text(vcloNoteLines, ML + 9, iy);
+
+      y += boxH + 5;
+    });
+
+    // ── "How VCLO supports this plan" pillar grid ──────────────────
+    const gridTitle = "HOW REST THE CASE VCLO SUPPORTS THIS PLAN";
+    const gridH = 12 + 4 * 14 + 6;
+    if (y + gridH + 14 > H - 20) {
+      doc.addPage(); page++;
+      pageHeader(doc, page); pageFooter(doc);
+      y = 24;
+    }
+
+    doc.setFillColor(...DARK_P);
+    doc.roundedRect(ML, y, CW, 12, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...GOLD);
+    doc.text(gridTitle, ML + 6, y + 8.5);
+    y += 14;
+
+    const pillarGridItems: Array<{ label: string; capability: string; score: number; col: [number,number,number] }> = [
+      { label: "Litigation Health",     capability: "Dispute prevention, notice response, and court-ready documentation", score: data.pillars.find(p => p.label.includes("Litigation"))?.score ?? 0, col: PILLAR_COLORS[0]! },
+      { label: "Contractual Health",    capability: "Contract review, drafting, and vendor/client agreement management",  score: data.pillars.find(p => p.label.includes("Contract"))?.score ?? 0,   col: PILLAR_COLORS[1]! },
+      { label: "Compliance Health",     capability: "Statutory filing calendar, licence renewal, and regulatory advisory", score: data.pillars.find(p => p.label.includes("Compliance"))?.score ?? 0, col: PILLAR_COLORS[2]! },
+      { label: "Legal Cost Efficiency", capability: "Flat monthly retainer replaces unpredictable per-matter billing",     score: data.pillars.find(p => p.label.includes("Cost"))?.score ?? 0,        col: PILLAR_COLORS[3]! },
+    ];
+
+    pillarGridItems.forEach((item, gi) => {
+      const isWeak = item.score < 15; // below 60% of 25
+      const rowY = y + gi * 14;
+      if (isWeak) {
+        doc.setFillColor(item.col[0], Math.min(255, item.col[1] + 180), Math.min(255, item.col[2] + 180));
+        doc.roundedRect(ML, rowY, CW, 13, 2, 2, "F");
+      } else {
+        doc.setFillColor(...PANEL);
+        doc.roundedRect(ML, rowY, CW, 13, 2, 2, "F");
+      }
+      doc.setFillColor(...item.col);
+      doc.roundedRect(ML, rowY, 4, 13, 2, 2, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(...item.col);
+      doc.text(item.label, ML + 8, rowY + 5.5);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...INK2);
+      doc.text(clean(item.capability), ML + 8, rowY + 10.5);
+
+      if (isWeak) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.setTextColor(...item.col);
+        doc.text("PRIORITY", ML + CW - 6, rowY + 8, { align: "right" });
+      }
+    });
+    y += 4 * 14 + 8;
+  }
+
+  // ══════════════════════════════════════════════════════════════
   // PAGE — CASE STUDY (real-world parallel)
   // ══════════════════════════════════════════════════════════════
   if (data.example) {

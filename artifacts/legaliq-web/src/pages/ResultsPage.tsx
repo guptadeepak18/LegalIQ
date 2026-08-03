@@ -50,6 +50,99 @@ const VCLO_COMPARISON = [
   { label: "Business-Focused Guidance",   traditional: "Advice is often general and not tailored to a specific industry or stage",                vclo: "Guidance is shaped around your business model, sector, and stage of growth" },
 ];
 
+// ─── Roadmap types ────────────────────────────────────────────────────────────
+interface RoadmapPhase {
+  tier: "Immediate" | "Short-Term" | "Long-Term";
+  timeLabel: string;
+  actions: string[];
+  outcome: string;
+  vcloNote: string;
+  color: string;
+  badgeCls: string;
+  borderColor: string;
+}
+
+const VCLO_PILLAR_SUPPORT: Array<{
+  pillar: string;
+  key: "litigationScore" | "contractualScore" | "complianceScore" | "costScore";
+  vcloCapability: string;
+}> = [
+  { pillar: "Litigation Health",     key: "litigationScore",  vcloCapability: "Dispute prevention, notice response, and court-ready documentation" },
+  { pillar: "Contractual Health",    key: "contractualScore", vcloCapability: "Contract review, drafting, and vendor/client agreement management" },
+  { pillar: "Compliance Health",     key: "complianceScore",  vcloCapability: "Statutory filing calendar, licence renewal, and regulatory advisory" },
+  { pillar: "Legal Cost Efficiency", key: "costScore",        vcloCapability: "Flat monthly retainer replaces unpredictable per-matter billing" },
+];
+
+function buildRoadmap(
+  report: import("@/store/useStore").AssessmentResult["report"],
+  result: import("@/store/useStore").AssessmentResult,
+): { phases: RoadmapPhase[]; introLine: string; worstPillars: string[] } {
+  const pillarRanked = [
+    { label: "Litigation",  score: result.litigationScore },
+    { label: "Contracts",   score: result.contractualScore },
+    { label: "Compliance",  score: result.complianceScore },
+    { label: "Legal Costs", score: result.costScore },
+  ].sort((a, b) => a.score - b.score);
+
+  const worstPillars = pillarRanked.slice(0, 2).map(p => p.label);
+  const w0 = pillarRanked[0]?.label ?? "Litigation";
+  const w1 = pillarRanked[1]?.label ?? "Contracts";
+
+  const byTier = (tier: "Immediate" | "Short-Term" | "Long-Term") =>
+    (report.actions || [])
+      .filter(a => (a.priority ?? "Long-Term") === tier)
+      .slice(0, 3)
+      .map(a => a.action);
+
+  const vcloNotes: Record<string, string> = {
+    "Litigation":  "A VCLO helps you respond to notices correctly the first time and prevents disputes from escalating to court.",
+    "Contracts":   "A VCLO reviews all agreements before signing, ensuring enforceability and removing unfavourable clauses.",
+    "Compliance":  "A VCLO tracks your statutory filing calendar so you never miss a deadline or attract penalties.",
+    "Legal Costs": "A VCLO's flat monthly retainer replaces unpredictable per-matter billing, making legal costs fully budgetable.",
+  };
+
+  const scoreDesc = result.totalScore >= 80 ? "strong"
+    : result.totalScore >= 60 ? "stable but improvable"
+    : result.totalScore >= 40 ? "at risk"
+    : "critically exposed";
+  const introLine = `With a Legal Health Score of ${result.totalScore}/100 (${scoreDesc}), your business has identified gaps in ${worstPillars.join(" and ")} that need structured action. Here is your recommended plan, derived from your assessment findings.`;
+
+  const phases: RoadmapPhase[] = [];
+
+  const immediateActions = byTier("Immediate");
+  if (immediateActions.length > 0)
+    phases.push({ tier: "Immediate", timeLabel: "Week 1", actions: immediateActions,
+      outcome: `Address your highest-risk legal exposure in ${w0} before gaps compound into disputes or penalties.`,
+      vcloNote: vcloNotes[w0] ?? "A VCLO provides immediate guidance on your most urgent gaps.",
+      color: "#EF4444", badgeCls: "text-red-500 bg-red-500/10 border-red-500/25", borderColor: "rgba(239,68,68,0.18)" });
+
+  const shortTermActions = byTier("Short-Term");
+  if (shortTermActions.length > 0)
+    phases.push({ tier: "Short-Term", timeLabel: "Month 1", actions: shortTermActions,
+      outcome: `Strengthen ${w1} foundations and build legal documentation that protects ongoing operations.`,
+      vcloNote: vcloNotes[w1] ?? "A VCLO prepares a compliance calendar and reviews key contracts.",
+      color: "#F59E0B", badgeCls: "text-amber-500 bg-amber-500/10 border-amber-500/25", borderColor: "rgba(245,158,11,0.18)" });
+
+  const longTermActions = byTier("Long-Term");
+  if (longTermActions.length > 0)
+    phases.push({ tier: "Long-Term", timeLabel: "90 Days", actions: longTermActions,
+      outcome: "Establish continuous legal monitoring and proactive risk prevention across all four pillars.",
+      vcloNote: "A VCLO provides ongoing monitoring, monthly check-ins, and on-demand legal guidance as your business grows.",
+      color: "#3B82F6", badgeCls: "text-blue-500 bg-blue-500/10 border-blue-500/25", borderColor: "rgba(59,130,246,0.18)" });
+
+  // Fallback: derive from timeline field when no priority tags exist
+  if (phases.length === 0) {
+    const tw = (report.actions || []).filter(a => a.timeline === "THIS WEEK").slice(0, 3).map(a => a.action);
+    const tm = (report.actions || []).filter(a => a.timeline === "THIS MONTH").slice(0, 3).map(a => a.action);
+    const tq = (report.actions || []).filter(a => a.timeline === "90 DAYS").slice(0, 3).map(a => a.action);
+    if (tw.length) phases.push({ tier: "Immediate", timeLabel: "Week 1", actions: tw, outcome: `Address your highest-risk legal exposure before gaps compound.`, vcloNote: vcloNotes[w0] ?? "A VCLO provides immediate guidance on your most urgent gaps.", color: "#EF4444", badgeCls: "text-red-500 bg-red-500/10 border-red-500/25", borderColor: "rgba(239,68,68,0.18)" });
+    if (tm.length) phases.push({ tier: "Short-Term", timeLabel: "Month 1", actions: tm, outcome: `Strengthen compliance foundations and legal documentation.`, vcloNote: vcloNotes[w1] ?? "A VCLO prepares a compliance calendar and reviews key contracts.", color: "#F59E0B", badgeCls: "text-amber-500 bg-amber-500/10 border-amber-500/25", borderColor: "rgba(245,158,11,0.18)" });
+    if (tq.length) phases.push({ tier: "Long-Term", timeLabel: "90 Days", actions: tq, outcome: "Establish ongoing legal protection across all four pillars.", vcloNote: "A VCLO provides monthly check-ins and proactive risk monitoring.", color: "#3B82F6", badgeCls: "text-blue-500 bg-blue-500/10 border-blue-500/25", borderColor: "rgba(59,130,246,0.18)" });
+  }
+
+  return { phases, introLine, worstPillars };
+}
+
 function gradeFromScore(score: number) {
   if (score >= 80) return "A";
   if (score >= 60) return "B";
@@ -164,6 +257,7 @@ export default function ResultsPage() {
   if (!result) return null;
 
   const { totalScore, riskLevel, report } = result;
+  const roadmap = buildRoadmap(report, result);
   const grade = gradeFromScore(totalScore);
   const gradeLabel = gradeLabelFromScore(totalScore);
   const riskColor  = riskColorFromScore(totalScore);
@@ -831,15 +925,85 @@ export default function ResultsPage() {
           </motion.div>
         )}
 
-        {/* ── VCLO CTA ───────────────────────────────────────────────────── */}
+        {/* ── YOUR NEXT PLAN ─────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="glass-card rounded-2xl p-8 relative overflow-hidden">
           <div className="relative z-10">
-            <h2 className="type-h2 liq-text-1 mb-1 tracking-tight">Your Next Step</h2>
-            <p className="type-caption liq-text-3 mb-5">How a Rest The Case Virtual Chief Legal Officer (VCLO) supports a {store.businessType || "business like yours"}.</p>
+            <div className="flex items-center gap-2 mb-1">
+              <Target size={18} className="text-[#C9A84C]" />
+              <h2 className="type-h2 liq-text-1 tracking-tight">Your Next Plan</h2>
+            </div>
+            <p className="type-caption liq-text-3 mb-5">Personalised action roadmap for {store.company || "your business"} · {store.businessType || "business"}</p>
 
+            {/* Score-contextual intro */}
+            <div className="mb-6 p-4 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.20)", background: "rgba(201,168,76,0.04)" }}>
+              <p className="text-sm liq-text-2 leading-relaxed">{roadmap.introLine}</p>
+            </div>
+
+            {/* Phase cards */}
+            {roadmap.phases.length > 0 && (
+              <div className="space-y-4 mb-6">
+                {roadmap.phases.map((phase) => (
+                  <div key={phase.tier} className="rounded-xl border p-5" style={{ borderColor: phase.borderColor, background: `${phase.color}05` }}>
+                    {/* Phase header */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full border ${phase.badgeCls}`}>{phase.tier}</span>
+                      <span className="text-xs liq-text-3 border border-dashed px-2 py-0.5 rounded-full" style={{ borderColor: phase.borderColor }}>
+                        {phase.timeLabel}
+                      </span>
+                    </div>
+
+                    {/* Outcome */}
+                    <p className="text-sm font-semibold liq-text-1 mb-3 leading-snug">{phase.outcome}</p>
+
+                    {/* Action items */}
+                    <ul className="space-y-1.5 mb-4">
+                      {phase.actions.map((action, ai) => (
+                        <li key={ai} className="flex items-start gap-2 text-sm liq-text-2">
+                          <span className="mt-1 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-black text-white" style={{ background: phase.color }}>{ai + 1}</span>
+                          <span>{action}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* VCLO note */}
+                    <div className="flex items-start gap-2 p-3 rounded-lg" style={{ background: `${phase.color}08`, borderLeft: `3px solid ${phase.color}` }}>
+                      <Zap size={12} className="mt-0.5 flex-shrink-0" style={{ color: phase.color }} />
+                      <p className="text-xs leading-relaxed" style={{ color: phase.color }}><span className="font-bold">VCLO accelerates this:</span> {phase.vcloNote}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* How VCLO supports this plan — pillar grid */}
+            <div className="mb-6">
+              <p className="text-xs font-bold liq-text-3 uppercase tracking-wider mb-3">How REST THE CASE VCLO supports this plan</p>
+              <div className="rounded-xl border overflow-hidden" style={{ borderColor: "rgba(201,168,76,0.15)" }}>
+                {VCLO_PILLAR_SUPPORT.map((row, i) => {
+                  const score = result[row.key] as number;
+                  const isWeak = score < 15;
+                  return (
+                    <div key={row.pillar} className={`flex items-center gap-3 px-4 py-3 border-t first:border-t-0 ${isWeak ? "bg-[#C9A84C]/05" : ""}`}
+                      style={{ borderColor: "rgba(201,168,76,0.10)" }}>
+                      {/* Pillar colour dot */}
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: PILLAR_META[i]?.color ?? "#C9A84C" }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold liq-text-1">{row.pillar}</p>
+                        <p className="text-xs liq-text-3 mt-0.5">{row.vcloCapability}</p>
+                      </div>
+                      {isWeak && (
+                        <span className="text-[10px] font-bold text-[#C9A84C] border border-[#C9A84C]/30 px-2 py-0.5 rounded-full flex-shrink-0">Priority</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Personalised vcloPitch (business-type specific) */}
             {report.vcloPitch && (
-              <div className="mb-6 p-5 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.25)", background: "rgba(10,10,10,0.03)" }}>
-                <p className="type-label text-[#C9A84C] mb-2">How a VCLO helps your business</p>
+              <div className="mb-6 p-5 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.20)", background: "rgba(10,10,10,0.03)" }}>
+                <p className="type-label text-[#C9A84C] mb-2">How a VCLO helps your {store.businessType || "business"}</p>
                 <p className="liq-text-2 leading-relaxed text-sm">{report.vcloPitch}</p>
               </div>
             )}
