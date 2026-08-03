@@ -12,7 +12,7 @@ import { useStore } from "@/store/useStore";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LegalDisclaimerCard } from "@/components/LegalDisclaimerCard";
-import { generateReportPDF, generateCertificatePDF } from "@/lib/pdfGenerator";
+import { generateReportPDF, generateCertificatePDF, generateVCLOBrochurePDF } from "@/lib/pdfGenerator";
 import { basePath } from "@/lib/clerk";
 
 const PILLAR_META = [
@@ -115,6 +115,7 @@ export default function ResultsPage() {
   const store = useStore();
   const result = store.result;
   const [downloading, setDownloading] = useState(false);
+  const [brochureDownloading, setBrochureDownloading] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [benchmark, setBenchmark] = useState<Benchmark | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -208,6 +209,19 @@ export default function ResultsPage() {
       console.error("Certificate generation failed", e);
     } finally {
       setCertGenerating(false);
+    }
+  }
+
+  async function handleDownloadBrochure() {
+    setBrochureDownloading(true);
+    try {
+      await generateVCLOBrochurePDF();
+    } catch (e) {
+      console.error("Brochure generation failed", e);
+      // Surface error to user via toast if available
+      try { (await import("sonner")).toast.error("Could not generate brochure — please try again."); } catch {}
+    } finally {
+      setBrochureDownloading(false);
     }
   }
 
@@ -857,6 +871,14 @@ export default function ResultsPage() {
               className="w-full flex items-center justify-center gap-2 bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold py-5 rounded-xl transition-all shadow-lg shadow-[#C9A84C]/30 text-lg mb-3">
               <Calendar size={20} /> Book Your Free Consultation
             </button>
+
+            {/* Download VCLO Brochure */}
+            <button onClick={handleDownloadBrochure} disabled={brochureDownloading}
+              className="w-full flex items-center justify-center gap-2 border border-[#C9A84C]/40 text-[#C9A84C] hover:bg-[#C9A84C]/08 font-semibold py-3.5 rounded-xl transition-all mb-3 disabled:opacity-60 text-sm">
+              <Download size={15} />
+              {brochureDownloading ? "Generating Brochure…" : "Download VCLO Brochure (PDF)"}
+            </button>
+
             <div className="flex flex-col sm:flex-row gap-3">
               <a href={whatsappLink} target="_blank" rel="noopener noreferrer"
                 className="flex-1 flex items-center justify-center gap-2 font-semibold py-3.5 px-6 rounded-xl transition-all text-white"

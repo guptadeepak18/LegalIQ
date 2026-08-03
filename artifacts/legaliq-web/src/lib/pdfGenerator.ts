@@ -1851,6 +1851,609 @@ async function drawCertificatePage(doc: jsPDF, data: CertificateData): Promise<v
   doc.text("Verify at restthecase.com/virtualCLOPackage  |  Not legal advice", cx, H - 15, { align: "center" });
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// VCLO BROCHURE PDF
+// ══════════════════════════════════════════════════════════════════════
+
+const NAVY   : [number,number,number] = [ 10,  15,  35];
+const NAVY2  : [number,number,number] = [ 16,  22,  48];
+const NAVY3  : [number,number,number] = [ 24,  32,  64];
+
+function brochureHeader(doc: jsPDF, page: number) {
+  const W = doc.internal.pageSize.getWidth();
+  doc.setFillColor(...GOLD);
+  doc.rect(0, 0, W, 2.5, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...GOLD);
+  doc.text("LegalIQ  |  Virtual CLO Service", 14, 11);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...INK3);
+  doc.text(`by Rest The Case  |  restthecase.com/virtualCLOPackage  |  Page ${page}`, W - 14, 11, { align: "right" });
+  doc.setDrawColor(...INK4);
+  doc.setLineWidth(0.25);
+  doc.line(14, 15, W - 14, 15);
+}
+
+function brochureFooter(doc: jsPDF) {
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  doc.setDrawColor(...INK4);
+  doc.setLineWidth(0.25);
+  doc.line(14, H - 13, W - 14, H - 13);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(...INK3);
+  doc.text("Rest The Case  |  Trusted Legal Partner for Indian Businesses", 14, H - 7.5);
+  doc.text("restthecase.com/virtualCLOPackage", W - 14, H - 7.5, { align: "right" });
+}
+
+function brochureCard(doc: jsPDF, x: number, y: number, w: number, h: number,
+  color: [number,number,number], num: string, title: string, body: string) {
+  // Card bg
+  doc.setFillColor(...PANEL);
+  doc.roundedRect(x, y, w, h, 3, 3, "F");
+  doc.setDrawColor(...color);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(x, y, w, h, 3, 3, "S");
+  // Top colour bar
+  doc.setFillColor(...color);
+  doc.roundedRect(x, y, w, 3, 1, 1, "F");
+  // Number badge
+  doc.setFillColor(...color);
+  doc.circle(x + 10, y + 16, 6, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...WHITE);
+  doc.text(num, x + 10, y + 19, { align: "center" });
+  // Title
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...INK1);
+  doc.text(title, x + 20, y + 18.5);
+  // Body
+  const bodyLines = doc.splitTextToSize(clean(body), w - 8);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...INK2);
+  doc.text(bodyLines, x + 5, y + 27);
+}
+
+export async function generateVCLOBrochurePDF(): Promise<void> {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const W   = doc.internal.pageSize.getWidth();
+  const H   = doc.internal.pageSize.getHeight();
+  const ML  = 16;
+  const MR  = 16;
+  const CW  = W - ML - MR;
+  let page  = 1;
+
+  // ═══════════════════════════════════════════════════════════════
+  // PAGE 1 — COVER
+  // ═══════════════════════════════════════════════════════════════
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, W, H, "F");
+
+  // Gold top bar
+  doc.setFillColor(...GOLD);
+  doc.rect(0, 0, W, 3.5, "F");
+
+  // Left gold stripe
+  doc.setFillColor(...GOLD);
+  doc.rect(0, 0, 3.5, H, "F");
+
+  // Decorative background arc
+  doc.setFillColor(20, 28, 60);
+  doc.circle(W + 30, -30, 110, "F");
+
+  // Brand: LegalIQ
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(34);
+  doc.setTextColor(...GOLD);
+  doc.text("LegalIQ", ML + 8, 46);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(160, 152, 130);
+  doc.text("LEGAL HEALTH ASSESSMENT  |  BY REST THE CASE", ML + 8, 55);
+
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.5);
+  doc.line(ML + 8, 60, W - ML, 60);
+
+  // Main headline
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(...WHITE);
+  doc.text("Virtual Chief", ML + 8, 82);
+  doc.text("Legal Officer", ML + 8, 96);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(...GOLD);
+  doc.text("(VCLO) Service", ML + 8, 110);
+
+  // Tagline
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(180, 172, 148);
+  doc.text("Always-On Legal Protection", ML + 8, 126);
+  doc.text("for Indian Businesses.", ML + 8, 134);
+
+  // Feature pills
+  const pills = ["Contract Review", "Compliance Calendar", "On-Demand Legal Support", "Risk Prevention"];
+  let pillX = ML + 8;
+  let pillY = 154;
+  pills.forEach((p) => {
+    const tw = doc.getTextWidth(p) + 12;
+    if (pillX + tw > W - ML) { pillX = ML + 8; pillY += 12; }
+    doc.setFillColor(30, 38, 70);
+    doc.setDrawColor(...GOLD);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(pillX, pillY - 6, tw, 9, 2, 2, "FD");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GOLD);
+    doc.text(p, pillX + 6, pillY - 0.5);
+    pillX += tw + 5;
+  });
+
+  // Score panel on cover
+  const spY = 184;
+  doc.setFillColor(18, 24, 52);
+  doc.roundedRect(ML + 8, spY, CW - 10, 62, 5, 5, "F");
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(ML + 8, spY, CW - 10, 62, 5, 5, "S");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(140, 132, 108);
+  doc.text("WHY VCLO?", ML + 18, spY + 13);
+
+  const reasons = [
+    "Fixed monthly cost — no surprise legal bills",
+    "Dedicated attorney who knows your business",
+    "Proactive compliance — not reactive firefighting",
+  ];
+  reasons.forEach((r, i) => {
+    const ry = spY + 24 + i * 13;
+    doc.setFillColor(...GOLD);
+    doc.circle(ML + 14, ry - 1.5, 2, "F");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...WHITE);
+    doc.text(clean(r), ML + 20, ry);
+  });
+
+  // Plans badge
+  doc.setFillColor(...GOLD);
+  doc.roundedRect(ML + 8, spY + 44, 72, 14, 3, 3, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10.5);
+  doc.setTextColor(...DARK);
+  doc.text("From Rs. 4,999/month", ML + 44, spY + 53, { align: "center" });
+
+  // Bottom contact strip
+  const bY = H - 32;
+  doc.setDrawColor(40, 50, 80);
+  doc.setLineWidth(0.3);
+  doc.line(ML + 8, bY, W - ML, bY);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(160, 152, 130);
+  doc.text("restthecase.com/virtualCLOPackage", ML + 8, bY + 10);
+  doc.text("www.restthecase.com", W - ML, bY + 10, { align: "right" });
+  doc.setFontSize(7);
+  doc.setTextColor(100, 92, 78);
+  doc.text("This brochure is for informational purposes only and does not constitute legal advice.", ML + 8, bY + 20);
+
+  // ═══════════════════════════════════════════════════════════════
+  // PAGE 2 — WHAT IS A VCLO?
+  // ═══════════════════════════════════════════════════════════════
+  doc.addPage();
+  page++;
+  brochureHeader(doc, page);
+  brochureFooter(doc);
+
+  let y = 24;
+
+  // Section heading
+  doc.setFillColor(...NAVY2);
+  doc.roundedRect(ML, y, CW, 14, 3, 3, "F");
+  doc.setFillColor(...GOLD);
+  doc.rect(ML, y, 4, 14, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...GOLD);
+  doc.text("What is a Virtual Chief Legal Officer (VCLO)?", ML + 9, y + 9.5);
+  y += 20;
+
+  // Intro paragraph
+  const introText = "A Virtual CLO (VCLO) is a senior legal professional assigned to your business on a fixed monthly retainer. Unlike traditional lawyers who are engaged per matter, a VCLO becomes an extension of your team — proactively managing legal risks, reviewing contracts, tracking compliance deadlines, and advising on business decisions before problems arise.";
+  const introLines = wrap(doc, introText, CW);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...INK2);
+  doc.text(introLines, ML, y);
+  y += introLines.length * 5 + 6;
+
+  // 3 core benefit cards
+  const benefits = [
+    { num: "1", color: [201, 168, 76] as [number,number,number], title: "Cost Predictability", body: "One flat monthly fee replaces unpredictable per-matter billing. Budget your legal costs like a subscription, not a surprise." },
+    { num: "2", color: [50, 120, 220] as [number,number,number], title: "Continuous Legal Support", body: "Your VCLO is always available. No need to search for a lawyer each time — they already know your business and its risks." },
+    { num: "3", color: [34, 180, 80] as [number,number,number], title: "Proactive Compliance", body: "Stay ahead of filings, renewals, and regulatory deadlines. Your VCLO tracks your compliance calendar and alerts you in advance." },
+  ];
+
+  const cardH = 48;
+  const cardW = (CW - 8) / 3;
+  benefits.forEach((b, i) => {
+    brochureCard(doc, ML + i * (cardW + 4), y, cardW, cardH, b.color, b.num, b.title, b.body);
+  });
+  y += cardH + 10;
+
+  // VCLO vs Traditional heading
+  doc.setFillColor(...DARK_P);
+  doc.roundedRect(ML, y, CW, 10, 2, 2, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...GOLD);
+  doc.text("VCLO vs. Traditional Legal Support", ML + 6, y + 7);
+  y += 14;
+
+  // Comparison rows (use first 5 from VCLO_COMPARISON)
+  const cmpRows = VCLO_COMPARISON.slice(0, 5);
+  const col1W = CW * 0.26;
+  const col2W = CW * 0.37;
+  const col3W = CW * 0.37;
+
+  // Table header
+  doc.setFillColor(240, 238, 232);
+  doc.rect(ML, y, CW, 8, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(...INK1);
+  doc.text("ASPECT", ML + 3, y + 5.5);
+  doc.text("TRADITIONAL", ML + col1W + 3, y + 5.5);
+  doc.setTextColor(34, 140, 60);
+  doc.text("REST THE CASE VCLO", ML + col1W + col2W + 3, y + 5.5);
+  y += 8;
+
+  cmpRows.forEach((row, i) => {
+    const c1Lines = wrap(doc, row.label,       col1W - 4);
+    const c2Lines = wrap(doc, row.traditional, col2W - 4);
+    const c3Lines = wrap(doc, row.vclo,        col3W - 4);
+    const rowH2 = Math.max(c1Lines.length, c2Lines.length, c3Lines.length) * 4.5 + 6;
+
+    if (y + rowH2 > H - 20) {
+      doc.addPage(); page++;
+      brochureHeader(doc, page);
+      brochureFooter(doc);
+      y = 24;
+    }
+
+    if (i % 2 === 0) {
+      doc.setFillColor(252, 250, 246);
+      doc.rect(ML, y, CW, rowH2, "F");
+    }
+    doc.setDrawColor(...INK4);
+    doc.setLineWidth(0.15);
+    doc.line(ML, y + rowH2, ML + CW, y + rowH2);
+
+    const ry = y + 5;
+    doc.setFont("helvetica", "bold");   doc.setFontSize(7.5); doc.setTextColor(...INK1);
+    doc.text(c1Lines, ML + 3, ry);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...INK2);
+    doc.text(c2Lines, ML + col1W + 3, ry);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(34, 140, 60);
+    doc.text(c3Lines, ML + col1W + col2W + 3, ry);
+
+    y += rowH2;
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // PAGE 3 — SERVICES
+  // ═══════════════════════════════════════════════════════════════
+  doc.addPage();
+  page++;
+  brochureHeader(doc, page);
+  brochureFooter(doc);
+
+  y = 24;
+
+  doc.setFillColor(...NAVY2);
+  doc.roundedRect(ML, y, CW, 14, 3, 3, "F");
+  doc.setFillColor(...GOLD);
+  doc.rect(ML, y, 4, 14, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...GOLD);
+  doc.text("What Your VCLO Plan Includes", ML + 9, y + 9.5);
+  y += 20;
+
+  const services = [
+    { color: [201, 168, 76] as [number,number,number], icon: "01", title: "Contract Review & Drafting",        body: "All vendor, client, employee, and partner agreements reviewed and strengthened before you sign. Standard contracts drafted and templated for reuse." },
+    { color: [50, 120, 220] as [number,number,number], icon: "02", title: "Compliance Calendar Management",    body: "Track GST filings, MCA returns, labour law compliances, and licence renewals. Advance reminders ensure you never miss a statutory deadline." },
+    { color: [34, 180, 80]  as [number,number,number], icon: "03", title: "On-Demand Legal Queries",           body: "Ask any legal question and receive a clear, business-focused response — no billable hours, no surprises. Available via call, email, or WhatsApp." },
+    { color: [220, 60, 60]  as [number,number,number], icon: "04", title: "Dispute Prevention & Management",   body: "Identify potential disputes before they escalate. If a notice or dispute arises, your VCLO guides your response and prepares the necessary documentation." },
+    { color: [120, 70, 210] as [number,number,number], icon: "05", title: "IP Registration Guidance",          body: "Trademark, copyright, and patent filing support. Protect your brand, product, and content assets before competitors act first." },
+    { color: [210, 130, 20] as [number,number,number], icon: "06", title: "Regulatory & Business Advisory",    body: "Guidance on sector-specific regulations — FSSAI, RERA, RBI, SEBI, and more. Stay compliant as your business grows and enters new verticals." },
+  ];
+
+  const svcCardH = 36;
+  services.forEach((s, i) => {
+    if (y + svcCardH > H - 20) {
+      doc.addPage(); page++;
+      brochureHeader(doc, page);
+      brochureFooter(doc);
+      y = 24;
+    }
+
+    const col = s.color;
+    const lightCol = col.map(c => Math.min(255, c + 185)) as [number,number,number];
+
+    doc.setFillColor(...PANEL);
+    doc.roundedRect(ML, y, CW, svcCardH, 3, 3, "F");
+    doc.setDrawColor(...INK4);
+    doc.setLineWidth(0.15);
+    doc.roundedRect(ML, y, CW, svcCardH, 3, 3, "S");
+
+    // Left accent + icon badge
+    doc.setFillColor(...col);
+    doc.rect(ML, y, 4, svcCardH, "F");
+    doc.setFillColor(...lightCol);
+    doc.roundedRect(ML + 8, y + svcCardH / 2 - 8, 16, 16, 3, 3, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...col);
+    doc.text(s.icon, ML + 16, y + svcCardH / 2 + 1.5, { align: "center" });
+
+    // Title + body
+    const bodyLines = wrap(doc, s.body, CW - 36);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...INK1);
+    doc.text(s.title, ML + 28, y + 11);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...INK2);
+    doc.text(bodyLines.slice(0, 2), ML + 28, y + 18);
+
+    y += svcCardH + 4;
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // PAGE 4 — HOW IT WORKS
+  // ═══════════════════════════════════════════════════════════════
+  doc.addPage();
+  page++;
+  brochureHeader(doc, page);
+  brochureFooter(doc);
+
+  y = 24;
+
+  doc.setFillColor(...NAVY2);
+  doc.roundedRect(ML, y, CW, 14, 3, 3, "F");
+  doc.setFillColor(...GOLD);
+  doc.rect(ML, y, 4, 14, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...GOLD);
+  doc.text("How It Works — 3 Simple Steps", ML + 9, y + 9.5);
+  y += 22;
+
+  // Connector line
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.6);
+  doc.setLineDashPattern([2, 2], 0);
+  doc.line(ML + 14, y + 16, ML + 14, y + 16 + 2 * 64 + 12);
+  doc.setLineDashPattern([], 0);
+
+  const steps = [
+    { num: "1", color: [201, 168, 76] as [number,number,number], title: "Legal Health Assessment",
+      subtitle: "Start with LegalIQ — Free",
+      body: "Complete the 15-minute LegalIQ assessment to receive your Legal Health Score. The score identifies your four legal health pillars — Litigation, Contracts, Compliance, and Legal Costs — and surfaces the gaps that need attention most urgently.",
+      badge: "FREE · 15 minutes" },
+    { num: "2", color: [50, 120, 220] as [number,number,number], title: "VCLO Onboarding",
+      subtitle: "Week 1 — Personalised Setup",
+      body: "Your dedicated VCLO reviews your Legal Health Report, existing agreements, and compliance calendar. An initial action plan is prepared specifically for your business type, stage, and identified risks.",
+      badge: "Dedicated attorney assigned" },
+    { num: "3", color: [34, 180, 80] as [number,number,number], title: "Ongoing Legal Support",
+      subtitle: "Monthly — Always-On Coverage",
+      body: "Your VCLO is available for contract reviews, compliance queries, dispute guidance, and legal questions throughout the month. Monthly check-ins ensure new risks are caught early — before they become costly problems.",
+      badge: "Flat monthly retainer" },
+  ];
+
+  steps.forEach((s) => {
+    const stepH = 64;
+    if (y + stepH > H - 20) {
+      doc.addPage(); page++;
+      brochureHeader(doc, page);
+      brochureFooter(doc);
+      y = 24;
+    }
+
+    // Step circle
+    doc.setFillColor(...s.color);
+    doc.circle(ML + 14, y + 16, 11, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(...WHITE);
+    doc.text(s.num, ML + 14, y + 19.5, { align: "center" });
+
+    // Card
+    doc.setFillColor(...PANEL);
+    doc.roundedRect(ML + 28, y, CW - 28, stepH, 4, 4, "F");
+    doc.setDrawColor(...s.color);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(ML + 28, y, CW - 28, stepH, 4, 4, "S");
+
+    // Badge
+    const bw = doc.getTextWidth(s.badge) + 10;
+    doc.setFillColor(...s.color.map(c => Math.min(255, c + 185)) as [number,number,number]);
+    doc.roundedRect(W - ML - bw - 4, y + 6, bw, 7, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6);
+    doc.setTextColor(...s.color);
+    doc.text(s.badge, W - ML - bw / 2 - 4, y + 11, { align: "center" });
+
+    // Title
+    const titleW = CW - 28 - bw - 14;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    doc.setTextColor(...INK1);
+    doc.text(s.title, ML + 34, y + 12);
+
+    // Subtitle
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...s.color);
+    doc.text(s.subtitle, ML + 34, y + 19);
+
+    // Body
+    const bodyL = wrap(doc, s.body, titleW + bw + 4);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...INK2);
+    doc.text(bodyL.slice(0, 4), ML + 34, y + 26);
+
+    y += stepH + 8;
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // PAGE 5 — PRICING & CTA
+  // ═══════════════════════════════════════════════════════════════
+  doc.addPage();
+  page++;
+
+  // Full dark background for CTA page
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, W, H, "F");
+  doc.setFillColor(...GOLD);
+  doc.rect(0, 0, W, 3.5, "F");
+  doc.setFillColor(...GOLD);
+  doc.rect(0, 0, 3.5, H, "F");
+
+  y = 28;
+
+  // Section tag
+  doc.setFillColor(24, 32, 64);
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(ML + 8, y, 56, 9, 2, 2, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(...GOLD);
+  doc.text("VCLO PLANS & PRICING", ML + 36, y + 6, { align: "center" });
+  y += 16;
+
+  // Headline
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.setTextColor(...WHITE);
+  doc.text("Protect Your Business.", ML + 8, y);
+  y += 10;
+  doc.setFontSize(22);
+  doc.setTextColor(...GOLD);
+  doc.text("For Less Than You Think.", ML + 8, y);
+  y += 14;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(170, 162, 140);
+  const taglineLines = wrap(doc, "REST THE CASE VCLO plans give your business a dedicated attorney at a flat monthly rate — no hourly billing, no hidden fees, no surprises.", CW - 10);
+  doc.text(taglineLines, ML + 8, y);
+  y += taglineLines.length * 5.5 + 12;
+
+  // Plan cards
+  const plans = [
+    { name: "Starter",    price: "Rs. 4,999",  period: "/month", highlight: false, features: ["Up to 3 contract reviews/month", "Compliance calendar", "On-demand queries (5/month)", "Basic advisory"] },
+    { name: "Business",   price: "Rs. 9,999",  period: "/month", highlight: true,  features: ["Up to 10 contract reviews/month", "Full compliance monitoring", "Unlimited queries", "Dispute guidance", "IP advisory"] },
+    { name: "Enterprise", price: "Custom",      period: "pricing", highlight: false, features: ["Unlimited contract reviews", "Multi-entity compliance", "Priority response SLA", "Board advisory support"] },
+  ];
+
+  const planW = (CW - 8) / 3;
+  plans.forEach((plan, i) => {
+    const px = ML + i * (planW + 4);
+    const planH = 86;
+    const planColor: [number,number,number] = plan.highlight ? GOLD : [40, 50, 85];
+    const textC: [number,number,number] = plan.highlight ? DARK : WHITE;
+
+    doc.setFillColor(...planColor);
+    doc.roundedRect(px, y, planW, planH, 4, 4, "F");
+    if (plan.highlight) {
+      doc.setFillColor(...GOLD);
+      doc.roundedRect(px, y, planW, 5, 2, 2, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6);
+      doc.setTextColor(...DARK);
+      doc.text("MOST POPULAR", px + planW / 2, y + 3.5, { align: "center" });
+    }
+
+    const innerY = plan.highlight ? y + 10 : y + 8;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    doc.setTextColor(...textC);
+    doc.text(plan.name, px + planW / 2, innerY, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.setTextColor(...(plan.highlight ? DARK : GOLD));
+    doc.text(plan.price, px + planW / 2, innerY + 10, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(...(plan.highlight ? [80, 60, 10] as [number,number,number] : INK3));
+    doc.text(plan.period, px + planW / 2, innerY + 16, { align: "center" });
+
+    plan.features.forEach((f, fi) => {
+      const fy = innerY + 24 + fi * 9.5;
+      doc.setFillColor(plan.highlight ? 200 : 50, plan.highlight ? 180 : 65, plan.highlight ? 40 : 100);
+      doc.circle(px + 6, fy - 1.5, 1.5, "F");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(...(plan.highlight ? [40, 30, 5] as [number,number,number] : [200, 195, 188] as [number,number,number]));
+      const fl = wrap(doc, f, planW - 14);
+      doc.text(fl[0]!, px + 10, fy);
+    });
+  });
+
+  y += 92;
+
+  // Gold CTA bar
+  doc.setFillColor(...GOLD);
+  doc.roundedRect(ML + 8, y, CW - 10, 22, 4, 4, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(...DARK);
+  doc.text("Book Your Free 30-Minute Consultation Today", ML + (CW - 10) / 2 + 8, y + 14.5, { align: "center" });
+  y += 30;
+
+  // Contact details
+  const contacts = [
+    "Website:  restthecase.com/virtualCLOPackage",
+    "Email:    hello@restthecase.com",
+    "Phone:    +91 9876543210",
+  ];
+  contacts.forEach((c, i) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(180, 172, 148);
+    doc.text(clean(c), ML + 8, y + i * 10);
+  });
+
+  y += contacts.length * 10 + 8;
+
+  // Footer disclaimer
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(90, 82, 65);
+  doc.text("This brochure is for informational purposes only. Plans and pricing subject to change. Contact us for a custom quote.", ML + 8, H - 18);
+  doc.text("(C) REST THE CASE  |  restthecase.com", ML + 8, H - 11);
+
+  doc.save("RestTheCase-VCLO-Service-Brochure.pdf");
+}
+
 export async function generateCertificatePDF(data: CertificateData): Promise<void> {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   await drawCertificatePage(doc, data);

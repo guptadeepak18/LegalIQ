@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Calendar, Clock, CheckCircle, Loader2, ArrowLeft } from "lucide-react";
+import { Calendar, Clock, CheckCircle, Loader2, ArrowLeft, Download, FileText } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { generateVCLOBrochurePDF } from "@/lib/pdfGenerator";
 
 const TIME_SLOTS = [
   "09:00 AM – 09:30 AM", "10:00 AM – 10:30 AM", "11:00 AM – 11:30 AM",
@@ -37,7 +38,20 @@ export default function ConsultPage() {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [brochureDownloading, setBrochureDownloading] = useState(false);
   const dates = getAvailableDates();
+
+  async function handleDownloadBrochure() {
+    setBrochureDownloading(true);
+    try {
+      await generateVCLOBrochurePDF();
+    } catch (e) {
+      console.error("Brochure generation failed", e);
+      toast.error("Could not generate brochure — please try again.");
+    } finally {
+      setBrochureDownloading(false);
+    }
+  }
 
   async function handleBook() {
     if (!selectedDate || !selectedTime) {
@@ -123,14 +137,30 @@ export default function ConsultPage() {
           animate={{ opacity: 1, y: 0 }}
           className="glass-card rounded-2xl p-8"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-[#C9A84C]/10 border border-[#C9A84C]/20 flex items-center justify-center">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-[#C9A84C]/10 border border-[#C9A84C]/20 flex items-center justify-center flex-shrink-0">
               <Calendar size={18} className="text-[#C9A84C]" />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <h2 className="type-h2 liq-text-1">Book Free Consultation</h2>
               <p className="type-caption liq-text-3">30-min call with a Rest The Case attorney</p>
             </div>
+          </div>
+
+          {/* VCLO Brochure download */}
+          <div className="mb-5 p-4 rounded-xl border border-[#C9A84C]/20 bg-[#C9A84C]/04 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-[#C9A84C]/12 border border-[#C9A84C]/20 flex items-center justify-center flex-shrink-0">
+              <FileText size={16} className="text-[#C9A84C]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold liq-text-1 leading-snug">VCLO Service Brochure</p>
+              <p className="text-xs liq-text-3 mt-0.5">Share with your team or board before the call</p>
+            </div>
+            <button onClick={handleDownloadBrochure} disabled={brochureDownloading}
+              className="flex items-center gap-1.5 text-xs font-bold text-[#0A0A0A] bg-[#C9A84C] hover:bg-[#E2C97E] px-3 py-2 rounded-lg transition-all disabled:opacity-60 flex-shrink-0">
+              <Download size={12} />
+              {brochureDownloading ? "…" : "Download PDF"}
+            </button>
           </div>
 
           {/* Date selector */}
