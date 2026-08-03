@@ -4,6 +4,7 @@ import {
   Shield, FileText, TrendingUp, CheckCircle, Star, ArrowRight,
   Building2, AlertTriangle, Phone, Mail, Globe,
   Briefcase, Award, Users, Zap,
+  Fingerprint, Scale, BarChart3, Compass,
 } from "lucide-react";
 import { useGetPublicReviews } from "@workspace/api-client-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -200,38 +201,110 @@ export default function LandingPage() {
       </section>
 
       {/* ── WHY LEGALIQ ─────────────────────────────────────────────────── */}
-      <section className="py-14 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-10">
+      <section className="py-16 px-6">
+        <div className="max-w-6xl mx-auto">
+
+          {/* Section header */}
+          <div className="text-center mb-12">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-              <p className="type-label liq-text-3 mb-3">Why LegalIQ</p>
-              <h2 className="type-h2 liq-text-1 mb-4 tracking-tight">
-                Built to Find What You're Missing
-              </h2>
-              <p className="liq-text-2 max-w-xl mx-auto">
-                63 million Indian SMBs operate without legal guidance. LegalIQ is the diagnostic engine
-                that tells you exactly where your risks are — before they become crises.
+              <p className="type-label liq-text-3 mb-3">The LegalIQ Advantage</p>
+              <h2 className="type-h2 liq-text-1 mb-4 tracking-tight">Why LegalIQ?</h2>
+              <p className="liq-text-3 text-sm leading-relaxed max-w-2xl mx-auto">
+                63 million Indian businesses operate without structured legal oversight. LegalIQ delivers
+                the clarity, structure, and guidance that traditional legal support rarely provides.
               </p>
             </motion.div>
           </div>
 
+          {/* Cards grid */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {[
-              { icon: Zap,      color: "#C9A84C", title: "Instant Diagnosis",          desc: "Know your legal exposure in 15 minutes — not after your first legal notice. No appointments. No retainers. No waiting." },
-              { icon: Globe,    color: "#3B82F6", title: "AI That Listens",             desc: "Every answer shapes the next question. The deeper your risk, the sharper our assessment." },
-              { icon: Award,    color: "#10B981", title: "Built With Practising Advocates", desc: "Not scraped from legal blogs. Every framework reviewed by Indian attorneys who see these cases daily." },
-              { icon: Briefcase,color: "#8B5CF6", title: "Actions. Not Disclaimers.",   desc: "Your report tells you exactly what to fix, in what order, and what it costs to fix it." },
-            ].map((f, i) => (
-              <motion.div key={f.title}
-                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.08 }} viewport={{ once: true }}
-                className="glass-card glass-card-hover rounded-xl p-6">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
-                  style={{ background: `${f.color}15`, border: `1px solid ${f.color}30` }}>
-                  <f.icon size={20} style={{ color: f.color }} />
+            {([
+              {
+                icon: Fingerprint,
+                color: "#C9A84C",
+                bg: "rgba(201,168,76,0.10)",
+                border: "rgba(201,168,76,0.22)",
+                num: "01",
+                title: "Intelligent Business-Specific Assessment",
+                desc: "Every assessment is dynamically tailored to your business model, industry, and operational profile, ensuring relevant legal insights and precise risk identification.",
+              },
+              {
+                icon: Scale,
+                color: "#3B82F6",
+                bg: "rgba(59,130,246,0.10)",
+                border: "rgba(59,130,246,0.22)",
+                num: "02",
+                title: "AI + Advocate Framework",
+                desc: "Combines AI-powered analysis with frameworks developed by practising Advocates to deliver reliable, business-focused legal insights grounded in Indian law.",
+              },
+              {
+                icon: BarChart3,
+                color: "#10B981",
+                bg: "rgba(16,185,129,0.10)",
+                border: "rgba(16,185,129,0.22)",
+                num: "03",
+                title: "Executive Legal Health Report",
+                desc: "A comprehensive legal diagnostic featuring your Legal Health Score, pillar-wise analysis, key risk insights, future exposure, cost implications, and a prioritised action roadmap.",
+              },
+              {
+                icon: Compass,
+                color: "#8B5CF6",
+                bg: "rgba(139,92,246,0.10)",
+                border: "rgba(139,92,246,0.22)",
+                num: "04",
+                title: "Strategic Legal Guidance for Business Growth",
+                desc: "Move beyond risk identification with recommendations designed to strengthen compliance, improve governance, mitigate future liabilities, and support sustainable growth through REST THE CASE's VCLO services.",
+              },
+            ] as const).map((f, i) => (
+              <motion.div
+                key={f.num}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.09, duration: 0.45 }}
+                viewport={{ once: true }}
+                className="group relative glass-card glass-card-hover rounded-2xl p-6 flex flex-col overflow-hidden"
+              >
+                {/* Subtle top accent */}
+                <div
+                  className="absolute top-0 left-0 right-0 h-[3px] rounded-t-2xl transition-opacity duration-300 opacity-40 group-hover:opacity-100"
+                  style={{ background: `linear-gradient(90deg, ${f.color}, transparent)` }}
+                />
+
+                {/* Ghost number */}
+                <span
+                  className="absolute bottom-4 right-5 text-6xl font-black leading-none select-none pointer-events-none"
+                  style={{ color: f.color, opacity: 0.05 }}
+                >
+                  {f.num}
+                </span>
+
+                {/* Icon */}
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5 flex-shrink-0"
+                  style={{ background: f.bg, border: `1.5px solid ${f.border}` }}
+                >
+                  <f.icon size={22} style={{ color: f.color }} strokeWidth={1.8} />
                 </div>
-                <h3 className="font-medium liq-text-1 text-sm mb-2">{f.title}</h3>
-                <p className="liq-text-3 text-xs leading-relaxed">{f.desc}</p>
+
+                {/* Content */}
+                <h3 className="text-[14px] font-semibold liq-text-1 leading-snug mb-3 pr-4">
+                  {f.title}
+                </h3>
+                <p className="text-[12.5px] liq-text-3 leading-relaxed flex-1">
+                  {f.desc}
+                </p>
+
+                {/* Bottom rule */}
+                <div
+                  className="mt-5 h-px w-full"
+                  style={{ background: `${f.color}20` }}
+                />
+                <p
+                  className="mt-3 text-[10px] font-bold uppercase tracking-widest"
+                  style={{ color: f.color, opacity: 0.7 }}
+                >
+                  {f.num} / 04
+                </p>
               </motion.div>
             ))}
           </div>
