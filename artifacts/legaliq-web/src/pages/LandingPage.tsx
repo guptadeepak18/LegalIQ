@@ -105,8 +105,7 @@ export default function LandingPage() {
           <ThemeToggle />
           <button onClick={() => navigate("/onboard")}
             className="text-sm font-bold text-[#0A0A0A] bg-[#C9A84C] hover:bg-[#E2C97E] px-4 sm:px-5 py-2.5 rounded-lg transition-all shadow-md shadow-[#C9A84C]/25">
-            <span className="sm:hidden">Free Score →</span>
-            <span className="hidden sm:inline">Start Free Assessment →</span>
+            <span>Get My LHS Score →</span>
           </button>
         </div>
       </nav>
@@ -149,12 +148,8 @@ export default function LandingPage() {
             <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
               onClick={() => navigate("/onboard")}
               className="flex items-center gap-2 bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold text-base px-10 py-4 rounded-xl transition-all shadow-xl shadow-[#C9A84C]/30 pulse-gold">
-              Get My Free Score <ArrowRight size={18} />
+              Get My LHS Score <ArrowRight size={18} />
             </motion.button>
-            <button onClick={() => window.open("https://restthecase.com/virtualCLOPackage", "_blank")}
-              className="flex items-center gap-2 liq-text-1 font-semibold text-base px-8 py-4 rounded-xl border-2 border-current/30 hover:bg-[#C9A84C]/10 hover:border-[#C9A84C]/50 hover:text-[#C9A84C] transition-all backdrop-blur-sm">
-              Explore VCLO Plans <ArrowRight size={16} />
-            </button>
           </div>
         </motion.div>
 
@@ -430,7 +425,7 @@ export default function LandingPage() {
               onClick={() => navigate("/onboard")}
               className="inline-flex items-center gap-2 bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold px-8 py-3 rounded-xl transition-all text-sm shadow-md shadow-[#C9A84C]/20"
             >
-              Begin Your Legal Health Assessment <ArrowRight size={15} />
+              Get My LHS Score <ArrowRight size={15} />
             </button>
           </motion.div>
 
@@ -575,7 +570,7 @@ export default function LandingPage() {
                 </div>
                 <button onClick={() => navigate("/onboard")}
                   className="mt-7 inline-flex items-center gap-2 bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold px-7 py-3 rounded-lg transition-all text-sm">
-                  Get My Report Free <ArrowRight size={15} />
+                  Get My LHS Score <ArrowRight size={15} />
                 </button>
               </div>
               <div className="flex justify-center">
@@ -666,7 +661,7 @@ export default function LandingPage() {
               <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 onClick={() => navigate("/onboard")}
                 className="inline-flex items-center gap-2 bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold text-base px-10 py-3.5 rounded-xl transition-all shadow-lg shadow-[#C9A84C]/25">
-                Get My Free LHS Score <ArrowRight size={17} />
+                Get My LHS Score <ArrowRight size={17} />
               </motion.button>
               <button onClick={() => window.open("https://restthecase.com", "_blank")}
                 className="text-sm liq-text-2 underline underline-offset-4 hover:text-[#C9A84C] transition-colors">

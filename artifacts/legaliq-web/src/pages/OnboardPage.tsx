@@ -365,7 +365,7 @@ export default function OnboardPage() {
 
                 <button onClick={createLead} disabled={loading || !name || !company || !phone || !city || !category || !subCategory}
                   className="w-full bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold py-3.5 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2 text-base">
-                  {loading ? <Loader2 size={18} className="animate-spin" /> : <>Start My Assessment <ChevronRight size={18} /></>}
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : <>Get My LHS Score <ChevronRight size={18} /></>}
                 </button>
               </div>
             </div>
