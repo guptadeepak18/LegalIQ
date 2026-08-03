@@ -11,10 +11,38 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { LegalDisclaimerCard } from "@/components/LegalDisclaimerCard";
 
 const PILLAR_DATA = [
-  { icon: AlertTriangle, label: "Litigation Health",     tagline: "Disputes you know about. And the ones you don't yet." },
-  { icon: FileText,      label: "Contractual Health",    tagline: "Every unsigned agreement is an unsecured liability."   },
-  { icon: CheckCircle,   label: "Compliance Health",     tagline: "Penalties don't send a warning. Missed filings do."   },
-  { icon: TrendingUp,    label: "Legal Cost Efficiency", tagline: "Prevention costs hundreds. Disputes cost lakhs."       },
+  {
+    icon: Scale,
+    color: "#EF4444",
+    bg: "rgba(239,68,68,0.10)",
+    border: "rgba(239,68,68,0.22)",
+    label: "Litigation Health",
+    tagline: "Assess litigation exposure, dispute preparedness, and legal risk management.",
+  },
+  {
+    icon: FileText,
+    color: "#F59E0B",
+    bg: "rgba(245,158,11,0.10)",
+    border: "rgba(245,158,11,0.22)",
+    label: "Contractual Health",
+    tagline: "Evaluate contract governance, documentation standards, and commercial obligations.",
+  },
+  {
+    icon: Shield,
+    color: "#3B82F6",
+    bg: "rgba(59,130,246,0.10)",
+    border: "rgba(59,130,246,0.22)",
+    label: "Compliance Health",
+    tagline: "Measure regulatory compliance, statutory adherence, and governance maturity.",
+  },
+  {
+    icon: BarChart3,
+    color: "#8B5CF6",
+    bg: "rgba(139,92,246,0.10)",
+    border: "rgba(139,92,246,0.22)",
+    label: "Legal Cost Efficiency",
+    tagline: "Analyze legal expenditure, risk optimization, and cost efficiency.",
+  },
 ];
 
 const HOW_IT_WORKS = [
@@ -312,72 +340,128 @@ export default function LandingPage() {
       </section>
 
       {/* ── 4 PILLARS ────────────────────────────────────────────────────── */}
-      <section className="py-14 px-6">
+      <section className="py-16 px-6">
         <div className="max-w-6xl mx-auto">
+
+          {/* Section header */}
           <div className="text-center mb-12">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
               <p className="type-label liq-text-3 mb-3">Assessment Framework</p>
               <h2 className="type-h2 liq-text-1 mb-4 tracking-tight">
                 4 Pillars of Legal Health
               </h2>
-              <p className="liq-text-3 max-w-lg mx-auto text-sm leading-relaxed"
-                style={{ fontFamily: "var(--app-font-display)" }}>
-                Each pillar is scored out of <strong className="liq-text-1">25 points</strong> — total Legal Health Score out of 100.
+              <p className="liq-text-3 max-w-xl mx-auto text-sm leading-relaxed">
+                The Legal Health Score is computed across four independently weighted pillars.
+                Each pillar is scored out of{" "}
+                <strong className="liq-text-1">25 points</strong>, for a total score out of 100.
               </p>
             </motion.div>
           </div>
 
+          {/* Pillar cards */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {PILLAR_DATA.map((p, i) => (
-              <motion.div key={p.label}
-                initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.09, duration: 0.45 }} viewport={{ once: true }}
-                className="glass-card glass-card-hover rounded-2xl flex flex-col overflow-hidden"
-                style={{ borderLeft: "3px solid rgba(201,168,76,0.45)" }}>
+              <motion.div
+                key={p.label}
+                initial={{ opacity: 0, y: 28 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.10, duration: 0.50 }}
+                viewport={{ once: true }}
+                className="group glass-card glass-card-hover rounded-2xl flex flex-col overflow-hidden"
+              >
+                {/* Pillar-colour top bar */}
+                <div
+                  className="h-[3px] w-full flex-shrink-0"
+                  style={{ background: `linear-gradient(90deg, ${p.color} 0%, ${p.color}30 100%)` }}
+                />
 
-                {/* Card header */}
-                <div className="px-5 pt-5 pb-4" style={{ borderBottom: "1px solid rgba(201,168,76,0.10)" }}>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.22)" }}>
-                      <p.icon size={20} className="text-[#C9A84C]" />
+                <div className="flex flex-col flex-1 p-6">
+
+                  {/* Icon + ghost number */}
+                  <div className="flex items-start justify-between mb-5">
+                    <div
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: p.bg, border: `1.5px solid ${p.border}` }}
+                    >
+                      <p.icon size={21} style={{ color: p.color }} strokeWidth={1.8} />
                     </div>
-                    <span className="text-5xl font-semibold leading-none select-none liq-text-1"
-                      style={{ opacity: 0.06, fontFamily: "var(--app-font-grotesk)" }}>
+                    <span
+                      className="text-5xl font-black leading-none select-none pointer-events-none"
+                      style={{ color: p.color, opacity: 0.07, fontVariantNumeric: "tabular-nums" }}
+                    >
                       0{i + 1}
                     </span>
                   </div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest mb-2 text-[#C9A84C]" style={{ letterSpacing: "0.13em" }}>
+
+                  {/* Pillar label */}
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-[0.18em] mb-2"
+                    style={{ color: p.color }}
+                  >
                     Pillar {i + 1}
-                  </div>
-                  <h3 className="liq-text-1 font-medium text-[15px] leading-snug mb-2">
+                  </p>
+
+                  {/* Title */}
+                  <h3 className="type-body liq-text-1 font-bold leading-snug mb-3">
                     {p.label}
                   </h3>
-                  <p className="liq-text-3 text-[11px] leading-relaxed">{p.tagline}</p>
-                </div>
 
-                <div className="flex-1" />
+                  {/* Description */}
+                  <p className="type-body-sm liq-text-3 leading-relaxed flex-1">
+                    {p.tagline}
+                  </p>
 
-                {/* Score footer */}
-                <div className="px-5 pb-5 pt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-semibold liq-text-4 uppercase tracking-wider">Max Score</span>
-                    <span className="text-sm font-semibold text-[#C9A84C]" style={{ fontFamily: "var(--app-font-grotesk)" }}>25 pts</span>
+                  {/* Score footer */}
+                  <div
+                    className="mt-5 pt-4"
+                    style={{ borderTop: `1px solid ${p.color}18` }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-semibold liq-text-4 uppercase tracking-wider">
+                        Weighted Score
+                      </span>
+                      <span
+                        className="text-sm font-bold"
+                        style={{ color: p.color }}
+                      >
+                        25 pts
+                      </span>
+                    </div>
+                    <div
+                      className="h-1.5 rounded-full overflow-hidden"
+                      style={{ background: `${p.color}14` }}
+                    >
+                      <motion.div
+                        className="h-full rounded-full"
+                        initial={{ width: 0 }}
+                        whileInView={{ width: "100%" }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1.1, delay: 0.3 + i * 0.12, ease: "easeOut" }}
+                        style={{ background: `linear-gradient(90deg, ${p.color}50, ${p.color})` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(201,168,76,0.12)" }}>
-                    <div className="h-full rounded-full" style={{ width: "100%", background: "linear-gradient(90deg, rgba(201,168,76,0.4), #C9A84C)" }} />
-                  </div>
+
                 </div>
               </motion.div>
             ))}
           </div>
 
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mt-8">
-            <button onClick={() => navigate("/onboard")}
-              className="inline-flex items-center gap-2 border border-[#C9A84C]/40 text-[#C9A84C] hover:bg-[#C9A84C]/10 font-semibold px-7 py-3 rounded-xl transition-all text-sm">
-              Start My Assessment <ArrowRight size={15} />
+          {/* CTA */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mt-10"
+          >
+            <button
+              onClick={() => navigate("/onboard")}
+              className="inline-flex items-center gap-2 bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold px-8 py-3 rounded-xl transition-all text-sm shadow-md shadow-[#C9A84C]/20"
+            >
+              Begin Your Legal Health Assessment <ArrowRight size={15} />
             </button>
           </motion.div>
+
         </div>
       </section>
 
