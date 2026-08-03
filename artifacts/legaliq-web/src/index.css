@@ -101,6 +101,17 @@
   --liq-text-3: rgba(26,20,16, 0.65);
   --liq-text-4: rgba(26,20,16, 0.45);
 
+  /* ── Legal Disclaimer card (light) ─────────────────────── */
+  --disclaimer-bg:            rgba(255, 253, 248, 0.98);
+  --disclaimer-border:        rgba(201, 168, 76, 0.32);
+  --disclaimer-shadow:        0 4px 24px rgba(120, 90, 10, 0.10),
+                              0 1px 4px  rgba(0,   0,  0, 0.05),
+                              0 0   0 1px rgba(201,168,76, 0.14);
+  --disclaimer-divider:       rgba(201, 168, 76, 0.16);
+  --disclaimer-pillar-bg:     rgba(201, 168, 76, 0.05);
+  --disclaimer-pillar-border: rgba(201, 168, 76, 0.14);
+  --disclaimer-footer-bg:     rgba(201, 168, 76, 0.04);
+
   --sidebar: 38 30% 95%;
   --sidebar-foreground: 28 30% 18%;
   --sidebar-border: 38 30% 76%;
@@ -201,6 +212,17 @@
   --liq-text-2: rgba(255,255,255, 0.85);
   --liq-text-3: rgba(255,255,255, 0.70);
   --liq-text-4: rgba(255,255,255, 0.45);
+
+  /* ── Legal Disclaimer card (dark) ──────────────────────── */
+  --disclaimer-bg:            rgba(8, 13, 34, 0.96);
+  --disclaimer-border:        rgba(201, 168, 76, 0.20);
+  --disclaimer-shadow:        0 8px 40px rgba(0,   0,  0, 0.50),
+                              0 0   0 1px rgba(201,168,76, 0.10),
+                              inset 0 1px 0 rgba(201,168,76, 0.06);
+  --disclaimer-divider:       rgba(201, 168, 76, 0.12);
+  --disclaimer-pillar-bg:     rgba(201, 168, 76, 0.06);
+  --disclaimer-pillar-border: rgba(201, 168, 76, 0.12);
+  --disclaimer-footer-bg:     rgba(201, 168, 76, 0.04);
 
   --sidebar: 228 40% 7%;
   --sidebar-foreground: 30 15% 85%;
