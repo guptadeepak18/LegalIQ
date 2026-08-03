@@ -145,7 +145,7 @@ export default function LeadsPage() {
         <div className="flex gap-3 mb-6 items-center">
           <div className="relative flex-1">
             <input
-              className="liq-input pl-4 w-full h-10 text-sm font-medium text-gray-800 dark:text-gray-100"
+              className="liq-input pl-4 w-full h-10 text-sm font-medium"
               placeholder="Search name, company, email…"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
@@ -156,7 +156,7 @@ export default function LeadsPage() {
             className={`flex items-center gap-2 text-sm px-4 py-2.5 rounded-lg border font-medium whitespace-nowrap transition-all h-10 ${
               hasFilters
                 ? "border-blue-400 text-blue-600 bg-blue-50 dark:bg-blue-950/50 dark:border-blue-500/60 dark:text-blue-300"
-                : "border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800/50 dark:hover:border-slate-500"
+                : "border-gray-300 liq-text-2 hover:border-gray-400 hover:bg-black/5 dark:hover:bg-white/5"
             }`}
           >
             <Filter size={16} />
@@ -164,7 +164,7 @@ export default function LeadsPage() {
             {hasFilters && <span className="w-2 h-2 rounded-full bg-blue-500" />}
           </button>
           {hasFilters && (
-            <button onClick={resetFilters} className="flex items-center gap-1.5 text-sm border px-3 py-2.5 rounded-lg h-10 whitespace-nowrap font-medium transition-all dark:text-blue-300 dark:border-blue-700/40 text-gray-600 border-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800/50">
+            <button onClick={resetFilters} className="flex items-center gap-1.5 text-sm border px-3 py-2.5 rounded-lg h-10 whitespace-nowrap font-medium transition-all liq-text-2 border-gray-300 hover:bg-black/5 dark:hover:bg-white/5">
               <X size={14} /> Clear
             </button>
           )}
@@ -204,11 +204,11 @@ export default function LeadsPage() {
         )}
 
         {/* Table */}
-        <div className="glass-card rounded-2xl overflow-hidden dark:bg-blue-950/40">
+        <div className="glass-card rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase tracking-wider border-b dark:border-blue-700" style={{ color: "var(--liq-text-3)", borderColor: "rgba(59,130,246,0.15)" }}>
+                <tr className="type-th liq-text-3 border-b" style={{ borderColor: "var(--nav-border)" }}>
                   <th className="text-left px-5 py-3.5">Lead</th>
                   <th className="text-left px-4 py-3.5 hidden md:table-cell">Type</th>
                   <th className="text-left px-4 py-3.5 hidden lg:table-cell">Contact</th>
@@ -222,16 +222,16 @@ export default function LeadsPage() {
               <tbody>
                 {loading ? (
                   [...Array(5)].map((_, i) => (
-                    <tr key={i} className="border-b dark:border-blue-700/20" style={{ borderColor: "rgba(59,130,246,0.08)" }}>
+                    <tr key={i} className="border-b" style={{ borderColor: "rgba(201,168,76,0.08)" }}>
                       {[...Array(7)].map((_, j) => (
                         <td key={j} className="px-5 py-4">
-                          <div className="h-3 bg-white/[0.04] rounded-full animate-pulse" style={{ width: j === 0 ? "80%" : "60%" }} />
+                          <div className="h-3 bg-black/5 dark:bg-white/5 rounded-full animate-pulse" style={{ width: j === 0 ? "80%" : "60%" }} />
                         </td>
                       ))}
                     </tr>
                   ))
                 ) : leads.length === 0 ? (
-                  <tr><td colSpan={8} className="text-center py-16 text-sm dark:text-blue-300/40" style={{ color: "var(--liq-text-3)" }}>No leads found</td></tr>
+                  <tr><td colSpan={8} className="text-center py-16 type-body liq-text-3">No leads found</td></tr>
                 ) : leads.map((l, i) => {
                   const priority = priorityBadge(l.totalScore);
                   const sm = getStatusMeta(l.status);
@@ -241,30 +241,30 @@ export default function LeadsPage() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: i * 0.03 }}
-                      className="border-b dark:border-blue-700/20 dark:hover:bg-blue-500/10 hover:bg-blue-100/50 cursor-pointer transition-colors group"
-                      style={{ borderColor: "rgba(59,130,246,0.08)" }}
+                      className="border-b hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors group"
+                      style={{ borderColor: "rgba(201,168,76,0.08)" }}
                       onClick={() => navigate(`/admin/leads/${l.id}`)}
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0 text-xs font-bold text-white/40">
+                          <div className="w-8 h-8 rounded-lg bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 flex items-center justify-center flex-shrink-0 type-caption font-bold liq-text-3">
                             {l.name[0]}
                           </div>
                           <div>
-                            <div className="font-medium text-white/80 text-sm">{l.name}</div>
-                            <div className="text-[11px] text-white/30">{l.company} · {l.city}</div>
+                            <div className="type-body liq-text-1 font-medium">{l.name}</div>
+                            <div className="type-caption liq-text-3">{l.company} · {l.city}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 hidden md:table-cell text-xs text-white/40">{l.businessType}</td>
+                      <td className="px-4 py-4 hidden md:table-cell type-caption liq-text-3">{l.businessType}</td>
                       <td className="px-4 py-4 hidden lg:table-cell">
-                        <div className="text-xs text-white/40">{l.email}</div>
-                        <div className="text-[11px] text-white/25">{l.phone}</div>
+                        <div className="type-caption liq-text-2">{l.email}</div>
+                        <div className="type-caption liq-text-4">{l.phone}</div>
                       </td>
                       <td className="px-4 py-4 text-center">
                         {l.totalScore !== undefined
                           ? <span className="font-black text-[#C9A84C] text-base">{l.totalScore}</span>
-                          : <span className="text-white/15">—</span>}
+                          : <span className="liq-text-4">—</span>}
                       </td>
                       <td className="px-4 py-4 text-center">
                         <span className={`text-xs font-semibold ${priority.color}`}>{priority.label}</span>
@@ -274,7 +274,7 @@ export default function LeadsPage() {
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                             riskBadgeClass(l.riskLevel)
                           }`}>{l.riskLevel}</span>
-                        ) : <span className="text-white/15 text-xs">—</span>}
+                        ) : <span className="liq-text-4 text-xs">—</span>}
                       </td>
                       <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                         <button
@@ -286,7 +286,7 @@ export default function LeadsPage() {
                           {updatingStatus === l.id ? "…" : sm.label}
                         </button>
                       </td>
-                      <td className="px-4 py-4 text-white/15 group-hover:text-white/35 transition-colors">
+                      <td className="px-4 py-4 liq-text-4 group-hover:liq-text-2 transition-colors">
                         <ChevronRight size={13} />
                       </td>
                     </motion.tr>
@@ -297,15 +297,15 @@ export default function LeadsPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3.5 border-t border-white/[0.05]">
-              <span className="text-xs text-white/25">Page {page} of {totalPages}</span>
+            <div className="flex items-center justify-between px-5 py-3.5 border-t" style={{ borderColor: "var(--nav-border)" }}>
+              <span className="type-caption liq-text-3">Page {page} of {totalPages}</span>
               <div className="flex gap-2">
                 <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}
-                  className="text-xs text-white/35 hover:text-white/60 disabled:opacity-20 transition-colors px-3 py-1.5 rounded-lg border border-white/8 hover:border-white/20">
+                  className="type-caption liq-text-2 hover:liq-text-1 disabled:opacity-30 transition-colors px-3 py-1.5 rounded-lg border hover:bg-black/5 dark:hover:bg-white/5" style={{ borderColor: "var(--nav-border)" }}>
                   ← Prev
                 </button>
                 <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages}
-                  className="text-xs text-white/35 hover:text-white/60 disabled:opacity-20 transition-colors px-3 py-1.5 rounded-lg border border-white/8 hover:border-white/20">
+                  className="type-caption liq-text-2 hover:liq-text-1 disabled:opacity-30 transition-colors px-3 py-1.5 rounded-lg border hover:bg-black/5 dark:hover:bg-white/5" style={{ borderColor: "var(--nav-border)" }}>
                   Next →
                 </button>
               </div>
@@ -314,12 +314,12 @@ export default function LeadsPage() {
         </div>
 
         <div className="flex items-center gap-3 mt-3 flex-wrap">
-          <span className="text-[10px] text-white/20">Click status pill to advance:</span>
+          <span className="type-caption liq-text-4">Click status pill to advance:</span>
           {STATUS_CYCLE.map((s) => {
             const m = getStatusMeta(s);
             return <span key={s} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${m.bg} ${m.color} ${m.border}`}>{m.label}</span>;
           })}
-          <span className="text-[10px] text-white/20">→ loops back to New</span>
+          <span className="type-caption liq-text-4">→ loops back to New</span>
         </div>
       </div>
     </AdminLayout>

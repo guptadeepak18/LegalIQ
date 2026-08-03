@@ -89,20 +89,20 @@ function Sidebar({
   return (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-5 py-5 border-b dark:border-blue-700" style={{ borderColor: "rgba(59,130,246,0.15)" }}>
+      <div className="px-5 py-5 border-b" style={{ borderColor: "var(--nav-border)" }}>
         <div className="flex items-center gap-2.5">
           <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
           <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
           <div>
-            <div className="font-serif text-sm font-bold leading-none dark:text-blue-100" style={{ color: "#1e3a8a" }}>LegalIQ</div>
-            <div className="text-[10px] leading-none dark:text-blue-400" style={{ color: "rgba(59,130,246,0.6)" }}>Admin Portal</div>
+            <div className="font-serif text-sm font-bold liq-text-1 leading-none">LegalIQ</div>
+            <div className="type-caption liq-text-4 mt-0.5 leading-none">Admin Portal</div>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        <div className="text-[9px] font-semibold tracking-[0.15em] uppercase px-3 mb-2 dark:text-blue-400/50" style={{ color: "rgba(59,130,246,0.4)" }}>
+        <div className="type-label admin-section-label px-3 mb-2 liq-text-4">
           Main
         </div>
         {mainItems.map((item) => {
@@ -117,7 +117,7 @@ function Sidebar({
           );
         })}
 
-        <div className="text-[9px] font-semibold tracking-[0.15em] uppercase px-3 mb-2 mt-5 dark:text-blue-400/50" style={{ color: "rgba(59,130,246,0.4)" }}>
+        <div className="type-label admin-section-label px-3 mb-2 mt-5 liq-text-4">
           Config
         </div>
         {configItems.map((item) => {
@@ -134,24 +134,24 @@ function Sidebar({
       </nav>
 
       {/* Divider */}
-      <div className="mx-4 border-t dark:border-blue-700" style={{ borderColor: "rgba(59,130,246,0.15)" }} />
+      <div className="mx-4 border-t" style={{ borderColor: "var(--nav-border)" }} />
 
       {/* User + logout */}
       <div className="p-4 space-y-3">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-100 border border-blue-200 dark:bg-blue-900 dark:border-blue-700 flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-bold text-blue-600 dark:text-blue-300">A</span>
+          <div className="w-8 h-8 rounded-full bg-[#C9A84C]/10 border border-[#C9A84C]/20 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-bold text-[#C9A84C]">A</span>
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-semibold truncate dark:text-blue-100" style={{ color: "#1e3a8a" }}>Admin</div>
-            <div className="text-[10px] truncate dark:text-blue-400" style={{ color: "rgba(59,130,246,0.6)" }}>admin@restthecase.com</div>
+            <div className="text-xs font-semibold truncate liq-text-1">Admin</div>
+            <div className="text-[10px] truncate liq-text-3">admin@restthecase.com</div>
           </div>
         </div>
-        <div className="flex items-center justify-end w-full mb-2">
+        <div className="flex items-center justify-between w-full mb-2">
+          <ThemeToggle />
           <button
             onClick={logout}
-            className="flex items-center gap-1.5 text-xs transition-colors px-2 py-1 hover:opacity-70"
-            style={{ color: "var(--liq-text-3)" }}
+            className="flex items-center gap-1.5 text-xs transition-colors px-2 py-1 hover:opacity-70 liq-text-3"
           >
             <LogOut size={11} />
           </button>
@@ -176,9 +176,9 @@ export function AdminLayout({ active, children, title, actions }: AdminLayoutPro
   }, [active]);
 
   return (
-    <div className="flex min-h-screen dark:bg-slate-950" style={{ background: "#FFFFFF" }}>
+    <div className="flex min-h-screen dark:bg-slate-950" style={{ background: "var(--body-bg)" }}>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-56 xl:w-60 fixed inset-y-0 left-0 flex-col z-40 border-r dark:border-blue-700 dark:bg-slate-950 shadow-lg" style={{ background: "#FFFFFF", borderColor: "rgba(200,200,200,0.2)", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
+      <aside className="hidden lg:flex w-56 xl:w-60 fixed inset-y-0 left-0 flex-col z-40 border-r shadow-lg" style={{ background: "var(--nav-bg)", borderColor: "var(--nav-border)", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
         <Sidebar active={active} onNavigate={navigate} />
       </aside>
 
@@ -216,17 +216,17 @@ export function AdminLayout({ active, children, title, actions }: AdminLayoutPro
       </AnimatePresence>
 
       {/* Mobile topbar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 border-b px-4 py-3 flex items-center gap-3 dark:bg-blue-950/80"
-        style={{ background: "#FFFFFF", borderColor: "rgba(200,200,200,0.2)", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-        <button onClick={() => setMobileOpen(true)} className="text-white/40 hover:text-white/70 p-1">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 border-b px-4 py-3 flex items-center gap-3"
+        style={{ background: "var(--nav-bg)", borderColor: "var(--nav-border)", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+        <button onClick={() => setMobileOpen(true)} className="text-white/40 hover:text-white/70 p-1 liq-text-2">
           <Menu size={18} />
         </button>
-        <Scale size={14} className="text-blue-600 dark:text-blue-400" />
-        <span className="font-serif text-sm font-bold dark:text-blue-100" style={{ color: "#1e3a8a" }}>LegalIQ Admin</span>
+        <Scale size={14} className="text-[#C9A84C]" />
+        <span className="font-serif text-sm font-bold liq-text-1">LegalIQ Admin</span>
         {title && (
           <>
-            <ChevronRight size={12} className="dark:text-blue-400" style={{ color: "rgba(59,130,246,0.6)" }} />
-            <span className="text-sm dark:text-blue-300" style={{ color: "rgba(30,58,138,0.7)" }}>{title}</span>
+            <ChevronRight size={12} className="liq-text-3" />
+            <span className="text-sm liq-text-2">{title}</span>
           </>
         )}
       </div>
@@ -235,9 +235,9 @@ export function AdminLayout({ active, children, title, actions }: AdminLayoutPro
       <main className="lg:ml-56 xl:ml-60 flex-1 min-h-screen">
         {/* Desktop page header */}
         {(title || actions) && (
-          <div className="hidden lg:flex items-center justify-between px-8 py-5 border-b dark:bg-slate-900"
-            style={{ background: "#FFFFFF", borderColor: "rgba(200,200,200,0.2)" }}>
-            <h1 className="font-serif text-xl font-bold dark:text-blue-100" style={{ color: "#1e3a8a" }}>{title}</h1>
+          <div className="hidden lg:flex items-center justify-between px-8 py-5 border-b"
+            style={{ background: "var(--nav-bg)", borderColor: "var(--nav-border)" }}>
+            <h1 className="font-serif text-xl font-bold liq-text-1">{title}</h1>
             <div className="flex items-center gap-4">
               {actions && <div>{actions}</div>}
             </div>

@@ -113,9 +113,9 @@ export default function AIInsightsPage() {
               <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                 <Sparkles size={16} className="text-emerald-400" />
               </div>
-              <h1 className="font-serif text-3xl font-bold dark:text-white" style={{ color: "var(--liq-text-1)" }}>AI Insights</h1>
+              <h1 className="type-h1 liq-text-1">AI Insights</h1>
             </div>
-            <p className="text-sm dark:text-white/35" style={{ color: "var(--liq-text-2)" }}>
+            <p className="type-body liq-text-3">
               Gemini AI analyses your entire lead portfolio and surfaces strategic intelligence.
             </p>
           </div>
@@ -210,8 +210,8 @@ export default function AIInsightsPage() {
             <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-5">
               <Sparkles size={32} className="text-emerald-400/60" />
             </div>
-            <h2 className="font-serif text-xl font-bold dark:text-white mb-2" style={{ color: "var(--liq-text-1)" }}>Ready to analyse your portfolio</h2>
-            <p className="text-sm dark:text-white/35 max-w-sm mx-auto mb-6" style={{ color: "var(--liq-text-2)" }}>
+            <h2 className="type-h2 liq-text-1 mb-2">Ready to analyse your portfolio</h2>
+            <p className="type-body liq-text-3 max-w-sm mx-auto mb-6">
               Click "Generate Analysis" to have Gemini AI review all your leads and surface actionable intelligence.
             </p>
             <div className="grid grid-cols-3 gap-3 max-w-md mx-auto text-left">
@@ -220,9 +220,9 @@ export default function AIInsightsPage() {
                 { icon: Target, label: "Priority segment ID" },
                 { icon: Lightbulb, label: "Contrarian insights" },
               ].map((item) => (
-                <div key={item.label} className="glass-card rounded-xl p-3 text-center dark:bg-blue-950/40">
+                <div key={item.label} className="glass-card rounded-xl p-3 text-center">
                   <item.icon size={18} className="text-[#C9A84C]/60 mx-auto mb-1.5" />
-                  <div className="text-[10px] dark:text-white/35" style={{ color: "var(--liq-text-3)" }}>{item.label}</div>
+                  <div className="type-caption liq-text-3">{item.label}</div>
                 </div>
               ))}
             </div>
@@ -249,9 +249,9 @@ export default function AIInsightsPage() {
                   style={{ background: "radial-gradient(circle, #C9A84C, transparent)", transform: "translate(30%, -30%)" }} />
                 <div className="flex items-center gap-2 mb-3">
                   <Zap size={14} className="text-[#C9A84C]" />
-                  <span className="text-xs font-semibold text-[#C9A84C] tracking-wider uppercase">Executive Summary</span>
+                  <span className="type-label text-[#C9A84C]">Executive Summary</span>
                 </div>
-                <p className="text-base dark:text-white/80 leading-relaxed" style={{ color: "var(--liq-text-1)" }}>{analysis.executiveSummary}</p>
+                <p className="type-body liq-text-1">{analysis.executiveSummary}</p>
               </motion.div>
 
               {/* Key Findings */}
@@ -260,7 +260,7 @@ export default function AIInsightsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <h2 className="text-sm font-semibold dark:text-white/50 uppercase tracking-wider mb-3" style={{ color: "var(--liq-text-2)" }}>Key Findings</h2>
+                <h2 className="type-label liq-text-2 mb-3">Key Findings</h2>
                 <div className="grid md:grid-cols-3 gap-4">
                   {analysis.findings.map((finding, i) => {
                     const meta = IMPACT_META[finding.impact] ?? IMPACT_META.medium;
@@ -274,14 +274,14 @@ export default function AIInsightsPage() {
                         onClick={() => setExpandedFinding(isExpanded ? null : i)}
                         className="glass-card rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:shadow-lg"
                         style={{
-                          boxShadow: isExpanded ? "0 8px 32px rgba(59,130,246,0.2)" : "inherit",
+                          boxShadow: isExpanded ? "0 8px 32px rgba(201,168,76,0.15)" : "inherit",
                         }}
                       >
-                        <div className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-lg border mb-3 ${meta.color} ${meta.bg} ${meta.border}`}>
+                        <div className={`inline-flex items-center gap-1.5 type-caption font-bold px-2 py-1 rounded-lg border mb-3 ${meta.color} ${meta.bg} ${meta.border}`}>
                           <AlertTriangle size={10} />
                           {meta.label}
                         </div>
-                        <h3 className="font-semibold dark:text-white text-sm mb-2 leading-snug" style={{ color: "var(--liq-text-1)" }}>{finding.title}</h3>
+                        <h3 className="type-h3 liq-text-1 mb-2">{finding.title}</h3>
                         
                         {isExpanded ? (
                           <motion.div
@@ -290,21 +290,21 @@ export default function AIInsightsPage() {
                             exit={{ opacity: 0, height: 0 }}
                             className="space-y-3"
                           >
-                            <p className="text-xs dark:text-white/60 leading-relaxed" style={{ color: "var(--liq-text-2)" }}>{finding.detail}</p>
-                            <div className="pt-3 border-t dark:border-white/5" style={{ borderColor: "rgba(59,130,246,0.1)" }}>
-                              <div className="text-xs font-semibold dark:text-white/70 mb-2" style={{ color: "var(--liq-text-3)" }}>ACTION:</div>
+                            <p className="type-body-sm liq-text-2">{finding.detail}</p>
+                            <div className="pt-3 border-t" style={{ borderColor: "rgba(201,168,76,0.15)" }}>
+                              <div className="type-caption font-semibold liq-text-3 mb-2">ACTION:</div>
                               <div className="flex items-start gap-2">
                                 <ChevronRight size={12} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-[#C9A84C]/90 dark:text-[#C9A84C]/80">{finding.action}</p>
+                                <p className="type-body-sm text-[#C9A84C]">{finding.action}</p>
                               </div>
                             </div>
-                            <div className="text-xs text-blue-500 dark:text-blue-400 font-medium">Click to collapse</div>
+                            <div className="type-caption text-blue-500 dark:text-blue-400 font-medium">Click to collapse</div>
                           </motion.div>
                         ) : (
                           <motion.div
                             initial={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="text-xs dark:text-white/40 text-gray-500 flex items-center gap-1"
+                            className="type-caption liq-text-3 flex items-center gap-1"
                           >
                             <span>Click to view details</span>
                             <ChevronRight size={12} />
@@ -322,20 +322,20 @@ export default function AIInsightsPage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="glass-card rounded-2xl p-5 dark:bg-blue-950/40"
+                  className="glass-card rounded-2xl p-5"
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-7 h-7 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center">
                       <Target size={13} className="text-blue-400" />
                     </div>
-                    <span className="text-xs font-semibold dark:text-white/60 uppercase tracking-wider" style={{ color: "var(--liq-text-2)" }}>Priority Segment</span>
+                    <span className="type-label liq-text-2">Priority Segment</span>
                   </div>
-                  <p className="font-semibold dark:text-white mb-2 leading-snug" style={{ color: "var(--liq-text-1)" }}>{analysis.prioritySegment.description}</p>
-                  <p className="text-xs dark:text-white/45 leading-relaxed mb-3" style={{ color: "var(--liq-text-2)" }}>{analysis.prioritySegment.reason}</p>
+                  <p className="type-h3 liq-text-1 mb-2">{analysis.prioritySegment.description}</p>
+                  <p className="type-body-sm liq-text-2 mb-3">{analysis.prioritySegment.reason}</p>
                   {analysis.prioritySegment.estimatedLeads > 0 && (
-                    <div className="flex items-center gap-2 pt-3 border-t dark:border-white/5" style={{ borderColor: "rgba(59,130,246,0.1)" }}>
+                    <div className="flex items-center gap-2 pt-3 border-t" style={{ borderColor: "rgba(201,168,76,0.15)" }}>
                       <span className="text-2xl font-black text-blue-400">{analysis.prioritySegment.estimatedLeads}</span>
-                      <span className="text-xs dark:text-white/30" style={{ color: "var(--liq-text-3)" }}>leads in this segment</span>
+                      <span className="type-caption liq-text-3">leads in this segment</span>
                     </div>
                   )}
                 </motion.div>
@@ -344,15 +344,15 @@ export default function AIInsightsPage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.35 }}
-                  className="glass-card rounded-2xl p-5 dark:bg-blue-950/40"
+                  className="glass-card rounded-2xl p-5"
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-7 h-7 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center">
                       <Lightbulb size={13} className="text-purple-400" />
                     </div>
-                    <span className="text-xs font-semibold dark:text-white/60 uppercase tracking-wider" style={{ color: "var(--liq-text-2)" }}>Contrarian Insight</span>
+                    <span className="type-label liq-text-2">Contrarian Insight</span>
                   </div>
-                  <p className="text-sm dark:text-white/70 leading-relaxed italic" style={{ color: "var(--liq-text-1)" }}>"{analysis.contrarian}"</p>
+                  <p className="type-body-sm liq-text-1 italic">"{analysis.contrarian}"</p>
                 </motion.div>
               </div>
 
@@ -369,8 +369,8 @@ export default function AIInsightsPage() {
                     <Zap size={14} className="text-emerald-400" />
                   </div>
                   <div>
-                    <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1">Weekly Focus Action</div>
-                    <p className="text-sm dark:text-white/70" style={{ color: "var(--liq-text-1)" }}>{analysis.weeklyFocus}</p>
+                    <div className="type-label text-emerald-400 mb-1">Weekly Focus Action</div>
+                    <p className="type-body-sm liq-text-1">{analysis.weeklyFocus}</p>
                   </div>
                 </div>
               </motion.div>

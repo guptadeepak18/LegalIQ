@@ -101,7 +101,7 @@ export default function LandingPage() {
           </motion.div>
 
           {/* Headline */}
-          <h1 className="font-serif font-medium leading-[1.1] mb-6" style={{ fontSize: "clamp(1.5rem, 7vw, 5rem)", letterSpacing: "-0.01em" }}>
+            <h1 className="font-serif font-medium leading-[1.08] mb-6 tracking-tight" style={{ fontSize: "clamp(2rem, 7vw, 5rem)" }}>
             <span className="liq-text-1 sm:whitespace-nowrap">
               Does Your Business Have
             </span>
@@ -149,9 +149,8 @@ export default function LandingPage() {
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.55 + i * 0.08 }}
                 className="glass-card rounded-2xl p-4 text-center">
-                <div className="text-3xl md:text-4xl font-semibold text-[#C9A84C] leading-none mb-2"
-                  style={{ fontFamily: "var(--app-font-grotesk)", letterSpacing: "-0.02em" }}>{s.val}</div>
-                <div className="text-[10px] font-semibold liq-text-3 tracking-widest uppercase leading-snug">{s.label}</div>
+                <div className="type-stat text-[#C9A84C] mb-2">{s.val}</div>
+                <div className="type-caption liq-text-3 font-semibold uppercase">{s.label}</div>
               </motion.div>
             ))}
           </div>
@@ -163,16 +162,16 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="grid md:grid-cols-2 gap-10 items-center">
             <motion.div initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>About Rest The Case</p>
-              <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-medium liq-text-1 mb-5 leading-tight">
+              <p className="type-label liq-text-3 mb-3">About Rest The Case</p>
+              <h2 className="type-h2 liq-text-1 mb-5 leading-tight tracking-tight">
                 India's Leading Virtual Chief Legal Officer Service
               </h2>
-              <p className="liq-text-2 leading-relaxed mb-5">
+              <p className="type-body liq-text-2 mb-5">
                 <strong className="text-[#C9A84C]">Rest The Case</strong> provides growing Indian businesses
                 with a dedicated Virtual CLO — giving you the legal firepower of an in-house legal department
                 at a fraction of the cost.
               </p>
-              <p className="liq-text-2 leading-relaxed mb-7">
+              <p className="type-body liq-text-2 mb-7">
                 From startups to mid-sized enterprises, we handle your contracts, compliance, disputes,
                 and IP protection so you can focus entirely on building your business — knowing every
                 legal angle is covered.
@@ -185,12 +184,12 @@ export default function LandingPage() {
 
             <motion.div initial={{ opacity: 0, x: 24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
               className="glass-card rounded-2xl p-7">
-              <p className="text-[#C9A84C] text-xs font-bold uppercase tracking-widest mb-4">What Your VCLO Handles</p>
+              <p className="type-label text-[#C9A84C] mb-4">What Your VCLO Handles</p>
               <div className="space-y-3">
                 {VCLO_FEATURES.map((f) => (
                   <div key={f} className="flex items-start gap-3">
                     <CheckCircle size={15} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
-                    <span className="text-sm liq-text-2">{f}</span>
+                    <span className="type-body-sm liq-text-2">{f}</span>
                   </div>
                 ))}
               </div>
@@ -204,8 +203,8 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>Why LegalIQ</p>
-              <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-medium liq-text-1 mb-4">
+              <p className="type-label liq-text-3 mb-3">Why LegalIQ</p>
+              <h2 className="type-h2 liq-text-1 mb-4 tracking-tight">
                 Built to Find What You're Missing
               </h2>
               <p className="liq-text-2 max-w-xl mx-auto">
@@ -243,8 +242,8 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>Assessment Framework</p>
-              <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-medium liq-text-1 mb-4">
+              <p className="type-label liq-text-3 mb-3">Assessment Framework</p>
+              <h2 className="type-h2 liq-text-1 mb-4 tracking-tight">
                 4 Pillars of Legal Health
               </h2>
               <p className="liq-text-3 max-w-lg mx-auto text-sm leading-relaxed"
@@ -313,8 +312,8 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>The Process</p>
-              <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-medium liq-text-1">
+              <p className="type-label liq-text-3 mb-3">The Process</p>
+              <h2 className="type-h2 liq-text-1 tracking-tight">
                 How It Works
               </h2>
             </motion.div>
@@ -346,8 +345,8 @@ export default function LandingPage() {
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#C9A84C]/5 rounded-full blur-3xl pointer-events-none" />
             <div className="grid md:grid-cols-2 gap-10 items-center relative z-10">
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>Your Report Includes</p>
-                <h2 className="font-serif text-3xl md:text-4xl font-medium liq-text-1 mb-3 leading-tight">
+                <p className="type-label liq-text-3 mb-3">Your Report Includes</p>
+                <h2 className="type-h2 liq-text-1 mb-3 leading-tight tracking-tight">
                   One Report. Everything You Need to Fix Your Legal Health.
                 </h2>
                 <p className="liq-text-3 text-sm leading-relaxed mb-6">
@@ -422,9 +421,8 @@ export default function LandingPage() {
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-10">
               <motion.div initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-                <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#C9A84C", letterSpacing: "0.14em" }}>Client Stories</p>
-                <h2 className="liq-text-1 font-medium"
-                  style={{ fontFamily: "var(--app-font-display)", fontSize: "clamp(2rem, 5vw, 3.5rem)", letterSpacing: "-0.025em", lineHeight: 1.1 }}>
+                <p className="type-label liq-text-3 mb-3">Client Stories</p>
+                <h2 className="type-h2 liq-text-1 tracking-tight">
                   What Business Owners Say
                 </h2>
               </motion.div>
@@ -468,7 +466,7 @@ export default function LandingPage() {
             <div className="absolute inset-0 bg-gradient-to-br from-[#C9A84C]/8 to-transparent pointer-events-none" />
             <div className="absolute -top-20 -right-20 w-56 h-56 bg-[#C9A84C]/6 rounded-full blur-3xl pointer-events-none" />
             <AlertTriangle size={36} className="text-[#C9A84C] mx-auto mb-4 relative z-10 float" />
-            <h2 className="font-serif text-3xl md:text-4xl font-medium liq-text-1 mb-3 relative z-10">
+            <h2 className="type-h2 liq-text-1 mb-3 relative z-10 tracking-tight">
               Don't Wait for a Legal Crisis
             </h2>
             <p className="liq-text-2 mb-8 leading-relaxed relative z-10 max-w-xl mx-auto text-sm">

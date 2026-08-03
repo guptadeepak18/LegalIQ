@@ -130,15 +130,15 @@ export default function LeadDetailPage() {
                   <span className="font-black text-[#C9A84C] text-base">{lead.name[0]}</span>
                 </div>
                 <div>
-                  <div className="font-bold text-white">{lead.name}</div>
-                  <div className="text-xs text-white/35">{lead.category}</div>
+                  <div className="font-bold liq-text-1">{lead.name}</div>
+                  <div className="text-xs liq-text-3">{lead.category}</div>
                 </div>
               </div>
-              <div className="space-y-2.5 text-sm">
-                <div className="flex items-center gap-2 text-white/55"><Building2 size={12} className="text-[#C9A84C]/60 flex-shrink-0" />{lead.company}</div>
-                <div className="flex items-center gap-2 text-white/55"><MapPin size={12} className="text-[#C9A84C]/60 flex-shrink-0" />{lead.city}</div>
-                <div className="flex items-center gap-2 text-white/55"><Phone size={12} className="text-[#C9A84C]/60 flex-shrink-0" />{lead.phone}</div>
-                <div className="flex items-center gap-2 text-white/55"><Mail size={12} className="text-[#C9A84C]/60 flex-shrink-0" /><span className="truncate">{lead.email}</span></div>
+              <div className="space-y-2.5 type-body-sm">
+                <div className="flex items-center gap-2 liq-text-2"><Building2 size={12} className="text-[#C9A84C] flex-shrink-0" />{lead.company}</div>
+                <div className="flex items-center gap-2 liq-text-2"><MapPin size={12} className="text-[#C9A84C] flex-shrink-0" />{lead.city}</div>
+                <div className="flex items-center gap-2 liq-text-2"><Phone size={12} className="text-[#C9A84C] flex-shrink-0" />{lead.phone}</div>
+                <div className="flex items-center gap-2 liq-text-2"><Mail size={12} className="text-[#C9A84C] flex-shrink-0" /><span className="truncate">{lead.email}</span></div>
               </div>
               <div className="mt-4 pt-4 border-t border-white/[0.05]">
                 <div className="text-[10px] text-white/25 uppercase tracking-wider mb-1">Business Type</div>
@@ -229,32 +229,32 @@ export default function LeadDetailPage() {
                   </div>
 
                   {emailRateLimited && (
-                    <div className="text-xs text-amber-400 bg-amber-500/8 border border-amber-500/20 rounded-xl p-3">
+                    <div className="type-caption text-amber-400 bg-amber-500/8 border border-amber-500/20 rounded-xl p-3">
                       Daily AI quota reached. Try again tomorrow or use a paid Gemini key.
                     </div>
                   )}
 
                   {!emailDraft && !emailRateLimited && !generatingEmail && (
-                    <p className="text-xs text-white/25 leading-relaxed">
+                    <p className="type-body-sm liq-text-3">
                       Generate a personalised follow-up email tailored to {lead.name}'s score, risk profile, and business type.
                     </p>
                   )}
 
                   {emailDraft && (
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-                      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+                      <div className="rounded-xl border border-black/5 dark:border-white/[0.07] bg-black/[0.02] dark:bg-white/[0.02] p-3">
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] text-white/25 uppercase tracking-wider">Subject</span>
+                          <span className="type-label liq-text-3">Subject</span>
                           <CopyBtn text={emailDraft.subject} />
                         </div>
-                        <p className="text-sm font-medium text-white/80">{emailDraft.subject}</p>
+                        <p className="type-body-sm liq-text-1 font-medium">{emailDraft.subject}</p>
                       </div>
-                      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+                      <div className="rounded-xl border border-black/5 dark:border-white/[0.07] bg-black/[0.02] dark:bg-white/[0.02] p-3">
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] text-white/25 uppercase tracking-wider">Email Body</span>
+                          <span className="type-label liq-text-3">Email Body</span>
                           <CopyBtn text={emailDraft.body} />
                         </div>
-                        <p className="text-sm text-white/60 leading-relaxed whitespace-pre-wrap">{emailDraft.body}</p>
+                        <p className="type-body-sm liq-text-2 whitespace-pre-wrap">{emailDraft.body}</p>
                       </div>
                     </motion.div>
                   )}
@@ -264,33 +264,33 @@ export default function LeadDetailPage() {
                 {a.report && (
                   <>
                     <div className="glass-card rounded-2xl p-5">
-                      <h3 className="font-semibold text-white/80 mb-3 text-sm">AI Summary</h3>
-                      <p className="text-sm text-white/50 leading-relaxed">{a.report.summary}</p>
+                      <h3 className="type-h3 liq-text-1 mb-3">AI Summary</h3>
+                      <p className="type-body-sm liq-text-2">{a.report.summary}</p>
                     </div>
 
                     {a.report.insights?.length > 0 && (
                       <div className="glass-card rounded-2xl p-5">
-                        <h3 className="font-semibold text-white/80 mb-3 text-sm flex items-center gap-2">
+                        <h3 className="type-h3 liq-text-1 mb-3 flex items-center gap-2">
                           <AlertTriangle size={14} className="text-amber-400" /> Key Risks
                         </h3>
                         <div className="space-y-3">
                           {a.report.insights.map((ins, i) => (
-                            <div key={i} className="p-3 rounded-xl bg-white/[0.025] border border-white/[0.06]">
+                            <div key={i} className="p-3 rounded-xl bg-black/[0.02] dark:bg-white/[0.025] border border-black/[0.04] dark:border-white/[0.06]">
                               <div className="flex items-start justify-between mb-1">
-                                <span className="text-sm font-medium text-white/80">{ins.title}</span>
+                                <span className="type-body-sm font-medium liq-text-1">{ins.title}</span>
                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ml-2 ${
                                   ins.severity === "HIGH" ? "text-red-400 bg-red-500/10 border-red-500/20" :
                                   ins.severity === "MEDIUM" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
                                   "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                                 }`}>{ins.severity}</span>
                               </div>
-                              <p className="text-xs text-white/40">{ins.description}</p>
+                              <p className="type-caption liq-text-3">{ins.description}</p>
                               {ins.businessImpact && (
-                                <p className="text-xs text-red-400/70 mt-1">Impact: {ins.businessImpact}</p>
+                                <p className="type-caption text-red-500/80 mt-1">Impact: {ins.businessImpact}</p>
                               )}
-                              <p className="text-xs text-amber-400/70 mt-1">{ins.financialRisk}</p>
+                              <p className="type-caption text-amber-500/80 mt-1">{ins.financialRisk}</p>
                               {ins.recommendation && (
-                                <p className="text-xs text-emerald-400/70 mt-1">Recommendation: {ins.recommendation}</p>
+                                <p className="type-caption text-emerald-500/80 mt-1">Recommendation: {ins.recommendation}</p>
                               )}
                             </div>
                           ))}
@@ -300,23 +300,23 @@ export default function LeadDetailPage() {
 
                     {a.report.futureRisks && a.report.futureRisks.length > 0 && (
                       <div className="glass-card rounded-2xl p-5">
-                        <h3 className="font-semibold text-white/80 mb-3 text-sm flex items-center gap-2">
+                        <h3 className="type-h3 liq-text-1 mb-3 flex items-center gap-2">
                           <AlertTriangle size={14} className="text-sky-400" /> Future Risk Exposure
                         </h3>
                         <div className="space-y-3">
                           {a.report.futureRisks.map((fr, i) => (
-                            <div key={i} className="p-3 rounded-xl bg-white/[0.025] border border-white/[0.06]">
+                            <div key={i} className="p-3 rounded-xl bg-black/[0.02] dark:bg-white/[0.025] border border-black/[0.04] dark:border-white/[0.06]">
                               <div className="flex items-start justify-between mb-1">
-                                <span className="text-sm font-medium text-white/80">{fr.title}</span>
+                                <span className="type-body-sm font-medium liq-text-1">{fr.title}</span>
                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ml-2 ${
                                   fr.level === "HIGH" ? "text-red-400 bg-red-500/10 border-red-500/20" :
                                   fr.level === "MEDIUM" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
                                   "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                                 }`}>{fr.level}</span>
                               </div>
-                              <p className="text-xs text-white/40">{fr.impact}</p>
-                              <p className="text-xs text-white/30 mt-1 italic">{fr.reason}</p>
-                              <p className="text-xs text-emerald-400/70 mt-1">{fr.action}</p>
+                              <p className="type-caption liq-text-3">{fr.impact}</p>
+                              <p className="type-caption liq-text-4 mt-1 italic">{fr.reason}</p>
+                              <p className="type-caption text-emerald-500/80 mt-1">{fr.action}</p>
                             </div>
                           ))}
                         </div>
@@ -328,14 +328,14 @@ export default function LeadDetailPage() {
                 {/* Answers */}
                 {a.answers && a.answers.length > 0 && (
                   <div className="glass-card rounded-2xl p-5">
-                    <h3 className="font-semibold text-white/80 mb-3 text-sm">Assessment Answers ({a.answers.length})</h3>
+                    <h3 className="type-h3 liq-text-1 mb-3">Assessment Answers ({a.answers.length})</h3>
                     <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
                       {a.answers.map((ans, i) => (
-                        <div key={i} className="flex items-start justify-between gap-3 text-xs py-2 border-b border-white/[0.04] last:border-0">
-                          <div className="flex-1 text-white/50 leading-relaxed">{ans.question}</div>
+                        <div key={i} className="flex items-start justify-between gap-3 type-caption py-2 border-b border-black/[0.04] dark:border-white/[0.04] last:border-0">
+                          <div className="flex-1 liq-text-2">{ans.question}</div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className={`font-bold ${ans.answer === "YES" ? "text-emerald-400" : ans.answer === "NO" ? "text-red-400" : "text-amber-400"}`}>{ans.answer}</span>
-                            <span className="text-[#C9A84C]/70">+{ans.score}</span>
+                            <span className={`font-bold ${ans.answer === "YES" ? "text-emerald-500" : ans.answer === "NO" ? "text-red-500" : "text-amber-500"}`}>{ans.answer}</span>
+                            <span className="text-[#C9A84C]">+{ans.score}</span>
                           </div>
                         </div>
                       ))}

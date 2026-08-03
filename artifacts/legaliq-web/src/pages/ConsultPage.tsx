@@ -74,12 +74,12 @@ export default function ConsultPage() {
           className="glass-card rounded-2xl p-10 max-w-md w-full"
         >
           <CheckCircle size={56} className="text-emerald-400 mx-auto mb-4" />
-          <h2 className="font-serif text-2xl font-bold liq-text-1 mb-2">Consultation Confirmed!</h2>
-          <p className="liq-text-2 mb-4 text-sm">
+          <h2 className="type-h2 liq-text-1 mb-2">Consultation Confirmed!</h2>
+          <p className="type-body-sm liq-text-2 mb-4">
             Your free 30-minute consultation with a Rest The Case attorney is booked for<br />
             <strong className="text-[#C9A84C]">{selectedDate}</strong> at <strong className="text-[#C9A84C]">{selectedTime}</strong>.
           </p>
-          <p className="text-sm liq-text-3 mb-6">
+          <p className="type-caption liq-text-3 mb-6">
             A confirmation has been sent to <strong className="text-[#C9A84C]">{store.email}</strong>.
             Our attorney will call you at your registered number.
           </p>
@@ -114,7 +114,7 @@ export default function ConsultPage() {
       </div>
 
       <div className="w-full max-w-lg">
-        <button onClick={() => navigate("/results")} className="flex items-center gap-1.5 text-sm liq-text-3 hover:text-[#C9A84C] mb-6 transition-colors">
+        <button onClick={() => navigate("/results")} className="flex items-center gap-1.5 type-caption liq-text-3 hover:text-[#C9A84C] mb-6 transition-colors">
           <ArrowLeft size={14} /> Back to Report
         </button>
 
@@ -128,14 +128,14 @@ export default function ConsultPage() {
               <Calendar size={18} className="text-[#C9A84C]" />
             </div>
             <div>
-              <h2 className="text-lg font-bold liq-text-1">Book Free Consultation</h2>
-              <p className="text-xs liq-text-3">30-min call with a Rest The Case attorney</p>
+              <h2 className="type-h2 liq-text-1">Book Free Consultation</h2>
+              <p className="type-caption liq-text-3">30-min call with a Rest The Case attorney</p>
             </div>
           </div>
 
           {/* Date selector */}
           <div className="mb-5">
-            <label className="text-xs liq-text-3 mb-2 flex items-center gap-1 block">
+            <label className="type-label liq-text-3 mb-2 flex items-center gap-1 block">
               <Calendar size={11} /> Select Date
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -157,7 +157,7 @@ export default function ConsultPage() {
 
           {/* Time selector */}
           <div className="mb-5">
-            <label className="text-xs liq-text-3 mb-2 flex items-center gap-1 block">
+            <label className="type-label liq-text-3 mb-2 flex items-center gap-1 block">
               <Clock size={11} /> Select Time Slot
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -179,7 +179,7 @@ export default function ConsultPage() {
 
           {/* Notes */}
           <div className="mb-6">
-            <label className="text-xs liq-text-3 mb-1.5 block">Additional notes (optional)</label>
+            <label className="type-label liq-text-3 mb-1.5 block">Additional notes (optional)</label>
             <textarea
               className="liq-input resize-none"
               rows={3}
@@ -197,7 +197,7 @@ export default function ConsultPage() {
             {loading ? <Loader2 size={18} className="animate-spin" /> : <><Calendar size={16} /> Confirm Booking</>}
           </button>
 
-          <p className="text-xs liq-text-4 text-center mt-3">
+          <p className="type-caption liq-text-4 text-center mt-3">
             Free of charge · Our attorney calls you · No sales pitch
           </p>
         </motion.div>

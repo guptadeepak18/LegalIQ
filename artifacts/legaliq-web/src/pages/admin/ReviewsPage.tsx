@@ -74,14 +74,14 @@ export default function ReviewsPage() {
         <div className="flex gap-2 mb-6">
           {FILTER_TABS.map((f) => (
             <button key={f} onClick={() => setFilter(f)}
-              className={`text-xs px-3.5 py-1.5 rounded-xl font-medium transition-all border ${
+              className={`type-caption px-3.5 py-1.5 rounded-xl transition-all border ${
                 filter === f
-                  ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-400/50 dark:border-blue-500/30"
-                  : "dark:text-blue-200/50 text-gray-600 dark:hover:text-blue-300 hover:text-gray-800 border-gray-300 dark:border-blue-700/30 dark:hover:border-blue-500/40 hover:border-gray-400"
+                  ? "bg-[#C9A84C]/15 text-[#C9A84C] border-[#C9A84C]/50"
+                  : "liq-text-2 hover:liq-text-1 border-gray-300 dark:border-white/10 hover:border-gray-400 dark:hover:border-white/20"
               }`}>
               {f}
               {f === "PENDING" && pendingCount > 0 && (
-                <span className="ml-1.5 text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+                <span className="ml-1.5 text-[9px] font-bold bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded-full">{pendingCount}</span>
               )}
             </button>
           ))}
@@ -92,14 +92,14 @@ export default function ReviewsPage() {
             <Loader2 size={28} className="text-[#C9A84C] animate-spin" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="glass-card rounded-2xl p-16 text-center dark:text-blue-200/40 dark:bg-blue-950/40" style={{ color: "var(--liq-text-3)" }}>
+          <div className="glass-card rounded-2xl p-16 text-center type-body liq-text-3">
             No {filter.toLowerCase()} reviews
           </div>
         ) : (
           <div className="space-y-4">
             {filtered.map((r, i) => (
               <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                className="glass-card rounded-2xl p-5 dark:bg-blue-950/40">
+                className="glass-card rounded-2xl p-5">
                 <div className="flex items-start justify-between gap-4 mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2.5 mb-1.5">
@@ -111,18 +111,18 @@ export default function ReviewsPage() {
                         </span>
                       )}
                     </div>
-                    <p className="font-semibold dark:text-white/85 text-sm mb-0.5" style={{ color: "var(--liq-text-1)" }}>"{r.headline}"</p>
-                    <p className="text-xs dark:text-white/45 leading-relaxed" style={{ color: "var(--liq-text-2)" }}>{r.body}</p>
+                    <p className="type-h3 liq-text-1 mb-0.5">"{r.headline}"</p>
+                    <p className="type-body-sm liq-text-2">{r.body}</p>
                   </div>
-                  <span className={`flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded-full border ${STATUS_STYLE[r.status] ?? "text-white/30 bg-white/5 border-white/10"}`}>
+                  <span className={`flex-shrink-0 type-caption px-2 py-1 rounded-full border ${STATUS_STYLE[r.status] ?? "text-gray-500 bg-gray-100 border-gray-200 dark:text-white/30 dark:bg-white/5 dark:border-white/10"}`}>
                     {r.status}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t dark:border-blue-700/20" style={{ borderColor: "rgba(59,130,246,0.08)" }}>
+                <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: "var(--nav-border)" }}>
                   <div>
-                    <div className="text-sm font-medium dark:text-white/70" style={{ color: "var(--liq-text-1)" }}>{r.reviewerName}</div>
-                    <div className="text-[11px] dark:text-white/30" style={{ color: "var(--liq-text-3)" }}>
+                    <div className="type-body-sm font-medium liq-text-1">{r.reviewerName}</div>
+                    <div className="type-caption liq-text-3">
                       {r.company}{r.city ? ` · ${r.city}` : ""}{r.businessType ? ` · ${r.businessType}` : ""}
                     </div>
                   </div>

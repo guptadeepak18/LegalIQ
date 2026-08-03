@@ -255,8 +255,8 @@ export default function OnboardPage() {
               <div className="w-14 h-14 rounded-2xl bg-[#C9A84C]/10 border border-[#C9A84C]/22 flex items-center justify-center mx-auto mb-5">
                 <ShieldCheck size={26} className="text-[#C9A84C]" />
               </div>
-              <h2 className="text-lg font-bold liq-text-1 mb-1.5">Verify Your Identity</h2>
-              <p className="text-xs liq-text-3 mb-6 leading-relaxed">
+              <h2 className="type-h2 liq-text-1 mb-1.5">Verify Your Identity</h2>
+              <p className="type-body-sm liq-text-3 mb-6">
                 Sign in with Google, or create an account with email &amp; password.
                 We'll send a one-time code to your email to confirm it's really you
                 before revealing your Legal Health Score.
@@ -291,14 +291,14 @@ export default function OnboardPage() {
                   <Building2 size={20} className="text-[#C9A84C]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold liq-text-1">Your Business Profile</h2>
-                  <p className="text-xs liq-text-3">Personalises your legal assessment</p>
+                  <h2 className="type-h2 liq-text-1">Your Business Profile</h2>
+                  <p className="type-caption liq-text-3">Personalises your legal assessment</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 {user?.primaryEmailAddress?.emailAddress && (
-                  <div className="bg-[#C9A84C]/6 border border-[#C9A84C]/22 rounded-xl px-4 py-2.5 text-xs flex items-center justify-between gap-2">
+                  <div className="bg-[#C9A84C]/6 border border-[#C9A84C]/22 rounded-xl px-4 py-2.5 type-caption flex items-center justify-between gap-2">
                     <span className="liq-text-2 flex items-center gap-1.5 truncate">
                       <Check size={12} className="text-[#C9A84C] flex-shrink-0" />
                       Verified as <span className="font-semibold text-[#C9A84C] truncate">{user.primaryEmailAddress.emailAddress}</span>
@@ -311,31 +311,31 @@ export default function OnboardPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold liq-text-3 mb-1.5 block">Your Name *</label>
+                    <label className="type-caption font-semibold liq-text-3 mb-1.5 block">Your Name *</label>
                     <input className="liq-input" placeholder="Rajesh Kumar" value={name} onChange={(e) => setName(e.target.value)} />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold liq-text-3 mb-1.5 block">Company Name *</label>
+                    <label className="type-caption font-semibold liq-text-3 mb-1.5 block">Company Name *</label>
                     <input className="liq-input" placeholder="Acme Pvt Ltd" value={company} onChange={(e) => setCompany(e.target.value)} />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold liq-text-3 mb-1.5 flex items-center gap-1.5 block">
+                  <label className="type-caption font-semibold liq-text-3 mb-1.5 flex items-center gap-1.5 block">
                     <Phone size={11} /> Mobile Number *
                   </label>
                   <input className="liq-input" type="tel" placeholder="98765 43210" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} />
-                  <p className="text-[11px] liq-text-4 mt-1.5">10-digit number without country code</p>
+                  <p className="type-caption liq-text-4 mt-1.5">10-digit number without country code</p>
                 </div>
 
                 {/* Searchable city */}
                 <div>
-                  <label className="text-xs font-semibold liq-text-3 mb-1.5 flex items-center gap-1.5 block">
+                  <label className="type-caption font-semibold liq-text-3 mb-1.5 flex items-center gap-1.5 block">
                     <MapPin size={11} /> City *
                   </label>
                   <CityCombobox value={city} onChange={setCity} />
                   {city && (
-                    <p className="text-[11px] text-[#C9A84C] mt-1.5 flex items-center gap-1">
+                    <p className="type-caption text-[#C9A84C] mt-1.5 flex items-center gap-1">
                       <Check size={10} /> {city} selected
                     </p>
                   )}
@@ -343,7 +343,7 @@ export default function OnboardPage() {
 
                 {/* Category */}
                 <div>
-                  <label className="text-xs font-semibold liq-text-3 mb-1.5 flex items-center gap-1.5 block">
+                  <label className="type-caption font-semibold liq-text-3 mb-1.5 flex items-center gap-1.5 block">
                     <Layers size={11} /> Business Category *
                   </label>
                   <select className="liq-input" value={category} onChange={(e) => { setCategory(e.target.value); setSubCategory(""); }}>
@@ -355,7 +355,7 @@ export default function OnboardPage() {
                 {/* Sub-category / Business Type */}
                 {category && (
                   <div>
-                    <label className="text-xs font-semibold liq-text-3 mb-1.5 block">Business Type *</label>
+                    <label className="type-caption font-semibold liq-text-3 mb-1.5 block">Business Type *</label>
                     <select className="liq-input" value={subCategory} onChange={(e) => setSubCategory(e.target.value)}>
                       <option value="">Select type</option>
                       {(BUSINESS_CATEGORIES[category] ?? []).map((s) => <option key={s} value={s}>{s}</option>)}

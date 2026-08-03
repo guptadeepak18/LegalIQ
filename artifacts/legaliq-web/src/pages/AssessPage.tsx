@@ -137,8 +137,8 @@ function AssessLoadingScreen({ businessType, city }: { businessType: string; cit
 
         {/* Title */}
         <div className="text-center">
-          <p className="liq-text-1 font-bold text-base mb-1">Personalising your assessment</p>
-          <p className="liq-text-3 text-sm">
+          <p className="type-body-sm liq-text-1 font-bold mb-1">Personalising your assessment</p>
+          <p className="type-caption liq-text-3">
             for <span className="text-[#C9A84C] font-semibold">{businessType || "your business"}</span>
             {city ? ` · ${city}` : ""}
           </p>
@@ -335,8 +335,8 @@ export default function AssessPage() {
           </div>
         </div>
         <div>
-          <h2 className="liq-text-1 font-bold text-2xl mb-3">Calculating Your Legal Score</h2>
-          <p className="liq-text-3 text-base max-w-sm mx-auto">AI is analysing {totalAnswered} responses across 4 pillars…</p>
+          <h2 className="type-h2 liq-text-1 mb-3 tracking-tight">Calculating Your Legal Score</h2>
+          <p className="type-body-sm liq-text-3 max-w-sm mx-auto">AI is analysing {totalAnswered} responses across 4 pillars…</p>
         </div>
       </div>
     );
@@ -359,12 +359,12 @@ export default function AssessPage() {
           <motion.div key={`done-${pendingTransition.completedIndex}`} initial={{ opacity: 0, scale: 0.94, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: -20 }} transition={{ duration: 0.35 }} className="w-full max-w-sm mt-10">
             <div className="rounded-3xl p-8 mb-5 border text-center backdrop-blur-sm" style={{ background: completedBg, borderColor: completedBorder }}>
               <div className="text-6xl mb-4">{pendingTransition.completedIcon}</div>
-              <h2 className="liq-text-1 font-bold text-xl mb-1">{pendingTransition.completedName}</h2>
-              <p className="liq-text-3 text-sm mb-5">Pillar {pendingTransition.completedIndex + 1} of 4 complete ✓</p>
+              <h2 className="type-h2 liq-text-1 mb-1">{pendingTransition.completedName}</h2>
+              <p className="type-caption liq-text-3 mb-5">Pillar {pendingTransition.completedIndex + 1} of 4 complete ✓</p>
               {pillarAnswers.length > 0 && (
                 <div className="flex items-center justify-center gap-3 flex-wrap">
-                  {goodCount > 0 && <span className="text-sm px-4 py-1.5 rounded-full font-semibold" style={{ background:"rgba(34,197,94,0.15)", color:"#22C55E" }}>✅ {goodCount} covered</span>}
-                  {gapCount  > 0 && <span className="text-sm px-4 py-1.5 rounded-full font-semibold" style={{ background:"rgba(239,68,68,0.15)",  color:"#EF4444" }}>⚠️ {gapCount} gap{gapCount!==1?"s":""}</span>}
+                  {goodCount > 0 && <span className="type-caption px-4 py-1.5 rounded-full font-semibold" style={{ background:"rgba(34,197,94,0.15)", color:"#22C55E" }}>✅ {goodCount} covered</span>}
+                  {gapCount  > 0 && <span className="type-caption px-4 py-1.5 rounded-full font-semibold" style={{ background:"rgba(239,68,68,0.15)",  color:"#EF4444" }}>⚠️ {gapCount} gap{gapCount!==1?"s":""}</span>}
                 </div>
               )}
             </div>
@@ -373,7 +373,7 @@ export default function AssessPage() {
               style={{ background: nextColor, boxShadow: `0 8px 28px ${pillarColor(pendingTransition.pillarIndex, 27)}` }}>
               Next: {pendingTransition.pillarName} <ChevronRight size={20} />
             </motion.button>
-            <p className="text-center liq-text-4 text-sm mt-4">{4 - pendingTransition.completedIndex - 1} pillar{4 - pendingTransition.completedIndex - 1 !== 1 ? "s" : ""} remaining</p>
+            <p className="text-center liq-text-4 type-caption mt-4">{4 - pendingTransition.completedIndex - 1} pillar{4 - pendingTransition.completedIndex - 1 !== 1 ? "s" : ""} remaining</p>
           </motion.div>
         </AnimatePresence>
       </div>

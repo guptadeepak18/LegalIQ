@@ -316,10 +316,10 @@ export default function ResultsPage() {
           <span className="text-3xl flex-shrink-0">{riskEmoji}</span>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="font-bold text-base" style={{ color: riskColor }}>{gradeLabel.toUpperCase()}</span>
-              <span className="liq-text-3 text-sm">· Legal Health Score: {totalScore}/100</span>
+              <span className="type-body font-bold" style={{ color: riskColor }}>{gradeLabel.toUpperCase()}</span>
+              <span className="type-caption liq-text-3">· Legal Health Score: {totalScore}/100</span>
             </div>
-            <p className="liq-text-2 text-sm">{riskMessage}</p>
+            <p className="type-body-sm liq-text-2">{riskMessage}</p>
           </div>
         </motion.div>
 
@@ -329,10 +329,10 @@ export default function ResultsPage() {
           <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#C9A84C]/5 rounded-full blur-3xl pointer-events-none" />
           <div className="grid md:grid-cols-2 gap-8 items-center relative z-10">
             <div>
-              <p className="text-[#C9A84C] text-sm font-semibold mb-2 uppercase tracking-widest">Legal Health Score</p>
-              <h1 className="font-serif text-3xl md:text-4xl font-bold liq-text-1 mb-3">{store.company}'s Report</h1>
-              <p className="liq-text-3 text-sm mb-5">{store.businessType} · {store.city}</p>
-              <p className="liq-text-2 leading-relaxed text-base">{report.summary}</p>
+              <p className="type-label text-[#C9A84C] mb-2">Legal Health Score</p>
+              <h1 className="type-h1 liq-text-1 mb-3">{store.company}'s Report</h1>
+              <p className="type-body-sm liq-text-3 mb-5">{store.businessType} · {store.city}</p>
+              <p className="type-body liq-text-2">{report.summary}</p>
             </div>
 
             <div className="flex justify-center">
@@ -349,11 +349,11 @@ export default function ResultsPage() {
                   </defs>
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1, duration: 0.5 }} className="text-6xl font-black text-[#C9A84C] font-grotesk gold-glow-text">
+                  <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1, duration: 0.5 }} className="type-stat text-6xl text-[#C9A84C] gold-glow-text">
                     {totalScore}
                   </motion.div>
-                  <div className="liq-text-3 text-xs mt-1">out of 100</div>
-                  <div className="mt-2.5 px-4 py-1.5 rounded-full text-xs font-bold border"
+                  <div className="type-caption liq-text-3 mt-1">out of 100</div>
+                  <div className="mt-2.5 px-4 py-1.5 rounded-full type-caption font-bold border"
                     style={{ borderColor: `${riskColor}50`, background: `${riskColor}15`, color: riskColor }}>
                     Grade {grade} · {gradeLabel}
                   </div>
@@ -445,8 +445,8 @@ export default function ResultsPage() {
         </motion.div>
 
         {/* ── 4-PILLAR GRID ──────────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card rounded-2xl p-6">
-          <h2 className="font-serif text-xl font-bold liq-text-1 mb-6 flex items-center gap-2">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card rounded-2xl p-6">
+          <h2 className="type-h2 liq-text-1 mb-6 flex items-center gap-2">
             <BookOpen size={18} className="text-[#C9A84C]" /> 4-Pillar Breakdown
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -477,9 +477,9 @@ export default function ResultsPage() {
         {history.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="glass-card rounded-2xl p-6">
             <button className="w-full flex items-center justify-between" onClick={() => setShowHistory((p) => !p)}>
-              <h2 className="font-serif text-xl font-bold liq-text-1 flex items-center gap-2">
+              <h2 className="type-h2 liq-text-1 flex items-center gap-2">
                 <History size={18} className="text-[#C9A84C]" /> Assessment History
-                <span className="text-xs liq-text-3 font-normal ml-1">{history.length} assessment{history.length !== 1 ? "s" : ""}</span>
+                <span className="type-caption liq-text-3 font-normal ml-1">{history.length} assessment{history.length !== 1 ? "s" : ""}</span>
               </h2>
               {showHistory ? <ChevronUp size={16} className="liq-text-3" /> : <ChevronDown size={16} className="liq-text-3" />}
             </button>
@@ -553,9 +553,9 @@ export default function ResultsPage() {
         {/* ── INSIGHTS ───────────────────────────────────────────────────── */}
         {report.insights?.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card rounded-2xl p-6">
-            <h2 className="font-serif text-xl font-bold liq-text-1 mb-5 flex items-center gap-2">
+            <h2 className="type-h2 liq-text-1 mb-5 flex items-center gap-2">
               <Lightbulb size={18} className="text-[#C9A84C]" /> Key Risk Insights
-              <span className="ml-auto liq-text-3 text-xs font-normal">{report.insights.length} identified</span>
+              <span className="ml-auto liq-text-3 type-caption font-normal">{report.insights.length} identified</span>
             </h2>
             <div className="space-y-4">
               {report.insights.map((ins, i) => {
@@ -599,11 +599,11 @@ export default function ResultsPage() {
         {/* ── FUTURE RISK EXPOSURE ──────────────────────────────────────── */}
         {report.futureRisks?.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="glass-card rounded-2xl p-6">
-            <h2 className="font-serif text-xl font-bold liq-text-1 mb-1 flex items-center gap-2">
+            <h2 className="type-h2 liq-text-1 mb-1 flex items-center gap-2">
               <TrendingUp size={18} className="text-[#C9A84C]" /> Future Risk Exposure
-              <span className="ml-auto liq-text-3 text-xs font-normal">{report.futureRisks.length} on the horizon</span>
+              <span className="ml-auto liq-text-3 type-caption font-normal">{report.futureRisks.length} on the horizon</span>
             </h2>
-            <p className="liq-text-3 text-xs mb-5">Forward-looking legal risks over the next 12–24 months, based on your business profile and answers.</p>
+            <p className="type-caption liq-text-3 mb-5">Forward-looking legal risks over the next 12–24 months, based on your business profile and answers.</p>
             <div className="space-y-4">
               {report.futureRisks.map((fr, i) => {
                 const sev = SEVERITY_CONFIG[fr.level] ?? SEVERITY_CONFIG.LOW;
@@ -632,9 +632,9 @@ export default function ResultsPage() {
         {/* ── ACTION PLAN ────────────────────────────────────────────────── */}
         {report.actions?.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card rounded-2xl p-6">
-            <h2 className="font-serif text-xl font-bold liq-text-1 mb-5 flex items-center gap-2">
+            <h2 className="type-h2 liq-text-1 mb-5 flex items-center gap-2">
               <CheckCircle size={18} className="text-[#C9A84C]" /> Your Prioritised Action Plan
-              <span className="ml-auto liq-text-3 text-xs font-normal">{report.actions.length} actions</span>
+              <span className="ml-auto liq-text-3 type-caption font-normal">{report.actions.length} actions</span>
             </h2>
             <div className="space-y-3">
               {report.actions.map((act, i) => {
@@ -666,24 +666,24 @@ export default function ResultsPage() {
             className="rounded-2xl p-6 border backdrop-blur-sm relative overflow-hidden"
             style={{ borderColor: "rgba(245,158,11,0.22)", background: "rgba(245,158,11,0.05)" }}>
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
-            <h2 className="font-serif text-lg font-bold text-amber-600 mb-4 flex items-center gap-2 relative z-10">
+            <h2 className="type-h3 text-amber-600 mb-4 flex items-center gap-2 relative z-10 tracking-tight">
               <BookOpen size={18} /> Case Study: {report.example.businessName}
             </h2>
             <div className="space-y-3 relative z-10">
               <div className="p-3 rounded-lg bg-[#C9A84C]/5 border border-[#C9A84C]/10">
-                <p className="liq-text-3 text-xs uppercase tracking-wider font-semibold mb-1">What happened</p>
-                <p className="liq-text-2 text-sm leading-relaxed">{report.example.whatHappened}</p>
+                <p className="type-label liq-text-3 mb-1">What happened</p>
+                <p className="type-body-sm liq-text-2">{report.example.whatHappened}</p>
               </div>
               <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/15">
-                <p className="text-red-500 text-xs uppercase tracking-wider font-semibold mb-1">Consequence</p>
-                <p className="text-red-600 text-sm leading-relaxed">{report.example.consequences}</p>
+                <p className="type-label text-red-500 mb-1">Consequence</p>
+                <p className="type-body-sm text-red-600">{report.example.consequences}</p>
               </div>
               <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/15">
-                <p className="text-emerald-600 text-xs uppercase tracking-wider font-semibold mb-1">How a VCLO would have helped</p>
-                <p className="text-emerald-700 text-sm leading-relaxed">{report.example.vcloWouldHave}</p>
+                <p className="type-label text-emerald-600 mb-1">How a VCLO would have helped</p>
+                <p className="type-body-sm text-emerald-700">{report.example.vcloWouldHave}</p>
               </div>
               <div className="p-4 rounded-xl bg-[#C9A84C]/10 border border-[#C9A84C]/25">
-                <p className="text-sm text-[#C9A84C] font-semibold leading-relaxed">💡 Key Lesson: {report.example.lesson}</p>
+                <p className="type-body-sm text-[#C9A84C] font-semibold">💡 Key Lesson: {report.example.lesson}</p>
               </div>
             </div>
           </motion.div>
@@ -692,12 +692,12 @@ export default function ResultsPage() {
         {/* ── VCLO CTA ───────────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="glass-card rounded-2xl p-8 relative overflow-hidden">
           <div className="relative z-10">
-            <h2 className="font-serif text-2xl font-bold liq-text-1 mb-1">Your Next Step</h2>
-            <p className="liq-text-3 text-xs mb-5">How a Rest The Case Virtual Chief Legal Officer (VCLO) supports a {store.businessType || "business like yours"}.</p>
+            <h2 className="type-h2 liq-text-1 mb-1 tracking-tight">Your Next Step</h2>
+            <p className="type-caption liq-text-3 mb-5">How a Rest The Case Virtual Chief Legal Officer (VCLO) supports a {store.businessType || "business like yours"}.</p>
 
             {report.vcloPitch && (
               <div className="mb-6 p-5 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.25)", background: "rgba(10,10,10,0.03)" }}>
-                <p className="text-[#C9A84C] text-xs font-bold uppercase tracking-wider mb-2">How a VCLO helps your business</p>
+                <p className="type-label text-[#C9A84C] mb-2">How a VCLO helps your business</p>
                 <p className="liq-text-2 leading-relaxed text-sm">{report.vcloPitch}</p>
               </div>
             )}

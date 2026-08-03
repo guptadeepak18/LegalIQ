@@ -59,8 +59,8 @@ export default function ReviewPage() {
           className="glass-card rounded-2xl p-10 max-w-md w-full"
         >
           <CheckCircle size={56} className="text-emerald-400 mx-auto mb-4" />
-          <h2 className="font-serif text-2xl font-bold liq-text-1 mb-2">Thank You!</h2>
-          <p className="liq-text-2 text-sm mb-6">
+          <h2 className="type-h2 liq-text-1 mb-2">Thank You!</h2>
+          <p className="type-body-sm liq-text-2 mb-6">
             Your review has been submitted for moderation. Once approved, it will help other business owners make informed decisions.
           </p>
           <button onClick={() => navigate("/")} className="w-full bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold py-3 rounded-xl transition-all">
@@ -91,7 +91,7 @@ export default function ReviewPage() {
       </div>
 
       <div className="w-full max-w-lg">
-        <button onClick={() => navigate("/results")} className="flex items-center gap-1.5 text-sm liq-text-3 hover:text-[#C9A84C] mb-6 transition-colors">
+        <button onClick={() => navigate("/results")} className="flex items-center gap-1.5 type-caption liq-text-3 hover:text-[#C9A84C] mb-6 transition-colors">
           <ArrowLeft size={14} /> Back to Report
         </button>
 
@@ -100,12 +100,12 @@ export default function ReviewPage() {
           animate={{ opacity: 1, y: 0 }}
           className="glass-card rounded-2xl p-8"
         >
-          <h2 className="font-serif text-xl font-bold liq-text-1 mb-1">Share Your Experience</h2>
-          <p className="text-sm liq-text-3 mb-6">Help other business owners understand their legal risks</p>
+          <h2 className="type-h2 liq-text-1 mb-1">Share Your Experience</h2>
+          <p className="type-caption liq-text-3 mb-6">Help other business owners understand their legal risks</p>
 
           {/* Star rating */}
           <div className="mb-6">
-            <label className="text-xs liq-text-3 mb-3 block">Overall Rating *</label>
+            <label className="type-label liq-text-3 mb-3 block">Overall Rating *</label>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((s) => (
                 <button
@@ -124,17 +124,17 @@ export default function ReviewPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs liq-text-3 mb-1.5 block">Your Name *</label>
+                <label className="type-label liq-text-3 mb-1.5 block">Your Name *</label>
                 <input className="liq-input" placeholder="Rajesh Kumar" value={reviewerName} onChange={(e) => setReviewerName(e.target.value)} />
               </div>
               <div>
-                <label className="text-xs liq-text-3 mb-1.5 block">Company *</label>
+                <label className="type-label liq-text-3 mb-1.5 block">Company *</label>
                 <input className="liq-input" placeholder="Acme Pvt Ltd" value={company} onChange={(e) => setCompany(e.target.value)} />
               </div>
             </div>
 
             <div>
-              <label className="text-xs liq-text-3 mb-1.5 block">Review Headline *</label>
+              <label className="type-label liq-text-3 mb-1.5 block">Review Headline *</label>
               <input
                 className="liq-input"
                 placeholder="e.g. 'Eye-opening — found 3 compliance gaps I didn't know about'"
@@ -145,7 +145,7 @@ export default function ReviewPage() {
             </div>
 
             <div>
-              <label className="text-xs liq-text-3 mb-1.5 block">Your Review *</label>
+              <label className="type-label liq-text-3 mb-1.5 block">Your Review *</label>
               <textarea
                 className="liq-input resize-none"
                 rows={4}

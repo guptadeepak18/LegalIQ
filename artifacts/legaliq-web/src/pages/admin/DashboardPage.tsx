@@ -52,14 +52,14 @@ function ScoreBar({ label, range, color, value, pct, delay }: { label: string; r
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full" style={{ background: color }} />
           <span className="font-medium" style={{ color }}>{label}</span>
-          <span className="dark:text-white/25" style={{ color: "var(--liq-text-3)" }}>{range}</span>
+          <span className="liq-text-3">{range}</span>
         </div>
-        <div className="flex items-center gap-2 dark:text-white/50" style={{ color: "var(--liq-text-2)" }}>
-          <span className="font-bold dark:text-white/70" style={{ color: "var(--liq-text-1)" }}>{value}</span>
+        <div className="flex items-center gap-2 liq-text-2">
+          <span className="font-bold liq-text-1">{value}</span>
           <span>{pct}%</span>
         </div>
       </div>
-      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(201,168,76,0.1)" }}>
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
@@ -120,17 +120,17 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.07 }}
-              className={`relative overflow-hidden rounded-2xl p-5 border dark:border-blue-500/20 dark:bg-blue-950/40 bg-gradient-to-br ${c.gradient}`}
-            style={{ borderColor: "rgba(59,130,246,0.2)" }}
+              className={`relative overflow-hidden rounded-2xl p-5 border glass-card-hover bg-gradient-to-br ${c.gradient}`}
+            style={{ borderColor: "rgba(201,168,76,0.2)" }}
             >
               <div className="absolute top-3 right-3 opacity-20">
                 <c.icon size={28} style={{ color: c.color }} />
               </div>
-              <div className="text-xs dark:text-white/40 mb-1" style={{ color: "var(--liq-text-3)" }}>{c.label}</div>
-              <div className="text-4xl font-black font-grotesk mb-0.5" style={{ color: c.color }}>
+              <div className="type-caption liq-text-3 mb-1">{c.label}</div>
+              <div className="type-stat mb-0.5" style={{ color: c.color }}>
                 <AnimatedNumber value={c.value} />
               </div>
-              <div className="text-[10px] dark:text-white/25" style={{ color: "var(--liq-text-3)" }}>{c.sublabel}</div>
+              <div className="type-caption liq-text-4">{c.sublabel}</div>
             </motion.div>
           ))}
         </div>
@@ -148,15 +148,14 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.22 + i * 0.06 }}
-              className="glass-card rounded-xl p-4 dark:bg-blue-950/40 dark:text-white"
-              style={{ color: "var(--liq-text-1)" }}
+              className="glass-card glass-card-hover rounded-xl p-5"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] dark:text-white/30" style={{ color: "var(--liq-text-3)" }}>{c.label}</span>
+                <span className="type-caption liq-text-3">{c.label}</span>
                 <c.icon size={13} style={{ color: c.color }} />
               </div>
-              <div className="font-black font-grotesk text-2xl" style={{ color: c.color }}>
-                <AnimatedNumber value={c.value} />{c.suffix && <span className="text-xs dark:text-white/20 font-normal" style={{ color: "var(--liq-text-3)" }}>{c.suffix}</span>}
+              <div className="type-stat" style={{ color: c.color }}>
+                <AnimatedNumber value={c.value} />{c.suffix && <span className="type-caption liq-text-3 font-normal">{c.suffix}</span>}
               </div>
             </motion.div>
           ))}
@@ -164,8 +163,8 @@ export default function DashboardPage() {
 
         <div className="grid md:grid-cols-2 gap-5 mb-5">
           {/* Score Distribution */}
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }} className="glass-card rounded-2xl p-6 dark:bg-blue-950/40">
-            <h2 className="text-sm font-semibold dark:text-white/90 mb-4 flex items-center gap-2" style={{ color: "var(--liq-text-1)" }}>
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }} className="glass-card rounded-2xl p-6">
+            <h2 className="type-h3 liq-text-1 mb-4 flex items-center gap-2">
               <Activity size={14} className="text-[#C9A84C]" />
               Score Distribution
             </h2>
@@ -189,13 +188,13 @@ export default function DashboardPage() {
           </motion.div>
 
           {/* Top Risk Flags */}
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }} className="glass-card rounded-2xl p-6 dark:bg-blue-950/40">
-            <h2 className="text-sm font-semibold dark:text-white/90 mb-4 flex items-center gap-2" style={{ color: "var(--liq-text-1)" }}>
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }} className="glass-card rounded-2xl p-6">
+            <h2 className="type-h2 liq-text-1 mb-4 flex items-center gap-2">
               <AlertTriangle size={14} className="text-amber-400" />
               Most Common Risk Flags
             </h2>
             {stats.topRiskFlags.length === 0 ? (
-              <p className="dark:text-white/25 text-sm py-8 text-center" style={{ color: "var(--liq-text-3)" }}>Complete assessments to see risk patterns</p>
+              <p className="type-body liq-text-3 py-8 text-center">Complete assessments to see risk patterns</p>
             ) : (
               <div className="space-y-4">
                 {stats.topRiskFlags.map((flag, i) => (
@@ -206,8 +205,8 @@ export default function DashboardPage() {
                                 "bg-blue-500/15 text-blue-400 border border-blue-500/20"
                     }`}>{i + 1}</div>
                     <div className="flex-1">
-                      <div className="text-sm dark:text-white/80 font-medium leading-snug" style={{ color: "var(--liq-text-1)" }}>{flag.title}</div>
-                      <div className="text-xs dark:text-white/30 mt-0.5" style={{ color: "var(--liq-text-3)" }}>{flag.count} {flag.count === 1 ? "occurrence" : "occurrences"}</div>
+                      <div className="type-body-sm liq-text-1 font-medium">{flag.title}</div>
+                      <div className="type-caption liq-text-3 mt-0.5">{flag.count} {flag.count === 1 ? "occurrence" : "occurrences"}</div>
                     </div>
                   </motion.div>
                 ))}
@@ -217,9 +216,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Leads */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.48 }} className="glass-card rounded-2xl overflow-hidden dark:bg-blue-950/40">
-          <div className="flex items-center justify-between px-6 py-4 border-b dark:border-blue-700" style={{ borderColor: "rgba(59,130,246,0.15)" }}>
-            <h2 className="text-sm font-semibold dark:text-white/90 flex items-center gap-2" style={{ color: "var(--liq-text-1)" }}>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.48 }} className="glass-card rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--nav-border)" }}>
+            <h2 className="type-h2 liq-text-1 flex items-center gap-2">
               <Users size={14} className="text-[#C9A84C]" /> Recent Leads
             </h2>
             <button onClick={() => navigate("/admin/leads")} className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
@@ -229,7 +228,7 @@ export default function DashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase tracking-wider border-b dark:border-blue-700" style={{ color: "var(--liq-text-3)", borderColor: "rgba(59,130,246,0.15)" }}>
+                <tr className="type-th liq-text-3 border-b" style={{ borderColor: "var(--nav-border)" }}>
                   <th className="text-left px-6 py-3">Name / Company</th>
                   <th className="text-left px-4 py-3 hidden sm:table-cell">Type</th>
                   <th className="text-center px-4 py-3">Score</th>
@@ -239,35 +238,35 @@ export default function DashboardPage() {
               </thead>
               <tbody>
                 {stats.recentLeads.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center py-10 text-sm dark:text-white/25" style={{ color: "var(--liq-text-3)" }}>No leads yet</td></tr>
+                  <tr><td colSpan={5} className="text-center py-10 type-body liq-text-3">No leads yet</td></tr>
                 ) : stats.recentLeads.map((l, i) => (
                   <motion.tr
                     key={l.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.55 + i * 0.05 }}
-                    className="border-b dark:border-blue-700/20 dark:hover:bg-blue-500/10 hover:bg-blue-100/50 cursor-pointer transition-colors group"
-                    style={{ borderColor: "rgba(59,130,246,0.08)" }}
+                    className="border-b hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors group"
+                    style={{ borderColor: "rgba(201,168,76,0.08)" }}
                     onClick={() => navigate(`/admin/leads/${l.id}`)}
                   >
                     <td className="px-6 py-3.5">
-                      <div className="font-medium dark:text-white/85" style={{ color: "var(--liq-text-1)" }}>{l.name}</div>
-                      <div className="text-xs dark:text-white/35" style={{ color: "var(--liq-text-3)" }}>{l.company}</div>
+                      <div className="type-body liq-text-1 font-medium">{l.name}</div>
+                      <div className="type-caption liq-text-3">{l.company}</div>
                     </td>
-                    <td className="px-4 py-3.5 hidden sm:table-cell text-xs dark:text-white/45" style={{ color: "var(--liq-text-2)" }}>{l.businessType}</td>
+                    <td className="px-4 py-3.5 hidden sm:table-cell type-caption liq-text-2">{l.businessType}</td>
                     <td className="px-4 py-3.5 text-center">
                       {l.totalScore !== undefined
                         ? <span className="font-black text-[#C9A84C]">{l.totalScore}</span>
-                        : <span className="dark:text-white/15 text-xs" style={{ color: "var(--liq-text-3)" }}>—</span>}
+                        : <span className="liq-text-3 text-xs">—</span>}
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       {l.riskLevel ? (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                           riskBadgeClass(l.riskLevel)
                         }`}>{l.riskLevel}</span>
-                      ) : <span className="dark:text-white/15 text-xs" style={{ color: "var(--liq-text-3)" }}>—</span>}
+                      ) : <span className="liq-text-3 text-xs">—</span>}
                     </td>
-                    <td className="px-4 py-3.5 dark:text-white/15 dark:group-hover:text-white/40 transition-colors" style={{ color: "var(--liq-text-3)" }}>
+                    <td className="px-4 py-3.5 liq-text-4 group-hover:liq-text-2 transition-colors">
                       <ChevronRight size={13} />
                     </td>
                   </motion.tr>
