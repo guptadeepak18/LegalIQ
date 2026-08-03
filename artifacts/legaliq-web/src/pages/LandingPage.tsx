@@ -5,6 +5,7 @@ import {
   Building2, AlertTriangle, Phone, Mail, Globe,
   Briefcase, Award, Users, Zap,
   Fingerprint, Scale, BarChart3, Compass,
+  ClipboardList, FileBarChart2,
 } from "lucide-react";
 import { useGetPublicReviews } from "@workspace/api-client-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -35,24 +36,28 @@ const PILLAR_DATA = [
 
 const HOW_IT_WORKS = [
   {
-    step: "01", title: "Verify & Profile",
-    hook:   "Two minutes. Email OTP. Five questions about your business.",
-    detail: "That is all we need to make your assessment completely specific to you.",
+    step: "01",
+    icon: Building2,
+    title: "Business Verification",
+    desc: "Verify your business profile and provide essential business information to initiate the assessment.",
   },
   {
-    step: "02", title: "AI-Powered Assessment",
-    hook:   "20 plain-language questions. No jargon. No legal knowledge required.",
-    detail: "Our AI adapts every question based on what you just answered — going deeper where your risk is highest, moving faster where you are covered.",
+    step: "02",
+    icon: ClipboardList,
+    title: "Personalized Legal Assessment",
+    desc: "Complete a business-specific assessment tailored to your industry, operations, and legal risk profile.",
   },
   {
-    step: "03", title: "Your Score. Instantly.",
-    hook:   "The moment you finish — your Legal Health Score out of 100, a pillar-by-pillar breakdown, your top risk flags with ₹ exposure estimates, and a three-step action plan.",
-    detail: "PDF delivered to your inbox in seconds.",
+    step: "03",
+    icon: FileBarChart2,
+    title: "Comprehensive Legal Health Report",
+    desc: "Receive your Legal Health Score, pillar-wise analysis, key risk insights, future risk exposure, and a prioritized action plan.",
   },
   {
-    step: "04", title: "A Consultation That Already Knows Your Case",
-    hook:   "Your attorney receives your full report before the call. No introductions. No discovery.",
-    detail: "Thirty minutes entirely focused on your specific gaps and how to close them.",
+    step: "04",
+    icon: Users,
+    title: "VCLO Consultation",
+    desc: "Connect with a qualified Advocate through REST THE CASE's Virtual Chief Legal Officer (VCLO) service for professional legal guidance and implementation support.",
   },
 ];
 
@@ -432,33 +437,92 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── HOW IT WORKS ─────────────────────────────────────────────────── */}
-      <section className="py-14 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-10">
+      {/* ── HOW THE ASSESSMENT WORKS ─────────────────────────────────────── */}
+      <section className="py-16 px-6">
+        <div className="max-w-6xl mx-auto">
+
+          {/* Header */}
+          <div className="text-center mb-12">
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
               <p className="type-label liq-text-3 mb-3">The Process</p>
-              <h2 className="type-h2 liq-text-1 tracking-tight">
-                How It Works
+              <h2 className="type-h2 liq-text-1 mb-4 tracking-tight">
+                How the Assessment Works
               </h2>
+              <p className="liq-text-3 text-sm leading-relaxed max-w-xl mx-auto">
+                A structured four-step process designed to deliver actionable legal intelligence
+                specific to your business — from initial verification to expert consultation.
+              </p>
             </motion.div>
           </div>
-          <div className="grid sm:grid-cols-2 gap-5">
+
+          {/* Step connector track — desktop */}
+          <div className="hidden lg:flex items-center justify-between max-w-4xl mx-auto mb-8 px-10 relative">
+            <div className="absolute inset-x-10 top-1/2 -translate-y-1/2 h-px"
+              style={{ background: "linear-gradient(90deg, transparent, rgba(201,168,76,0.25) 15%, rgba(201,168,76,0.25) 85%, transparent)" }} />
             {HOW_IT_WORKS.map((h, i) => (
-              <motion.div key={h.step}
-                initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.09 }} viewport={{ once: true }}
-                className="glass-card glass-card-hover rounded-xl p-6 relative">
-                <div className="text-5xl font-semibold opacity-[0.06] text-[#C9A84C] font-grotesk absolute top-4 right-5 leading-none">{h.step}</div>
-                <div className="w-9 h-9 rounded-lg bg-[#C9A84C]/12 border border-[#C9A84C]/25 flex items-center justify-center mb-4">
-                  <span className="text-xs font-bold text-[#C9A84C]">{h.step}</span>
+              <div key={h.step} className="relative z-10 flex flex-col items-center gap-1.5">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-[#C9A84C]"
+                  style={{ background: "rgba(201,168,76,0.10)", border: "1.5px solid rgba(201,168,76,0.35)" }}>
+                  {h.step}
                 </div>
-                <h3 className="text-base font-medium liq-text-1 mb-2 pr-8">{h.title}</h3>
-                <p className="text-sm liq-text-2 leading-relaxed mb-2">{h.hook}</p>
-                <p className="text-xs liq-text-3 leading-relaxed">{h.detail}</p>
+                <span className="text-[10px] font-semibold liq-text-4 uppercase tracking-wider">Step {i + 1}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Cards */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {HOW_IT_WORKS.map((h, i) => (
+              <motion.div
+                key={h.step}
+                initial={{ opacity: 0, y: 22 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.09, duration: 0.45 }}
+                viewport={{ once: true }}
+                className="glass-card glass-card-hover rounded-2xl flex flex-col overflow-hidden"
+              >
+                {/* Gold top bar */}
+                <div className="h-[2px] bg-[#C9A84C]/40 flex-shrink-0" />
+
+                <div className="flex flex-col flex-1 p-6">
+
+                  {/* Icon + step badge row */}
+                  <div className="flex items-start justify-between mb-5">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: "rgba(201,168,76,0.09)", border: "1.5px solid rgba(201,168,76,0.22)" }}>
+                      <h.icon size={21} className="text-[#C9A84C]" strokeWidth={1.7} />
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#C9A84C] mt-1.5">
+                      Step {h.step}
+                    </span>
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="type-body liq-text-1 font-bold leading-snug mb-3">
+                    {h.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="type-body-sm liq-text-3 leading-relaxed flex-1">
+                    {h.desc}
+                  </p>
+
+                  {/* Step indicator line */}
+                  <div className="mt-5 flex items-center gap-2">
+                    {HOW_IT_WORKS.map((_, j) => (
+                      <div
+                        key={j}
+                        className="h-0.5 flex-1 rounded-full transition-colors"
+                        style={{ background: j <= i ? "#C9A84C" : "rgba(201,168,76,0.15)" }}
+                      />
+                    ))}
+                  </div>
+
+                </div>
               </motion.div>
             ))}
           </div>
+
         </div>
       </section>
 
