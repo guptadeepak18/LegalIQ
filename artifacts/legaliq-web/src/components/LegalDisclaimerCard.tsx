@@ -14,7 +14,7 @@ export function LegalDisclaimerCard({ className = "" }: LegalDisclaimerCardProps
     >
       {/* Label */}
       <p
-        className="text-[10px] font-bold tracking-[0.16em] uppercase mb-3"
+        className="text-[13px] font-bold tracking-wide mb-3"
         style={{ color: "#C9A84C" }}
       >
         Disclaimer
