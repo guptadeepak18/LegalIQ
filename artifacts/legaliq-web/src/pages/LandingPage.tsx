@@ -13,33 +13,21 @@ import { LegalDisclaimerCard } from "@/components/LegalDisclaimerCard";
 const PILLAR_DATA = [
   {
     icon: Scale,
-    color: "#EF4444",
-    bg: "rgba(239,68,68,0.10)",
-    border: "rgba(239,68,68,0.22)",
     label: "Litigation Health",
     tagline: "Assess litigation exposure, dispute preparedness, and legal risk management.",
   },
   {
     icon: FileText,
-    color: "#F59E0B",
-    bg: "rgba(245,158,11,0.10)",
-    border: "rgba(245,158,11,0.22)",
     label: "Contractual Health",
     tagline: "Evaluate contract governance, documentation standards, and commercial obligations.",
   },
   {
     icon: Shield,
-    color: "#3B82F6",
-    bg: "rgba(59,130,246,0.10)",
-    border: "rgba(59,130,246,0.22)",
     label: "Compliance Health",
     tagline: "Measure regulatory compliance, statutory adherence, and governance maturity.",
   },
   {
     icon: BarChart3,
-    color: "#8B5CF6",
-    bg: "rgba(139,92,246,0.10)",
-    border: "rgba(139,92,246,0.22)",
     label: "Legal Cost Efficiency",
     tagline: "Analyze legal expenditure, risk optimization, and cost efficiency.",
   },
@@ -369,35 +357,25 @@ export default function LandingPage() {
                 viewport={{ once: true }}
                 className="group glass-card glass-card-hover rounded-2xl flex flex-col overflow-hidden"
               >
-                {/* Pillar-colour top bar */}
-                <div
-                  className="h-[3px] w-full flex-shrink-0"
-                  style={{ background: `linear-gradient(90deg, ${p.color} 0%, ${p.color}30 100%)` }}
-                />
+                {/* Brand top bar */}
+                <div className="h-[2px] w-full flex-shrink-0 bg-[#C9A84C]/40" />
 
                 <div className="flex flex-col flex-1 p-6">
 
                   {/* Icon + ghost number */}
                   <div className="flex items-start justify-between mb-5">
-                    <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: p.bg, border: `1.5px solid ${p.border}` }}
-                    >
-                      <p.icon size={21} style={{ color: p.color }} strokeWidth={1.8} />
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: "rgba(201,168,76,0.09)", border: "1.5px solid rgba(201,168,76,0.22)" }}>
+                      <p.icon size={21} className="text-[#C9A84C]" strokeWidth={1.8} />
                     </div>
-                    <span
-                      className="text-5xl font-black leading-none select-none pointer-events-none"
-                      style={{ color: p.color, opacity: 0.07, fontVariantNumeric: "tabular-nums" }}
-                    >
+                    <span className="text-5xl font-black leading-none select-none pointer-events-none liq-text-1"
+                      style={{ opacity: 0.06 }}>
                       0{i + 1}
                     </span>
                   </div>
 
                   {/* Pillar label */}
-                  <p
-                    className="text-[10px] font-bold uppercase tracking-[0.18em] mb-2"
-                    style={{ color: p.color }}
-                  >
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] mb-2 text-[#C9A84C]">
                     Pillar {i + 1}
                   </p>
 
@@ -412,32 +390,21 @@ export default function LandingPage() {
                   </p>
 
                   {/* Score footer */}
-                  <div
-                    className="mt-5 pt-4"
-                    style={{ borderTop: `1px solid ${p.color}18` }}
-                  >
+                  <div className="mt-5 pt-4 border-t border-[#C9A84C]/12">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-semibold liq-text-4 uppercase tracking-wider">
                         Weighted Score
                       </span>
-                      <span
-                        className="text-sm font-bold"
-                        style={{ color: p.color }}
-                      >
-                        25 pts
-                      </span>
+                      <span className="text-sm font-bold text-[#C9A84C]">25 pts</span>
                     </div>
-                    <div
-                      className="h-1.5 rounded-full overflow-hidden"
-                      style={{ background: `${p.color}14` }}
-                    >
+                    <div className="h-1.5 rounded-full overflow-hidden bg-[#C9A84C]/12">
                       <motion.div
                         className="h-full rounded-full"
                         initial={{ width: 0 }}
                         whileInView={{ width: "100%" }}
                         viewport={{ once: true }}
                         transition={{ duration: 1.1, delay: 0.3 + i * 0.12, ease: "easeOut" }}
-                        style={{ background: `linear-gradient(90deg, ${p.color}50, ${p.color})` }}
+                        style={{ background: "linear-gradient(90deg, rgba(201,168,76,0.5), #C9A84C)" }}
                       />
                     </div>
                   </div>
