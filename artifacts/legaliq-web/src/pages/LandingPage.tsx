@@ -228,40 +228,35 @@ export default function LandingPage() {
             ] as const).map((s, i) => (
               <motion.div
                 key={s.label}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 14 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.08, duration: 0.45 }}
+                transition={{ delay: i * 0.07, duration: 0.4 }}
                 viewport={{ once: true }}
-                className="glass-card rounded-2xl px-5 py-6 flex flex-col items-center text-center gap-3"
+                className="glass-card rounded-xl px-4 py-4 flex items-center gap-3"
               >
                 {/* Icon badge */}
                 <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(201,168,76,0.09)", border: "1.5px solid rgba(201,168,76,0.22)" }}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(201,168,76,0.09)", border: "1px solid rgba(201,168,76,0.22)" }}
                 >
-                  <s.icon size={20} className="text-[#C9A84C]" strokeWidth={1.7} />
+                  <s.icon size={17} className="text-[#C9A84C]" strokeWidth={1.7} />
                 </div>
 
-                {/* Stat or verified badge */}
-                {s.stat ? (
-                  <span
-                    className="text-3xl font-black leading-none text-[#C9A84C]"
-                    style={{ fontFamily: "var(--app-font-grotesk)" }}
-                  >
-                    {s.stat}
-                  </span>
-                ) : (
-                  <span
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
-                    style={{ background: "rgba(201,168,76,0.10)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.25)" }}
-                  >
-                    <CheckCircle size={11} strokeWidth={2.5} />
-                    Verified
-                  </span>
-                )}
-
-                {/* Label */}
-                <p className="type-body-sm liq-text-3 font-medium leading-snug">{s.label}</p>
+                {/* Content */}
+                <div className="min-w-0">
+                  {s.stat ? (
+                    <p className="text-lg font-black leading-none text-[#C9A84C] mb-0.5"
+                      style={{ fontFamily: "var(--app-font-grotesk)" }}>
+                      {s.stat}
+                    </p>
+                  ) : (
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <CheckCircle size={11} className="text-[#C9A84C] flex-shrink-0" strokeWidth={2.5} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#C9A84C]">Verified</span>
+                    </div>
+                  )}
+                  <p className="text-[11px] liq-text-3 font-medium leading-tight">{s.label}</p>
+                </div>
               </motion.div>
             ))}
           </div>
