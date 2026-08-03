@@ -130,8 +130,7 @@ function AssessLoadingScreen({ businessType, city }: { businessType: string; cit
             transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
             className="flex items-center justify-center"
           >
-            <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="w-10 h-10 object-contain dark:hidden" />
-            <img src="/rtc-logo-dark.png" alt="Rest The Case" className="w-10 h-10 object-contain hidden dark:block" />
+            <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="w-10 h-10 object-contain dark:brightness-0 dark:invert" />
           </motion.div>
         </div>
 
@@ -329,8 +328,7 @@ export default function AssessPage() {
               animate={{ scale: [1, 1.1, 1] }}
               transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
             >
-              <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="w-12 h-12 object-contain dark:hidden" />
-              <img src="/rtc-logo-dark.png" alt="Rest The Case" className="w-12 h-12 object-contain hidden dark:block" />
+              <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="w-12 h-12 object-contain dark:brightness-0 dark:invert" />
             </motion.div>
           </div>
         </div>
@@ -402,8 +400,7 @@ export default function AssessPage() {
             transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
             className="flex items-center justify-center"
           >
-            <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="w-12 h-12 object-contain dark:hidden" />
-            <img src="/rtc-logo-dark.png" alt="Rest The Case" className="w-12 h-12 object-contain hidden dark:block" />
+            <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="w-12 h-12 object-contain dark:brightness-0 dark:invert" />
           </motion.div>
         </div>
         <div className="text-center">

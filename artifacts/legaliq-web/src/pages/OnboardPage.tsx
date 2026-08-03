@@ -220,16 +220,14 @@ export default function OnboardPage() {
 
       <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-3.5 liq-nav">
         <div className="flex items-center gap-2">
-          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
-          <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
+          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:brightness-0 dark:invert" />
           <span className="font-serif text-lg font-bold text-[#C9A84C]">LegalIQ</span>
         </div>
         <ThemeToggle />
       </div>
 
       <div className="mt-16 flex items-center gap-2.5 mb-8">
-        <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
-        <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
+        <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:brightness-0 dark:invert" />
         <span className="font-serif text-2xl font-bold text-[#C9A84C]">LegalIQ</span>
       </div>
 

@@ -114,16 +114,14 @@ export default function ConsultPage() {
 
       <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-3 liq-nav">
         <div className="flex items-center gap-2">
-          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
-          <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
+          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:brightness-0 dark:invert" />
           <span className="font-serif text-lg font-bold text-[#C9A84C]">LegalIQ</span>
         </div>
         <ThemeToggle />
       </div>
 
       <div className="mt-16 flex items-center gap-2.5 mb-8">
-        <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
-        <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
+        <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:brightness-0 dark:invert" />
         <span className="font-serif text-xl font-bold text-[#C9A84C]">LegalIQ</span>
       </div>
 
@@ -168,7 +166,7 @@ export default function ConsultPage() {
             <label className="type-label liq-text-3 mb-2 flex items-center gap-1 block">
               <Calendar size={11} /> Select Date
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {dates.map((d) => (
                 <button
                   key={d.value}

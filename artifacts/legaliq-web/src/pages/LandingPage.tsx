@@ -203,8 +203,7 @@ export default function LandingPage() {
       {/* ── NAV ─────────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-10 py-4 liq-nav">
         <div className="flex items-center gap-3">
-          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
-          <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
+          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:brightness-0 dark:invert" />
           <span className="font-serif text-xl font-bold text-[#C9A84C] tracking-wide">LegalIQ</span>
           <span className="hidden sm:block text-[11px] font-semibold uppercase liq-text-2 border-l border-current/25 pl-3 ml-0.5" style={{ letterSpacing: "0.14em" }}>
             by Rest The Case
@@ -257,7 +256,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
               onClick={() => navigate("/onboard")}
-              className="flex items-center gap-2 bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold text-base px-10 py-4 rounded-xl transition-all shadow-xl shadow-[#C9A84C]/30 pulse-gold">
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold text-base px-10 py-4 rounded-xl transition-all shadow-xl shadow-[#C9A84C]/30 pulse-gold">
               Get My LHS Score <ArrowRight size={18} />
             </motion.button>
           </div>
@@ -928,12 +927,11 @@ export default function LandingPage() {
       {/* ── FOOTER ───────────────────────────────────────────────────────── */}
       <footer className="border-t border-[#C9A84C]/12">
         {/* Footer body — always dark for readability */}
-        <div className="px-6 md:px-10 py-10 max-w-5xl mx-auto grid sm:grid-cols-3 gap-8">
+        <div className="px-6 md:px-10 py-10 max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 gap-8">
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2.5 mb-3">
-              <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
-              <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
+              <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:brightness-0 dark:invert" />
               <span className="font-serif font-bold text-[#C9A84C] text-lg">LegalIQ</span>
             </div>
             <p className="liq-text-3 text-xs leading-relaxed mb-4">

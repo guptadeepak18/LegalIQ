@@ -30,7 +30,7 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center px-4">
       <div className="flex items-center gap-3 mb-8">
-        <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0" />
+        <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 brightness-0 invert" />
         <span className="font-serif text-2xl font-bold text-[#C9A84C]">LegalIQ Admin</span>
       </div>
 

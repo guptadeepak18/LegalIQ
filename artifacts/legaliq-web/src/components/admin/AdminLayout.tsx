@@ -91,8 +91,7 @@ function Sidebar({
       {/* Logo */}
       <div className="px-5 py-5 border-b" style={{ borderColor: "var(--nav-border)" }}>
         <div className="flex items-center gap-2.5">
-          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
-          <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
+          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:brightness-0 dark:invert" />
           <div>
             <div className="font-serif text-sm font-bold liq-text-1 leading-none">LegalIQ</div>
             <div className="type-caption liq-text-4 mt-0.5 leading-none">Admin Portal</div>

@@ -248,8 +248,7 @@ export default function ResultsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <motion.div animate={{ scale: [1, 1.1, 1], opacity: [0.6, 1, 0.6] }} transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}>
-          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-16 w-16 object-contain dark:hidden" />
-          <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-16 w-16 object-contain hidden dark:block" />
+          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-16 w-16 object-contain dark:brightness-0 dark:invert" />
         </motion.div>
       </div>
     );
@@ -410,8 +409,7 @@ export default function ResultsPage() {
       {/* Sticky header */}
       <div className="liq-nav px-5 py-3.5 flex items-center justify-between print:hidden sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:hidden" />
-          <img src="/rtc-logo-dark.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 hidden dark:block" />
+          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:brightness-0 dark:invert" />
           <span className="font-serif text-lg font-bold text-[#C9A84C]">LegalIQ Report</span>
           <span className="hidden sm:block liq-text-3 text-xs ml-1">— {store.company}</span>
         </div>
@@ -434,10 +432,10 @@ export default function ResultsPage() {
 
         {/* ── RISK BANNER ────────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl px-6 py-4 border flex items-center gap-4"
+          className="rounded-2xl px-4 sm:px-6 py-4 border flex items-start sm:items-center gap-3 sm:gap-4"
           style={{ background: riskBg, borderColor: riskBorder }}>
-          <span className="text-3xl flex-shrink-0">{riskEmoji}</span>
-          <div className="flex-1">
+          <span className="text-2xl sm:text-3xl flex-shrink-0 mt-0.5 sm:mt-0">{riskEmoji}</span>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
               <span className="type-body font-bold" style={{ color: riskColor }}>{gradeLabel.toUpperCase()}</span>
               <span className="type-caption liq-text-3">· Legal Health Score: {totalScore}/100</span>
@@ -447,7 +445,7 @@ export default function ResultsPage() {
         </motion.div>
 
         {/* ── HERO SCORE ─────────────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-8 md:p-10 relative overflow-hidden">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-5 sm:p-8 md:p-10 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-[#C9A84C]/5 via-transparent to-transparent pointer-events-none" />
           <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#C9A84C]/5 rounded-full blur-3xl pointer-events-none" />
           <div className="grid md:grid-cols-2 gap-8 items-center relative z-10">
@@ -863,8 +861,8 @@ export default function ResultsPage() {
               <IndianRupee size={18} className="text-[#C9A84C]" /> Cost Estimation
             </h2>
             <p className="type-body-sm liq-text-3 mb-5">Estimated resolution costs for identified legal gaps, and the financial impact of delay.</p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-1 px-1">
+              <table className="w-full text-sm min-w-[480px]">
                 <thead>
                   <tr className="border-b border-[#C9A84C]/15">
                     <th className="text-left pb-3 pr-4 type-label liq-text-3 font-semibold uppercase tracking-wider">Legal Issue</th>
@@ -1038,8 +1036,10 @@ export default function ResultsPage() {
 
             {/* Comparison table */}
             <p className="font-serif text-base font-bold liq-text-1 mb-3">Traditional Legal Support vs. Rest The Case VCLO</p>
-            <div className="overflow-x-auto mb-6 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.15)" }}>
-              <table className="w-full text-sm border-collapse min-w-[560px]">
+
+            {/* Desktop table (md+) */}
+            <div className="hidden md:block overflow-x-auto mb-6 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.15)" }}>
+              <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr style={{ background: "rgba(10,10,10,0.06)" }}>
                     <th className="text-left px-4 py-3 liq-text-3 text-xs font-bold uppercase tracking-wider">Aspect</th>
@@ -1049,7 +1049,7 @@ export default function ResultsPage() {
                 </thead>
                 <tbody>
                   {VCLO_COMPARISON.map((row, i) => (
-                    <tr key={row.label} style={{ background: i % 2 === 0 ? "rgba(201,168,76,0.03)" : "transparent" }} className="border-t" >
+                    <tr key={row.label} style={{ background: i % 2 === 0 ? "rgba(201,168,76,0.03)" : "transparent" }} className="border-t">
                       <td className="px-4 py-3 font-semibold liq-text-1 align-top" style={{ borderColor: "rgba(201,168,76,0.08)" }}>{row.label}</td>
                       <td className="px-4 py-3 liq-text-3 align-top" style={{ borderColor: "rgba(201,168,76,0.08)" }}>{row.traditional}</td>
                       <td className="px-4 py-3 text-emerald-600 font-medium align-top" style={{ borderColor: "rgba(201,168,76,0.08)" }}>{row.vclo}</td>
@@ -1057,6 +1057,28 @@ export default function ResultsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile stacked cards (< md) */}
+            <div className="md:hidden space-y-2.5 mb-6">
+              {VCLO_COMPARISON.map((row) => (
+                <div key={row.label} className="rounded-xl border overflow-hidden" style={{ borderColor: "rgba(201,168,76,0.18)" }}>
+                  <div className="px-4 py-2 text-[10px] font-bold liq-text-1 uppercase tracking-wider border-b"
+                    style={{ background: "rgba(10,10,10,0.06)", borderColor: "rgba(201,168,76,0.12)" }}>
+                    {row.label}
+                  </div>
+                  <div className="grid grid-cols-2 divide-x" style={{ borderColor: "rgba(201,168,76,0.12)" }}>
+                    <div className="px-3 py-3">
+                      <p className="text-[9px] font-bold text-amber-600 uppercase tracking-wider mb-1.5">Traditional</p>
+                      <p className="text-[11px] liq-text-3 leading-relaxed">{row.traditional}</p>
+                    </div>
+                    <div className="px-3 py-3">
+                      <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider mb-1.5">VCLO</p>
+                      <p className="text-[11px] text-emerald-600 font-medium leading-relaxed">{row.vclo}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <button onClick={() => navigate("/consult")}
