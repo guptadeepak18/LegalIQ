@@ -7,18 +7,7 @@ import {
   ChevronDown, ChevronRight, Clock, CheckCircle, XCircle,
   AlertTriangle, Eye, X, Save, FlaskConical, Settings2, AtSign, User, Reply,
 } from "lucide-react";
-
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function authHeaders() {
-  const t = localStorage.getItem("liq_admin_token");
-  return { "Content-Type": "application/json", ...(t ? { Authorization: `Bearer ${t}` } : {}) };
-}
-
-function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  return fetch(`${API_BASE}${path}`, { ...init, headers: { ...authHeaders(), ...(init?.headers ?? {}) } })
-    .then((r) => r.json() as Promise<T>);
-}
+import { apiFetch, authHeaders, API_BASE } from "@/lib/api";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,7 +85,7 @@ function TemplateEditor({
     try {
       const r = await apiFetch<{ success: boolean; message: string }>(
         `/admin/email-templates/${template.id}/test`,
-        { method: "POST", body: JSON.stringify({ email: testEmail }) }
+        { method: "POST", body: JSON.stringify({ email: testEmail }), headers: authHeaders() }
       );
       setTestMsg(r.success ? `✓ Test sent to ${testEmail}` : `✗ ${r.message}`);
     } catch {
@@ -275,7 +264,7 @@ function SenderConfigPanel() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["email-settings"],
-    queryFn: () => apiFetch<{ success: boolean; settings: EmailSettings }>("/admin/email-settings"),
+    queryFn: () => apiFetch<{ success: boolean; settings: EmailSettings }>("/admin/email-settings", { headers: authHeaders() }),
   });
 
   const settings = data?.settings;
@@ -285,6 +274,7 @@ function SenderConfigPanel() {
       apiFetch<{ success: boolean; settings: EmailSettings }>("/admin/email-settings", {
         method: "PUT",
         body: JSON.stringify(s),
+        headers: authHeaders(),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["email-settings"] });
@@ -386,12 +376,12 @@ export default function EmailTemplatesPage() {
 
   const { data: tplData, isLoading: tplLoading } = useQuery({
     queryKey: ["email-templates"],
-    queryFn: () => apiFetch<{ success: boolean; templates: EmailTemplate[] }>("/admin/email-templates"),
+    queryFn: () => apiFetch<{ success: boolean; templates: EmailTemplate[] }>("/admin/email-templates", { headers: authHeaders() }),
   });
 
   const { data: logData } = useQuery({
     queryKey: ["email-logs"],
-    queryFn: () => apiFetch<{ success: boolean; logs: EmailLog[] }>("/admin/email-logs"),
+    queryFn: () => apiFetch<{ success: boolean; logs: EmailLog[] }>("/admin/email-logs", { headers: authHeaders() }),
     enabled: logsOpen,
     refetchInterval: logsOpen ? 30_000 : false,
   });
@@ -399,9 +389,9 @@ export default function EmailTemplatesPage() {
   const saveMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string | null; data: Record<string, unknown> }) => {
       if (id) {
-        return apiFetch(`/admin/email-templates/${id}`, { method: "PUT", body: JSON.stringify(data) });
+        return apiFetch(`/admin/email-templates/${id}`, { method: "PUT", body: JSON.stringify(data), headers: authHeaders() });
       }
-      return apiFetch("/admin/email-templates", { method: "POST", body: JSON.stringify(data) });
+      return apiFetch("/admin/email-templates", { method: "POST", body: JSON.stringify(data), headers: authHeaders() });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["email-templates"] });
@@ -411,7 +401,7 @@ export default function EmailTemplatesPage() {
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      apiFetch(`/admin/email-templates/${id}`, { method: "PUT", body: JSON.stringify({ isActive }) }),
+      apiFetch(`/admin/email-templates/${id}`, { method: "PUT", body: JSON.stringify({ isActive }), headers: authHeaders() }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["email-templates"] }),
   });
 
