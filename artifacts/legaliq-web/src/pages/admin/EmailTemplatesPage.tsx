@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Mail, Plus, Edit3, ToggleLeft, ToggleRight, Send,
+  Mail, Plus, Edit3, ToggleLeft, ToggleRight,
   ChevronDown, ChevronRight, Clock, CheckCircle, XCircle,
-  AlertTriangle, Eye, X, Save, FlaskConical,
+  AlertTriangle, Eye, X, Save, FlaskConical, Settings2, AtSign, User, Reply,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -259,6 +259,124 @@ function TemplateEditor({
 
 // ── Main page ────────────────────────────────────────────────────────────────
 
+interface EmailSettings {
+  senderName: string;
+  senderEmail: string;
+  replyTo: string;
+}
+
+// ── Sender config panel ──────────────────────────────────────────────────────
+
+function SenderConfigPanel() {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<EmailSettings | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["email-settings"],
+    queryFn: () => apiFetch<{ success: boolean; settings: EmailSettings }>("/admin/email-settings"),
+  });
+
+  const settings = data?.settings;
+
+  const saveMutation = useMutation({
+    mutationFn: (s: EmailSettings) =>
+      apiFetch<{ success: boolean; settings: EmailSettings }>("/admin/email-settings", {
+        method: "PUT",
+        body: JSON.stringify(s),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["email-settings"] });
+      setEditing(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    },
+  });
+
+  function startEdit() {
+    if (!settings) return;
+    setForm({ ...settings });
+    setEditing(true);
+  }
+
+  const fields: Array<{ key: keyof EmailSettings; label: string; icon: typeof AtSign; hint: string }> = [
+    { key: "senderName",  label: "Sender Name",  icon: User,   hint: "Display name shown in the inbox" },
+    { key: "senderEmail", label: "Sender Email", icon: AtSign, hint: "Must be the connected Gmail account" },
+    { key: "replyTo",     label: "Reply-To",     icon: Reply,  hint: "Where replies land (can differ from sender)" },
+  ];
+
+  return (
+    <div className="glass-card rounded-2xl p-5" style={{ border: "1px solid rgba(201,168,76,0.15)" }}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ background: "rgba(201,168,76,0.10)", border: "1px solid rgba(201,168,76,0.2)" }}>
+            <Settings2 size={14} className="text-[#C9A84C]" />
+          </div>
+          <div>
+            <p className="text-sm font-bold liq-text-1">Sender Configuration</p>
+            <p className="text-[10px] liq-text-4">Emails are sent via your connected Gmail account</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {saved && <span className="text-[11px] text-emerald-400 font-semibold">✓ Saved</span>}
+          {!editing ? (
+            <button onClick={startEdit} disabled={isLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all"
+              style={{ borderColor: "rgba(201,168,76,0.3)", color: "#C9A84C" }}>
+              <Edit3 size={11} /> Edit
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button onClick={() => setEditing(false)}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-semibold liq-text-3 hover:liq-text-1 transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={() => form && saveMutation.mutate(form)}
+                disabled={saveMutation.isPending}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#C9A84C] text-[#0A0A0A] hover:bg-[#E2C97E] transition-all">
+                <Save size={11} /> {saveMutation.isPending ? "Saving…" : "Save"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="grid sm:grid-cols-3 gap-3">
+          {[0,1,2].map(i => <div key={i} className="h-14 rounded-xl animate-pulse" style={{ background: "rgba(201,168,76,0.06)" }} />)}
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-3 gap-3">
+          {fields.map(({ key, label, icon: Icon, hint }) => (
+            <div key={key} className="rounded-xl p-3" style={{ background: "rgba(201,168,76,0.05)", border: "1px solid rgba(201,168,76,0.1)" }}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Icon size={10} className="liq-text-4" />
+                <span className="text-[10px] font-semibold liq-text-4 uppercase tracking-wider">{label}</span>
+              </div>
+              {editing && form ? (
+                <input
+                  value={form[key]}
+                  onChange={e => setForm(f => f ? { ...f, [key]: e.target.value } : f)}
+                  className="w-full text-xs liq-text-1 bg-transparent border-b outline-none pb-0.5 transition-colors"
+                  style={{ borderColor: "rgba(201,168,76,0.4)" }}
+                />
+              ) : (
+                <p className="text-xs liq-text-1 font-semibold truncate">{settings?.[key] ?? "—"}</p>
+              )}
+              <p className="text-[9px] liq-text-4 mt-1">{hint}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
+
 export default function EmailTemplatesPage() {
   const qc = useQueryClient();
   const [editTarget, setEditTarget] = useState<EmailTemplate | null | "new">(undefined as unknown as "new");
@@ -334,6 +452,9 @@ export default function EmailTemplatesPage() {
             <Plus size={14} /> New Template
           </button>
         </div>
+
+        {/* Sender configuration */}
+        <SenderConfigPanel />
 
         {/* Templates grid */}
         {tplLoading ? (

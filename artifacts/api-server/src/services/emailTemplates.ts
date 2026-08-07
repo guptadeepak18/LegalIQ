@@ -9,7 +9,7 @@
 import { db } from "@workspace/db";
 import { emailTemplates, emailLogs } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { sendEmail } from "./resend.js";
+import { sendGmail } from "./gmail.js";
 import { logger } from "../lib/logger.js";
 
 // ── Template rendering ────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ export async function sendTemplateEmail(
   const { html, subject } = renderTemplate(template.htmlBody, template.subject, vars);
 
   try {
-    await sendEmail({ to, subject, html, attachments: options?.attachments });
+    await sendGmail({ to, subject, html, attachments: options?.attachments });
     await _logEmail(eventKey, to, options?.leadId ?? null, subject, "sent");
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

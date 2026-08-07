@@ -143,6 +143,12 @@ export const adminUsers = pgTable("admin_users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const emailTemplates = pgTable("email_templates", {
   id: uuid("id").defaultRandom().primaryKey(),
   eventKey: text("event_key").notNull().unique(),
@@ -180,3 +186,4 @@ export type AdminUser = typeof adminUsers.$inferSelect;
 export type OtpVerification = typeof otpVerifications.$inferSelect;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type EmailLog = typeof emailLogs.$inferSelect;
+export type AppSetting = typeof appSettings.$inferSelect;

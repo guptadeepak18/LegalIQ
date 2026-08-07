@@ -20,6 +20,7 @@ import {
   listEmailLogs,
   sendTemplateEmail,
 } from "../services/emailTemplates.js";
+import { getEmailSettings, updateEmailSetting } from "../services/gmail.js";
 
 const router = Router();
 
@@ -389,6 +390,23 @@ router.get("/admin/export", requireAuth, async (_req, res) => {
   res.setHeader("Content-Type","text/csv");
   res.setHeader("Content-Disposition",`attachment; filename="legaliq-leads-${Date.now()}.csv"`);
   res.send(csv);
+});
+
+// ── Email sender settings ─────────────────────────────────────────────────────
+
+router.get("/admin/email-settings", requireAuth, async (_req, res) => {
+  const settings = await getEmailSettings();
+  res.json({ success: true, settings });
+});
+
+router.put("/admin/email-settings", requireAuth, async (req, res) => {
+  const { senderName, senderEmail, replyTo } =
+    req.body as { senderName?: string; senderEmail?: string; replyTo?: string };
+  if (senderName)  await updateEmailSetting("email.sender_name",  senderName);
+  if (senderEmail) await updateEmailSetting("email.sender_email", senderEmail);
+  if (replyTo)     await updateEmailSetting("email.reply_to",     replyTo);
+  const settings = await getEmailSettings();
+  res.json({ success: true, settings });
 });
 
 // ── Email template CRUD ───────────────────────────────────────────────────────
