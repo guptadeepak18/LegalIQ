@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, User, Building2, Phone, Mail, MapPin,
   CheckCircle, Sparkles, Copy, Check, RefreshCw,
-  Download, Calendar, ExternalLink,
+  Download, Calendar, AlertTriangle, Target, Lightbulb,
+  ChevronDown, ChevronUp, Zap,
 } from "lucide-react";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -50,6 +51,17 @@ interface LeadDetail {
 }
 
 interface EmailDraft { subject: string; body: string }
+
+interface AIInsights {
+  overallAssessment: string;
+  keyRiskFindings: string[];
+  priorityRecommendations: string[];
+  suggestedActions: string[];
+  riskMitigation: string[];
+  consultationPriority: "HIGH" | "MEDIUM" | "LOW";
+  consultationPriorityReason: string;
+  nextBestActions: string[];
+}
 
 // ── Status config ──────────────────────────────────────────────────────────────
 
@@ -150,6 +162,12 @@ export default function LeadDetailPage() {
   const [emailRateLimited, setEmailRateLimited] = useState(false);
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [certGenerating, setCertGenerating] = useState(false);
+  const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
+  const [insightsCached, setInsightsCached] = useState(false);
+  const [insightsRateLimited, setInsightsRateLimited] = useState(false);
+  const [insightsExpanded, setInsightsExpanded] = useState(true);
 
   useEffect(() => {
     if (!id) return;
@@ -170,6 +188,36 @@ export default function LeadDetailPage() {
       toast.success("Status updated");
     } catch { toast.error("Update failed"); }
     finally { setUpdatingStatus(false); }
+  }
+
+  async function generateInsights(forceRefresh = false) {
+    if (!lead?.id) return;
+    setInsightsLoading(true);
+    setInsightsError(null);
+    setInsightsRateLimited(false);
+    try {
+      const res = await apiFetch<{
+        success: boolean; insights?: AIInsights; cached?: boolean;
+        rateLimited?: boolean; message?: string;
+      }>(`/admin/leads/${lead.id}/ai-insights`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ forceRefresh }),
+      });
+      if (res.rateLimited) {
+        setInsightsRateLimited(true);
+      } else if (res.insights) {
+        setAiInsights(res.insights);
+        setInsightsCached(res.cached ?? false);
+        if (!res.cached) toast.success("AI insights generated");
+      } else {
+        setInsightsError(res.message ?? "Failed to generate insights.");
+      }
+    } catch (err) {
+      setInsightsError("Could not connect. Please check your connection and retry.");
+    } finally {
+      setInsightsLoading(false);
+    }
   }
 
   async function generateEmail() {
@@ -440,6 +488,228 @@ export default function LeadDetailPage() {
             </div>
           )}
         </div>
+
+        {/* ── AI ADMIN INSIGHTS ───────────────────────────────────────────── */}
+        {a && (
+          <div className="rounded-2xl border mb-6 overflow-hidden"
+            style={{ background: "var(--card-glass-bg)", border: "1.5px solid var(--card-glass-border)", boxShadow: "var(--card-glass-shadow)" }}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--nav-border)" }}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.20)" }}>
+                  <Sparkles size={13} className="text-emerald-400" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold liq-text-1">AI Admin Insights</span>
+                  {insightsCached && <span className="ml-2 text-[10px] liq-text-4 font-normal">cached · 30 min TTL</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {aiInsights && (
+                  <button onClick={() => setInsightsExpanded(p => !p)}
+                    className="flex items-center gap-1 text-xs liq-text-4 hover:liq-text-2 transition-colors">
+                    {insightsExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                  </button>
+                )}
+                <button
+                  onClick={() => generateInsights(!!aiInsights)}
+                  disabled={insightsLoading}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all disabled:opacity-40"
+                  style={{ borderColor: "rgba(52,211,153,0.25)", color: "#22C55E", background: "rgba(52,211,153,0.08)" }}>
+                  {insightsLoading ? (
+                    <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Sparkles size={11} /></motion.div> Analysing…</>
+                  ) : aiInsights ? (
+                    <><RefreshCw size={11} /> Regenerate</>
+                  ) : (
+                    <><Sparkles size={11} /> Generate Insights</>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Loading skeleton */}
+            {insightsLoading && (
+              <div className="p-5 space-y-3">
+                {[85, 65, 75, 55].map((w, i) => (
+                  <div key={i} className="h-3 rounded-full animate-pulse" style={{ width: `${w}%`, background: "rgba(201,168,76,0.08)" }} />
+                ))}
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  {[1, 2].map(i => (
+                    <div key={i} className="rounded-xl p-4 space-y-2 border border-[rgba(201,168,76,0.06)]">
+                      {[80, 65, 70].map((w, j) => (
+                        <div key={j} className="h-2.5 rounded-full animate-pulse" style={{ width: `${w}%`, background: "rgba(201,168,76,0.08)" }} />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Rate limited */}
+            {insightsRateLimited && !insightsLoading && (
+              <div className="p-5">
+                <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/05">
+                  <AlertTriangle size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-semibold text-amber-400 mb-0.5">Daily AI quota reached</p>
+                    <p className="text-xs liq-text-3">The Gemini free tier allows 20 requests per day. Quota resets tomorrow at midnight.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Error */}
+            {insightsError && !insightsLoading && (
+              <div className="p-5">
+                <div className="flex items-start gap-3 p-4 rounded-xl border border-red-500/20 bg-red-500/05">
+                  <AlertTriangle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-red-400 mb-0.5">Generation failed</p>
+                    <p className="text-xs liq-text-3">{insightsError}</p>
+                  </div>
+                  <button onClick={() => generateInsights(false)}
+                    className="flex-shrink-0 text-xs font-semibold text-red-400 border border-red-500/25 px-2.5 py-1 rounded-lg hover:bg-red-500/10 transition-colors">
+                    Retry
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!aiInsights && !insightsLoading && !insightsError && !insightsRateLimited && (
+              <div className="px-5 py-8 text-center">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/8 border border-emerald-500/15 flex items-center justify-center mx-auto mb-3">
+                  <Sparkles size={20} className="text-emerald-400/60" />
+                </div>
+                <p className="text-sm font-semibold liq-text-1 mb-1">Generate AI insights for this lead</p>
+                <p className="text-xs liq-text-3 max-w-xs mx-auto leading-relaxed">
+                  Gemini analyses their scores, risk flags, and assessment responses to generate lead-specific intelligence for your sales team.
+                </p>
+              </div>
+            )}
+
+            {/* Insights content */}
+            <AnimatePresence>
+              {aiInsights && insightsExpanded && !insightsLoading && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                  <div className="p-5 space-y-4">
+
+                    {/* Consultation Priority + Overall Assessment */}
+                    <div className="flex items-start gap-3">
+                      {/* Priority badge */}
+                      <div className="flex-shrink-0 flex flex-col items-center gap-1.5 p-3 rounded-xl border"
+                        style={{
+                          borderColor: aiInsights.consultationPriority === "HIGH" ? "rgba(239,68,68,0.25)" : aiInsights.consultationPriority === "MEDIUM" ? "rgba(245,158,11,0.25)" : "rgba(34,197,94,0.25)",
+                          background: aiInsights.consultationPriority === "HIGH" ? "rgba(239,68,68,0.06)" : aiInsights.consultationPriority === "MEDIUM" ? "rgba(245,158,11,0.06)" : "rgba(34,197,94,0.06)",
+                        }}>
+                        <Target size={14} style={{ color: aiInsights.consultationPriority === "HIGH" ? "#EF4444" : aiInsights.consultationPriority === "MEDIUM" ? "#F59E0B" : "#22C55E" }} />
+                        <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap"
+                          style={{ color: aiInsights.consultationPriority === "HIGH" ? "#EF4444" : aiInsights.consultationPriority === "MEDIUM" ? "#F59E0B" : "#22C55E" }}>
+                          {aiInsights.consultationPriority}
+                        </span>
+                        <span className="text-[9px] liq-text-4 whitespace-nowrap">priority</span>
+                      </div>
+                      {/* Overall assessment */}
+                      <div className="flex-1 min-w-0 p-3 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.04)" }}>
+                        <p className="text-[10px] font-bold text-[#C9A84C] uppercase tracking-wider mb-1.5">Overall Assessment</p>
+                        <p className="text-xs liq-text-2 leading-relaxed">{aiInsights.overallAssessment}</p>
+                        <p className="text-[10px] liq-text-4 italic mt-1.5">{aiInsights.consultationPriorityReason}</p>
+                      </div>
+                    </div>
+
+                    {/* Two-column: Risk Findings + Recommendations */}
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {/* Key Risk Findings */}
+                      <div className="p-3.5 rounded-xl border border-red-500/15 bg-red-500/04">
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <AlertTriangle size={12} className="text-red-400 flex-shrink-0" />
+                          <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Key Risk Findings</span>
+                        </div>
+                        <ul className="space-y-1.5">
+                          {aiInsights.keyRiskFindings.map((f, i) => (
+                            <li key={i} className="flex items-start gap-2 text-xs liq-text-2">
+                              <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 bg-red-500/15 text-red-400 flex items-center justify-center text-[9px] font-black mt-0.5">{i + 1}</span>
+                              <span className="leading-relaxed">{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      {/* Priority Recommendations */}
+                      <div className="p-3.5 rounded-xl border border-[#C9A84C]/15 bg-[#C9A84C]/04">
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <Lightbulb size={12} className="text-[#C9A84C] flex-shrink-0" />
+                          <span className="text-[10px] font-bold text-[#C9A84C] uppercase tracking-wider">Priority Recommendations</span>
+                        </div>
+                        <ul className="space-y-1.5">
+                          {aiInsights.priorityRecommendations.map((r, i) => (
+                            <li key={i} className="flex items-start gap-2 text-xs liq-text-2">
+                              <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 bg-[#C9A84C]/15 text-[#C9A84C] flex items-center justify-center text-[9px] font-black mt-0.5">{i + 1}</span>
+                              <span className="leading-relaxed">{r}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Two-column: Suggested Actions + Risk Mitigation */}
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {/* Suggested Actions */}
+                      <div className="p-3.5 rounded-xl border border-blue-500/15 bg-blue-500/04">
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <Zap size={12} className="text-blue-400 flex-shrink-0" />
+                          <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Suggested Actions</span>
+                        </div>
+                        <ul className="space-y-1.5">
+                          {aiInsights.suggestedActions.map((s, i) => (
+                            <li key={i} className="flex items-start gap-2 text-xs liq-text-2">
+                              <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 bg-blue-500/15 text-blue-400 flex items-center justify-center text-[9px] font-black mt-0.5">{i + 1}</span>
+                              <span className="leading-relaxed">{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      {/* Risk Mitigation */}
+                      <div className="p-3.5 rounded-xl border border-emerald-500/15 bg-emerald-500/04">
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <CheckCircle size={12} className="text-emerald-400 flex-shrink-0" />
+                          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">VCLO Risk Mitigation</span>
+                        </div>
+                        <ul className="space-y-1.5">
+                          {aiInsights.riskMitigation.map((m, i) => (
+                            <li key={i} className="flex items-start gap-2 text-xs liq-text-2">
+                              <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-[9px] font-black mt-0.5">✓</span>
+                              <span className="leading-relaxed">{m}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Next Best Actions (bottom highlight strip) */}
+                    <div className="p-4 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.20)", background: "linear-gradient(135deg, rgba(201,168,76,0.07), rgba(201,168,76,0.02))" }}>
+                      <div className="flex items-center gap-1.5 mb-2.5">
+                        <Zap size={13} className="text-[#C9A84C] flex-shrink-0" />
+                        <span className="text-xs font-bold text-[#C9A84C] uppercase tracking-wider">Next Best Actions for Your Team</span>
+                      </div>
+                      <ol className="space-y-1.5">
+                        {aiInsights.nextBestActions.map((action, i) => (
+                          <li key={i} className="flex items-start gap-2.5 text-xs liq-text-1 font-medium">
+                            <span className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black text-[#0A0A0A] mt-0.5"
+                              style={{ background: "#C9A84C" }}>{i + 1}</span>
+                            <span className="leading-relaxed">{action}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
 
         {/* ── LHS REPORT (identical to user view) ─────────────────────────── */}
         {!a ? (

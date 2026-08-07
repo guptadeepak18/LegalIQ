@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, ChevronRight, SlidersHorizontal, X, ChevronDown, Search } from "lucide-react";
+import { Download, ChevronRight, SlidersHorizontal, X, ChevronDown } from "lucide-react";
 import { apiFetch, authHeaders, API_BASE } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { SearchInput } from "@/components/admin/SearchInput";
 import { toast } from "sonner";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -121,6 +122,7 @@ interface FilterState {
   businessTypeFilter: string;
   scoreMin: string;
   scoreMax: string;
+  consultationsOnly: boolean;
 }
 
 function SmartFilter({
@@ -301,7 +303,7 @@ function SmartFilter({
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => {
-                    onChange({ datePreset: "all", dateFrom: "", dateTo: "", riskFilter: "", statusFilter: "", businessTypeFilter: "", scoreMin: "", scoreMax: "" });
+                    onChange({ datePreset: "all", dateFrom: "", dateTo: "", riskFilter: "", statusFilter: "", businessTypeFilter: "", scoreMin: "", scoreMax: "", consultationsOnly: false });
                     setOpen(false);
                   }}
                   className="flex-1 py-1.5 rounded-xl border text-xs font-semibold liq-text-3 transition-all hover:liq-text-1"
@@ -401,8 +403,24 @@ function Pagination({ page, totalPages, total, onPage }: {
 const DEFAULT_FILTERS: FilterState = {
   datePreset: "all", dateFrom: "", dateTo: "",
   riskFilter: "", statusFilter: "", businessTypeFilter: "",
-  scoreMin: "", scoreMax: "",
+  scoreMin: "", scoreMax: "", consultationsOnly: false,
 };
+
+/** Read URL params set by Dashboard KPI card clicks so they pre-filter the table. */
+function getInitialFilters(): FilterState {
+  if (typeof window === "undefined") return DEFAULT_FILTERS;
+  const p = new URLSearchParams(window.location.search);
+  const risk = p.get("risk") ?? "";
+  const consultations = p.get("consultations") === "true";
+  const preset = p.get("preset");
+  const validPresets = ["today", "week", "month", "all"];
+  return {
+    ...DEFAULT_FILTERS,
+    riskFilter: risk,
+    consultationsOnly: consultations,
+    datePreset: validPresets.includes(preset ?? "") ? (preset as FilterState["datePreset"]) : "all",
+  };
+}
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -417,11 +435,12 @@ export default function LeadsPage() {
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<FilterState>(getInitialFilters);
 
   const hasActiveFilters = !!(
     search || filters.riskFilter || filters.statusFilter ||
     filters.businessTypeFilter || filters.scoreMin || filters.scoreMax ||
+    filters.consultationsOnly ||
     (filters.datePreset !== "all" && filters.datePreset !== "custom") ||
     (filters.datePreset === "custom" && (filters.dateFrom || filters.dateTo))
   );
@@ -438,6 +457,7 @@ export default function LeadsPage() {
       if (filters.businessTypeFilter) params.set("businessType", filters.businessTypeFilter);
       if (filters.scoreMin) params.set("scoreMin", filters.scoreMin);
       if (filters.scoreMax) params.set("scoreMax", filters.scoreMax);
+      if (filters.consultationsOnly) params.set("hasConsultation", "true");
 
       // Date range
       if (filters.datePreset !== "all" && filters.datePreset !== "custom") {
@@ -551,15 +571,12 @@ export default function LeadsPage() {
             </div>
 
             {/* Search */}
-            <div className="relative flex-1 min-w-[180px]">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 liq-text-4 pointer-events-none" />
-              <input
-                className="liq-input pl-9 w-full h-10 text-sm"
-                placeholder="Search name, company, email…"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              />
-            </div>
+            <SearchInput
+              value={search}
+              onChange={(v) => { setSearch(v); setPage(1); }}
+              placeholder="Search name, company, email…"
+              className="flex-1 min-w-[180px]"
+            />
 
             {/* Smart filter */}
             <SmartFilter
@@ -581,8 +598,15 @@ export default function LeadsPage() {
           </div>
 
           {/* Active filter chips */}
-          {(filters.riskFilter || filters.statusFilter || filters.businessTypeFilter || filters.scoreMin || filters.scoreMax) && (
+          {(filters.riskFilter || filters.statusFilter || filters.businessTypeFilter || filters.scoreMin || filters.scoreMax || filters.consultationsOnly) && (
             <div className="flex items-center gap-2 flex-wrap">
+              {filters.consultationsOnly && (
+                <FilterChip
+                  label="Consultations only"
+                  color="#A78BFA"
+                  onRemove={() => handleFilterChange({ ...filters, consultationsOnly: false })}
+                />
+              )}
               {filters.riskFilter && (
                 <FilterChip
                   label={filters.riskFilter}

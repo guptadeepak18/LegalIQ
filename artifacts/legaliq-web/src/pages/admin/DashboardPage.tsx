@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { SearchInput } from "@/components/admin/SearchInput";
 import { toast } from "sonner";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -589,22 +590,25 @@ export default function DashboardPage() {
               label: "Today", value: stats.todayCount, sub: "assessments",
               icon: Zap, color: "#C9A84C", iconBg: "rgba(201,168,76,0.12)",
               trend: todayVsYest, trendLabel: "vs yesterday",
+              onClick: () => navigate("/admin/leads?preset=today"),
             },
             {
               label: "This Week", value: stats.weekCount, sub: "assessments",
               icon: TrendingUp, color: "#3B82F6", iconBg: "rgba(59,130,246,0.10)",
               trend: weekVsPrev, trendLabel: "vs last week",
+              onClick: () => navigate("/admin/leads?preset=week"),
             },
             {
               label: "All Time", value: stats.assessmentsComplete, sub: "assessments",
               icon: FileText, color: "#8B5CF6", iconBg: "rgba(139,92,246,0.10)",
               trend: null, trendLabel: "total",
+              onClick: () => navigate("/admin/leads"),
             },
           ].map((c, i) => (
             <motion.div key={c.label}
               initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
-              onClick={() => navigate("/admin/analytics")}
+              onClick={c.onClick}
               className="relative overflow-hidden rounded-2xl p-5 cursor-pointer group transition-all"
               style={{
                 background: "var(--card-glass-bg)",
@@ -654,22 +658,14 @@ export default function DashboardPage() {
             {
               label: "Critical Risk", value: stats.criticalRisk, icon: AlertTriangle, color: "#EF4444",
               suffix: "",
-              onClick: () => {
-                setFilters((f) => ({ ...f, riskLevel: f.riskLevel === "CRITICAL" ? "" : "CRITICAL", consultationsOnly: false }));
-                setPage(1);
-                setTimeout(() => tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
-              },
-              sub: <span className="text-[10px] text-red-400 font-semibold">{stats.criticalRisk > 0 ? "Needs attention — click to filter" : "All clear"}</span>,
+              onClick: () => navigate("/admin/leads?risk=CRITICAL"),
+              sub: <span className="text-[10px] text-red-400 font-semibold">{stats.criticalRisk > 0 ? "Needs attention — click to view" : "All clear"}</span>,
             },
             {
               label: "Consultations", value: stats.consultationsBooked, icon: Calendar, color: "#A78BFA",
               suffix: "",
-              onClick: () => {
-                setFilters((f) => ({ ...f, consultationsOnly: !f.consultationsOnly, riskLevel: "" }));
-                setPage(1);
-                setTimeout(() => tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
-              },
-              sub: <span className="text-[10px] liq-text-4">{stats.assessmentsComplete > 0 ? `${Math.round((stats.consultationsBooked / stats.assessmentsComplete) * 100)}% conversion — click to filter` : "No data"}</span>,
+              onClick: () => navigate("/admin/leads?consultations=true"),
+              sub: <span className="text-[10px] liq-text-4">{stats.assessmentsComplete > 0 ? `${Math.round((stats.consultationsBooked / stats.assessmentsComplete) * 100)}% conversion — click to view` : "No data"}</span>,
             },
           ].map((c, i) => (
             <motion.div key={c.label}
@@ -826,12 +822,13 @@ export default function DashboardPage() {
             {/* Spacer */}
             <div className="flex-1" />
             {/* Search */}
-            <div className="relative flex-shrink-0">
-              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 liq-text-4 pointer-events-none" />
-              <input type="search" placeholder="Search leads…" value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="liq-input pl-8 py-1.5 text-xs w-44 sm:w-52" />
-            </div>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search leads…"
+              size="sm"
+              className="w-44 sm:w-52 flex-shrink-0"
+            />
             {/* View all */}
             <button onClick={() => navigate("/admin/leads")}
               className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all border"

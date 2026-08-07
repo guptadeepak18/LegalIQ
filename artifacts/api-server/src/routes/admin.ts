@@ -333,6 +333,127 @@ Return ONLY valid JSON:
   }
 });
 
+// ── Per-lead AI insights (in-memory cache, 30 min TTL) ───────────────────────
+
+interface LeadInsightData {
+  overallAssessment: string;
+  keyRiskFindings: string[];
+  priorityRecommendations: string[];
+  suggestedActions: string[];
+  riskMitigation: string[];
+  consultationPriority: "HIGH" | "MEDIUM" | "LOW";
+  consultationPriorityReason: string;
+  nextBestActions: string[];
+}
+
+const leadInsightsCache = new Map<string, { data: LeadInsightData; generatedAt: number }>();
+const INSIGHTS_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+router.post("/admin/leads/:id/ai-insights", requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const forceRefresh = (req.body as Record<string, unknown>)?.forceRefresh === true;
+
+  // Serve from cache unless forced refresh
+  const cached = leadInsightsCache.get(id);
+  if (!forceRefresh && cached && Date.now() - cached.generatedAt < INSIGHTS_TTL_MS) {
+    res.json({ success: true, insights: cached.data, cached: true });
+    return;
+  }
+
+  // Fetch lead + assessment + report + answers
+  const [lead] = await db.select().from(leads).where(eq(leads.id, String(id)));
+  if (!lead) { res.status(404).json({ success: false, message: "Lead not found" }); return; }
+
+  const [assessment] = await db.select().from(assessments).where(eq(assessments.leadId, String(id)));
+  if (!assessment) { res.status(400).json({ success: false, message: "No assessment for this lead" }); return; }
+
+  const [report] = await db.select().from(reports).where(eq(reports.assessmentId, assessment.id));
+  const answersList = await db.select().from(answersTable).where(eq(answersTable.assessmentId, assessment.id));
+
+  // Derive insight data from report
+  const insightsList = (report?.insights ?? []) as Array<{ title: string; severity: string; description: string; businessImpact?: string }>;
+  const actionsList  = (report?.actions  ?? []) as Array<{ action: string; priority?: string; timeline?: string }>;
+  const futureRisks  = (report?.futureRisks ?? []) as Array<{ title: string; level: string; action: string }>;
+
+  const PILLAR_LABELS: Record<string, string> = {
+    litigationScore: "Litigation Health",
+    contractualScore: "Contractual Health",
+    complianceScore: "Compliance Health",
+    costScore: "Legal Cost Efficiency",
+  };
+  const pillarScores = Object.entries(PILLAR_LABELS).map(([key, label]) => ({
+    label,
+    score: (assessment as Record<string, unknown>)[key] as number ?? 0,
+  }));
+  const weakestPillars = [...pillarScores].sort((a, b) => a.score - b.score).slice(0, 2);
+  const highRisks   = insightsList.filter(i => i.severity === "HIGH").map(i => i.title);
+  const immediateActions = actionsList.filter(a => a.priority === "Immediate" || a.timeline === "THIS WEEK").map(a => a.action);
+  const highFutureRisks  = futureRisks.filter(r => r.level === "HIGH").map(r => r.title);
+
+  const prompt = `You are a senior legal risk analyst at Rest The Case, a VCLO (Virtual Chief Legal Officer) firm in India that helps businesses with proactive legal protection.
+
+Analyse this specific lead's legal health data and generate precise, actionable admin intelligence for the sales and legal team.
+
+LEAD PROFILE:
+- Name: ${lead.name}
+- Company: ${lead.company} (${lead.businessType})
+- Location: ${lead.city}
+- Assessment date: ${assessment.completedAt ? new Date(assessment.completedAt).toLocaleDateString("en-IN") : "recent"}
+
+PILLAR SCORES (out of 25 each):
+${pillarScores.map(p => `- ${p.label}: ${p.score}/25`).join("\n")}
+- TOTAL Legal Health Score: ${assessment.totalScore}/100 (${assessment.riskLevel} risk)
+
+WEAKEST PILLARS: ${weakestPillars.map(p => `${p.label} (${p.score}/25)`).join(", ")}
+HIGH-SEVERITY RISK FLAGS (${highRisks.length}): ${highRisks.length > 0 ? highRisks.join("; ") : "none"}
+IMMEDIATE ACTIONS REQUIRED: ${immediateActions.length > 0 ? immediateActions.join("; ") : "none"}
+HIGH FUTURE RISK EXPOSURES: ${highFutureRisks.length > 0 ? highFutureRisks.join("; ") : "none"}
+TOTAL QUESTIONS ANSWERED: ${answersList.length}
+REPORT SUMMARY: ${report?.summary ?? "Assessment complete"}
+
+Generate targeted admin intelligence to help the RTC team prioritize and convert this lead.
+
+Return ONLY valid JSON with NO markdown fences:
+{
+  "overallAssessment": "2–3 sentence profile of this lead's legal risk and conversion potential based on their actual data",
+  "keyRiskFindings": ["3–4 specific findings derived directly from their pillar scores and risk flags"],
+  "priorityRecommendations": ["3–4 specific recommendations the RTC team should present to this lead"],
+  "suggestedActions": ["3–4 concrete next actions for the sales team to convert this lead"],
+  "riskMitigation": ["3 precise ways a VCLO subscription addresses their identified risk gaps"],
+  "consultationPriority": "HIGH",
+  "consultationPriorityReason": "One sentence explaining why this lead should or should not be prioritized for outreach",
+  "nextBestActions": ["2–3 immediate next steps for the admin team, in order of priority"]
+}`;
+
+  try {
+    const raw = await callGeminiAdmin(prompt, 1400);
+    const parsed = extractJSON(raw) as LeadInsightData;
+
+    if (!parsed.overallAssessment || !Array.isArray(parsed.keyRiskFindings)) {
+      logger.warn("Invalid AI insights response structure", { id });
+      res.status(500).json({ success: false, message: "AI returned an unexpected response. Please retry." });
+      return;
+    }
+
+    // Validate + normalise consultationPriority
+    if (!["HIGH", "MEDIUM", "LOW"].includes(parsed.consultationPriority)) {
+      parsed.consultationPriority = assessment.totalScore < 40 ? "HIGH" : assessment.totalScore < 70 ? "MEDIUM" : "LOW";
+    }
+
+    // Store in cache
+    leadInsightsCache.set(id, { data: parsed, generatedAt: Date.now() });
+    res.json({ success: true, insights: parsed, cached: false });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message === "RATE_LIMITED") {
+      res.json({ success: true, rateLimited: true });
+    } else {
+      logger.error("Lead AI insights failed", { err, id });
+      res.status(500).json({ success: false, message: "Insights generation failed. Please try again." });
+    }
+  }
+});
+
 // ── GET /admin/leads ─────────────────────────────────────────────────────────
 router.get("/admin/leads", requireAuth, async (req, res) => {
   const page = Number(req.query.page ?? 1);
@@ -405,7 +526,7 @@ router.get("/admin/leads/:id", requireAuth, async (req, res) => {
 // ── PATCH /admin/leads/:id/status ────────────────────────────────────────────
 router.patch("/admin/leads/:id/status", requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body as { status: string };
+  const status = (req.body as { status?: string } | undefined)?.status;
   if (!status) { res.status(400).json({ success: false, message: "Status required" }); return; }
   await db.update(assessments).set({ status }).where(eq(assessments.leadId, String(id)));
   res.json({ success: true, message: "Status updated" });
