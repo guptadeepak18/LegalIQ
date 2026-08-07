@@ -344,6 +344,7 @@ router.get("/admin/leads", requireAuth, async (req, res) => {
   const scoreMin = req.query.scoreMin !== undefined ? Number(req.query.scoreMin) : undefined;
   const scoreMax = req.query.scoreMax !== undefined ? Number(req.query.scoreMax) : undefined;
   const dateFrom = req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined;
+  const hasConsultation = req.query.hasConsultation === "true";
   const offset = (page - 1) * limit;
 
   const allLeads = await db.select({
@@ -360,6 +361,11 @@ router.get("/admin/leads", requireAuth, async (req, res) => {
   if (scoreMin !== undefined) filtered = filtered.filter((l) => (l.totalScore ?? 0) >= scoreMin);
   if (scoreMax !== undefined) filtered = filtered.filter((l) => (l.totalScore ?? 0) <= scoreMax);
   if (dateFrom) filtered = filtered.filter((l) => l.createdAt && new Date(l.createdAt) >= dateFrom);
+  if (hasConsultation) {
+    const consultLeadIds = await db.selectDistinct({ leadId: consultations.leadId }).from(consultations);
+    const ids = new Set(consultLeadIds.map((c) => c.leadId));
+    filtered = filtered.filter((l) => ids.has(l.id));
+  }
 
   const [totalResult] = await db.select({ count: count() }).from(leads);
   const businessTypes = await db.selectDistinct({ businessType: leads.businessType }).from(leads).orderBy(leads.businessType);

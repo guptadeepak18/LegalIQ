@@ -32,6 +32,7 @@ interface Filters {
   preset: "today" | "week" | "month" | "all" | "custom";
   dateFrom: string; dateTo: string;
   riskLevel: string; scoreMin: string; scoreMax: string; businessType: string;
+  consultationsOnly: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -86,10 +87,11 @@ function buildQueryString(filters: Filters): string {
     if (filters.dateFrom) p.set("dateFrom", filters.dateFrom);
     if (filters.dateTo)   p.set("dateTo",   filters.dateTo);
   }
-  if (filters.riskLevel)   p.set("riskLevel",   filters.riskLevel);
-  if (filters.scoreMin)    p.set("scoreMin",     filters.scoreMin);
-  if (filters.scoreMax)    p.set("scoreMax",     filters.scoreMax);
-  if (filters.businessType) p.set("businessType", filters.businessType);
+  if (filters.riskLevel)       p.set("riskLevel",       filters.riskLevel);
+  if (filters.scoreMin)        p.set("scoreMin",         filters.scoreMin);
+  if (filters.scoreMax)        p.set("scoreMax",         filters.scoreMax);
+  if (filters.businessType)    p.set("businessType",     filters.businessType);
+  if (filters.consultationsOnly) p.set("hasConsultation", "true");
   return p.toString();
 }
 
@@ -409,7 +411,7 @@ function FilterBar({
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={() => {
-                      onChange({ preset: "all", dateFrom: "", dateTo: "", riskLevel: "", scoreMin: "", scoreMax: "", businessType: "" });
+                      onChange({ preset: "all", dateFrom: "", dateTo: "", riskLevel: "", scoreMin: "", scoreMax: "", businessType: "", consultationsOnly: false });
                       setOpen(false);
                     }}
                     className="flex-1 py-1.5 rounded-xl border text-xs font-semibold liq-text-3 transition-all hover:liq-text-1"
@@ -430,7 +432,10 @@ function FilterBar({
 
       {/* Active filter chips */}
       {filters.riskLevel && (
-        <FilterChip label={filters.riskLevel} onRemove={() => onChange({ ...filters, riskLevel: "" })} color={riskColor(filters.riskLevel).text} />
+        <FilterChip label={`Risk: ${filters.riskLevel}`} onRemove={() => onChange({ ...filters, riskLevel: "" })} color={riskColor(filters.riskLevel).text} />
+      )}
+      {filters.consultationsOnly && (
+        <FilterChip label="Consultations only" onRemove={() => onChange({ ...filters, consultationsOnly: false })} color="#A78BFA" />
       )}
       {filters.businessType && (
         <FilterChip label={filters.businessType} onRemove={() => onChange({ ...filters, businessType: "" })} />
@@ -459,6 +464,7 @@ function FilterChip({ label, onRemove, color }: { label: string; onRemove: () =>
 const DEFAULT_FILTERS: Filters = {
   preset: "all", dateFrom: "", dateTo: "",
   riskLevel: "", scoreMin: "", scoreMax: "", businessType: "",
+  consultationsOnly: false,
 };
 
 export default function DashboardPage() {
@@ -474,6 +480,7 @@ export default function DashboardPage() {
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [businessTypes, setBusinessTypes] = useState<string[]>([]);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
 
   const fetchStats = useCallback(async (f: Filters) => {
     const qs = buildQueryString(f);
@@ -534,7 +541,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <AdminLayout active="/admin/dashboard" title="Dashboard">
+      <AdminLayout active="/admin/dashboard">
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="flex flex-col items-center gap-4">
             <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
@@ -563,7 +570,7 @@ export default function DashboardPage() {
     : `Portfolio health is strong. Focus on converting ${stats.moderateRisk} moderate-risk leads into consultations this week.`;
 
   return (
-    <AdminLayout active="/admin/dashboard" title="Dashboard">
+    <AdminLayout active="/admin/dashboard">
       <div className="px-6 py-6 max-w-[1200px] mx-auto" style={{ background: "transparent" }}>
 
         {/* ── Page header + filters ──────────────────────────────────────── */}
@@ -646,13 +653,23 @@ export default function DashboardPage() {
             },
             {
               label: "Critical Risk", value: stats.criticalRisk, icon: AlertTriangle, color: "#EF4444",
-              suffix: "", onClick: () => navigate("/admin/leads"),
-              sub: <span className="text-[10px] text-red-400 font-semibold">{stats.criticalRisk > 0 ? "Needs attention" : "All clear"}</span>,
+              suffix: "",
+              onClick: () => {
+                setFilters((f) => ({ ...f, riskLevel: f.riskLevel === "CRITICAL" ? "" : "CRITICAL", consultationsOnly: false }));
+                setPage(1);
+                setTimeout(() => tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+              },
+              sub: <span className="text-[10px] text-red-400 font-semibold">{stats.criticalRisk > 0 ? "Needs attention — click to filter" : "All clear"}</span>,
             },
             {
               label: "Consultations", value: stats.consultationsBooked, icon: Calendar, color: "#A78BFA",
-              suffix: "", onClick: () => navigate("/admin/leads"),
-              sub: <span className="text-[10px] liq-text-4">{stats.assessmentsComplete > 0 ? `${Math.round((stats.consultationsBooked / stats.assessmentsComplete) * 100)}% conversion` : "No data"}</span>,
+              suffix: "",
+              onClick: () => {
+                setFilters((f) => ({ ...f, consultationsOnly: !f.consultationsOnly, riskLevel: "" }));
+                setPage(1);
+                setTimeout(() => tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+              },
+              sub: <span className="text-[10px] liq-text-4">{stats.assessmentsComplete > 0 ? `${Math.round((stats.consultationsBooked / stats.assessmentsComplete) * 100)}% conversion — click to filter` : "No data"}</span>,
             },
           ].map((c, i) => (
             <motion.div key={c.label}
@@ -789,26 +806,35 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Recent Leads Table ─────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+        <motion.div ref={tableRef} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
           className="rounded-2xl overflow-hidden"
           style={{ background: "var(--card-glass-bg)", border: "1.5px solid var(--card-glass-border)", boxShadow: "var(--card-glass-shadow)" }}>
 
           {/* Table header */}
-          <div className="flex flex-wrap items-center gap-3 px-6 py-4 border-b" style={{ borderColor: "var(--nav-border)" }}>
-            <div className="flex items-center gap-2 flex-1">
+          <div className="flex items-center gap-3 px-6 py-4 border-b" style={{ borderColor: "var(--nav-border)" }}>
+            {/* Title */}
+            <div className="flex items-center gap-2 min-w-0">
               <Users size={14} className="text-[#C9A84C] flex-shrink-0" />
-              <h2 className="text-sm font-bold liq-text-1">Recent Leads</h2>
+              <h2 className="text-sm font-bold liq-text-1 whitespace-nowrap">Recent Leads</h2>
+              {totalLeads > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold"
+                  style={{ background: "rgba(201,168,76,0.12)", color: "#C9A84C" }}>
+                  {totalLeads}
+                </span>
+              )}
             </div>
+            {/* Spacer */}
+            <div className="flex-1" />
             {/* Search */}
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 liq-text-4 pointer-events-none" />
               <input type="search" placeholder="Search leads…" value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="liq-input pl-8 py-1.5 text-xs w-48" />
+                className="liq-input pl-8 py-1.5 text-xs w-44 sm:w-52" />
             </div>
             {/* View all */}
             <button onClick={() => navigate("/admin/leads")}
-              className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all border"
+              className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all border"
               style={{ borderColor: "rgba(201,168,76,0.25)", color: "#C9A84C", background: "rgba(201,168,76,0.08)" }}>
               <Filter size={10} /> View all <ArrowUpRight size={10} />
             </button>
