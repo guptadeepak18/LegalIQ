@@ -423,13 +423,13 @@ html.dark       .liq-text-4 { color: rgba(255,255,255, 0.65)  !important; }
     box-shadow: 0 8px 32px rgba(15,23,42,0.25);
     transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
   }
-  /* Light mode: solid, no blur needed */
+  /* Light mode: use design tokens for glass card */
   html:not(.dark) .glass-card {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    background: #FFFFFF;
-    border-color: rgba(200,200,200,0.2);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+    background: var(--card-glass-bg);
+    border-color: var(--card-glass-border);
+    box-shadow: var(--card-glass-shadow);
   }
   .glass-card-hover:hover {
     transform: translateY(-3px);
