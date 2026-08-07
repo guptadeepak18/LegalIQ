@@ -83,7 +83,7 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
   const [
     [totalLeadsResult],
     [assessmentsResult],
-    [consultationsResult],
+    consultationStatusRows,
     [todayResult],
     [weekResult],
     [monthResult],
@@ -98,7 +98,7 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
   ] = await Promise.all([
     db.select({ count: count() }).from(leads),
     db.select({ count: count() }).from(assessments).where(f),
-    db.select({ count: count() }).from(consultations),
+    db.select({ status: consultations.status, count: count() }).from(consultations).groupBy(consultations.status),
     db.select({ count: count() }).from(assessments).where(and(f, gte(assessments.completedAt, today))),
     db.select({ count: count() }).from(assessments).where(and(f, gte(assessments.completedAt, weekAgo))),
     db.select({ count: count() }).from(assessments).where(and(f, gte(assessments.completedAt, monthAgo))),
@@ -122,6 +122,12 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     db.selectDistinct({ businessType: leads.businessType }).from(leads).orderBy(leads.businessType),
   ]);
 
+  const consultationStatusMap: Record<string, number> = {};
+  for (const r of consultationStatusRows) {
+    if (r.status) consultationStatusMap[r.status] = r.count;
+  }
+  const totalConsultations = Object.values(consultationStatusMap).reduce((a, b) => a + b, 0);
+
   const riskBreakdownMap: Record<string, number> = {};
   for (const r of riskBreakdown) {
     if (r.riskLevel) riskBreakdownMap[r.riskLevel] = r.count;
@@ -142,7 +148,8 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     success: true,
     totalLeads:          totalLeadsResult.count,
     assessmentsComplete: assessmentsResult.count,
-    consultationsBooked: consultationsResult.count,
+    consultationsBooked: totalConsultations,
+    consultationStatusBreakdown: consultationStatusMap,
     todayCount:  todayResult.count,
     weekCount:   weekResult.count,
     monthCount:  monthResult.count,
@@ -367,8 +374,11 @@ router.post("/admin/leads/:id/ai-insights", requireAuth, async (req, res) => {
   const [assessment] = await db.select().from(assessments).where(eq(assessments.leadId, String(id)));
   if (!assessment) { res.status(400).json({ success: false, message: "No assessment for this lead" }); return; }
 
-  const [report] = await db.select().from(reports).where(eq(reports.assessmentId, assessment.id));
-  const answersList = await db.select().from(answersTable).where(eq(answersTable.assessmentId, assessment.id));
+  const [[report], answersList, [consultationRecord]] = await Promise.all([
+    db.select().from(reports).where(eq(reports.assessmentId, assessment.id)),
+    db.select().from(answersTable).where(eq(answersTable.assessmentId, assessment.id)),
+    db.select().from(consultations).where(eq(consultations.leadId, String(id))),
+  ]);
 
   // Derive insight data from report
   const insightsList = (report?.insights ?? []) as Array<{ title: string; severity: string; description: string; businessImpact?: string }>;
@@ -410,6 +420,9 @@ IMMEDIATE ACTIONS REQUIRED: ${immediateActions.length > 0 ? immediateActions.joi
 HIGH FUTURE RISK EXPOSURES: ${highFutureRisks.length > 0 ? highFutureRisks.join("; ") : "none"}
 TOTAL QUESTIONS ANSWERED: ${answersList.length}
 REPORT SUMMARY: ${report?.summary ?? "Assessment complete"}
+CONSULTATION STATUS: ${consultationRecord
+  ? `${consultationRecord.status} — user requested ${consultationRecord.date} at ${consultationRecord.time}${consultationRecord.scheduledAt ? ` | admin-confirmed: ${new Date(consultationRecord.scheduledAt).toLocaleDateString("en-IN")}` : " (not yet confirmed by admin)"}${consultationRecord.notes ? ` | user notes: "${consultationRecord.notes}"` : ""}`
+  : "No consultation booked yet — lead has not requested an appointment"}
 
 Generate targeted admin intelligence to help the RTC team prioritize and convert this lead.
 
@@ -466,6 +479,7 @@ router.get("/admin/leads", requireAuth, async (req, res) => {
   const scoreMax = req.query.scoreMax !== undefined ? Number(req.query.scoreMax) : undefined;
   const dateFrom = req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined;
   const hasConsultation = req.query.hasConsultation === "true";
+  const consultationStatus = req.query.consultationStatus as string | undefined;
   const offset = (page - 1) * limit;
 
   const allLeads = await db.select({
@@ -482,8 +496,11 @@ router.get("/admin/leads", requireAuth, async (req, res) => {
   if (scoreMin !== undefined) filtered = filtered.filter((l) => (l.totalScore ?? 0) >= scoreMin);
   if (scoreMax !== undefined) filtered = filtered.filter((l) => (l.totalScore ?? 0) <= scoreMax);
   if (dateFrom) filtered = filtered.filter((l) => l.createdAt && new Date(l.createdAt) >= dateFrom);
-  if (hasConsultation) {
-    const consultLeadIds = await db.selectDistinct({ leadId: consultations.leadId }).from(consultations);
+  if (hasConsultation || consultationStatus) {
+    const baseQuery = db.selectDistinct({ leadId: consultations.leadId }).from(consultations);
+    const consultLeadIds = consultationStatus
+      ? await baseQuery.where(eq(consultations.status, consultationStatus))
+      : await baseQuery;
     const ids = new Set(consultLeadIds.map((c) => c.leadId));
     filtered = filtered.filter((l) => ids.has(l.id));
   }
@@ -501,6 +518,7 @@ router.get("/admin/leads/:id", requireAuth, async (req, res) => {
   if (!lead) { res.status(404).json({ success: false, message: "Lead not found" }); return; }
 
   const [assessment] = await db.select().from(assessments).where(eq(assessments.leadId, String(id)));
+  const [consultation] = await db.select().from(consultations).where(eq(consultations.leadId, String(id)));
   let report = null;
   let answersList: typeof answersTable.$inferSelect[] = [];
 
@@ -514,6 +532,16 @@ router.get("/admin/leads/:id", requireAuth, async (req, res) => {
     success: true,
     lead: {
       ...lead,
+      consultation: consultation ? {
+        id: consultation.id,
+        status: consultation.status,
+        date: consultation.date,
+        time: consultation.time,
+        notes: consultation.notes,
+        scheduledAt: consultation.scheduledAt,
+        createdAt: consultation.createdAt,
+        updatedAt: consultation.updatedAt,
+      } : null,
       assessment: assessment ? {
         ...assessment,
         report: report ? { summary: report.summary, pillarAssessments: report.pillarAssessments, insights: report.insights, futureRisks: report.futureRisks, actions: report.actions, costSummary: report.costSummary, similarCases: report.similarCases, example: report.example, vcloPitch: report.vcloPitch } : null,
@@ -521,6 +549,34 @@ router.get("/admin/leads/:id", requireAuth, async (req, res) => {
       } : null,
     },
   });
+});
+
+// ── PATCH /admin/leads/:id/consultation ──────────────────────────────────────
+router.patch("/admin/leads/:id/consultation", requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const body = (req.body ?? {}) as { status?: string; scheduledAt?: string | null };
+  const { status, scheduledAt } = body;
+
+  if (!status) { res.status(400).json({ success: false, message: "status is required" }); return; }
+
+  const VALID_STATUSES = ["Requested", "Scheduled", "Completed", "Cancelled", "No Show"];
+  if (!VALID_STATUSES.includes(status)) {
+    res.status(400).json({ success: false, message: `status must be one of: ${VALID_STATUSES.join(", ")}` }); return;
+  }
+
+  const updateData: { status: string; scheduledAt?: Date | null; updatedAt: Date } = {
+    status, updatedAt: new Date(),
+  };
+  if (scheduledAt !== undefined) {
+    updateData.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;
+  }
+
+  await db.update(consultations).set(updateData).where(eq(consultations.leadId, String(id)));
+
+  // Invalidate per-lead AI insights cache so next generation picks up new status
+  leadInsightsCache.delete(id);
+
+  res.json({ success: true });
 });
 
 // ── PATCH /admin/leads/:id/status ────────────────────────────────────────────

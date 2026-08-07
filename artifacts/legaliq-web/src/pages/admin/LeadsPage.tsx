@@ -123,6 +123,7 @@ interface FilterState {
   scoreMin: string;
   scoreMax: string;
   consultationsOnly: boolean;
+  consultationStatus: string;  // Requested | Scheduled | Completed | Cancelled | No Show | ""
 }
 
 function SmartFilter({
@@ -146,6 +147,7 @@ function SmartFilter({
     filters.statusFilter,
     filters.businessTypeFilter,
     filters.scoreMin || filters.scoreMax,
+    filters.consultationStatus,
     filters.datePreset === "custom" && (filters.dateFrom || filters.dateTo),
   ].filter(Boolean).length;
 
@@ -299,11 +301,41 @@ function SmartFilter({
                 </div>
               )}
 
+              {/* Consultation Status */}
+              <div>
+                <label className="text-[10px] font-bold liq-text-3 uppercase tracking-widest mb-1.5 block">Consultation Status</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {(["", "Requested", "Scheduled", "Completed", "Cancelled", "No Show"] as const).map((v) => {
+                    const isActive = filters.consultationStatus === v;
+                    const colorMap: Record<string, { text: string; bg: string; border: string }> = {
+                      Requested: { text: "#F59E0B", bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.30)" },
+                      Scheduled: { text: "#3B82F6", bg: "rgba(59,130,246,0.10)", border: "rgba(59,130,246,0.30)" },
+                      Completed: { text: "#22C55E", bg: "rgba(34,197,94,0.10)", border: "rgba(34,197,94,0.30)" },
+                      Cancelled: { text: "#EF4444", bg: "rgba(239,68,68,0.10)", border: "rgba(239,68,68,0.30)" },
+                      "No Show": { text: "#8B5CF6", bg: "rgba(139,92,246,0.10)", border: "rgba(139,92,246,0.30)" },
+                    };
+                    const c = v ? colorMap[v] : null;
+                    return (
+                      <button key={v || "any"}
+                        onClick={() => onChange({ ...filters, consultationStatus: v })}
+                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border"
+                        style={{
+                          background: isActive && c ? c.bg : (isActive ? "rgba(201,168,76,0.10)" : "transparent"),
+                          color: isActive && c ? c.text : (isActive ? "#C9A84C" : "var(--liq-text-3)"),
+                          borderColor: isActive && c ? c.border : (isActive ? "rgba(201,168,76,0.35)" : "var(--nav-border)"),
+                        }}>
+                        {v || "Any"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Actions */}
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => {
-                    onChange({ datePreset: "all", dateFrom: "", dateTo: "", riskFilter: "", statusFilter: "", businessTypeFilter: "", scoreMin: "", scoreMax: "", consultationsOnly: false });
+                    onChange({ datePreset: "all", dateFrom: "", dateTo: "", riskFilter: "", statusFilter: "", businessTypeFilter: "", scoreMin: "", scoreMax: "", consultationsOnly: false, consultationStatus: "" });
                     setOpen(false);
                   }}
                   className="flex-1 py-1.5 rounded-xl border text-xs font-semibold liq-text-3 transition-all hover:liq-text-1"
@@ -403,7 +435,7 @@ function Pagination({ page, totalPages, total, onPage }: {
 const DEFAULT_FILTERS: FilterState = {
   datePreset: "all", dateFrom: "", dateTo: "",
   riskFilter: "", statusFilter: "", businessTypeFilter: "",
-  scoreMin: "", scoreMax: "", consultationsOnly: false,
+  scoreMin: "", scoreMax: "", consultationsOnly: false, consultationStatus: "",
 };
 
 /** Read URL params set by Dashboard KPI card clicks so they pre-filter the table. */
@@ -440,7 +472,7 @@ export default function LeadsPage() {
   const hasActiveFilters = !!(
     search || filters.riskFilter || filters.statusFilter ||
     filters.businessTypeFilter || filters.scoreMin || filters.scoreMax ||
-    filters.consultationsOnly ||
+    filters.consultationsOnly || filters.consultationStatus ||
     (filters.datePreset !== "all" && filters.datePreset !== "custom") ||
     (filters.datePreset === "custom" && (filters.dateFrom || filters.dateTo))
   );
@@ -458,6 +490,7 @@ export default function LeadsPage() {
       if (filters.scoreMin) params.set("scoreMin", filters.scoreMin);
       if (filters.scoreMax) params.set("scoreMax", filters.scoreMax);
       if (filters.consultationsOnly) params.set("hasConsultation", "true");
+      if (filters.consultationStatus) params.set("consultationStatus", filters.consultationStatus);
 
       // Date range
       if (filters.datePreset !== "all" && filters.datePreset !== "custom") {
@@ -598,8 +631,20 @@ export default function LeadsPage() {
           </div>
 
           {/* Active filter chips */}
-          {(filters.riskFilter || filters.statusFilter || filters.businessTypeFilter || filters.scoreMin || filters.scoreMax || filters.consultationsOnly) && (
+          {(filters.riskFilter || filters.statusFilter || filters.businessTypeFilter || filters.scoreMin || filters.scoreMax || filters.consultationsOnly || filters.consultationStatus) && (
             <div className="flex items-center gap-2 flex-wrap">
+              {filters.consultationStatus && (
+                <FilterChip
+                  label={`Consult: ${filters.consultationStatus}`}
+                  color={
+                    filters.consultationStatus === "Requested" ? "#F59E0B" :
+                    filters.consultationStatus === "Scheduled" ? "#3B82F6" :
+                    filters.consultationStatus === "Completed" ? "#22C55E" :
+                    filters.consultationStatus === "Cancelled" ? "#EF4444" : "#8B5CF6"
+                  }
+                  onRemove={() => handleFilterChange({ ...filters, consultationStatus: "" })}
+                />
+              )}
               {filters.consultationsOnly && (
                 <FilterChip
                   label="Consultations only"

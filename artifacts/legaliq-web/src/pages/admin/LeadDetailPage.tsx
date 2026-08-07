@@ -18,9 +18,21 @@ import { PILLAR_META } from "@/components/LHSReport";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+interface ConsultationRecord {
+  id: string;
+  status: string;               // Requested | Scheduled | Completed | Cancelled | No Show
+  date: string | null;          // user-selected date text
+  time: string | null;          // user-selected time text
+  notes: string | null;
+  scheduledAt: string | null;   // admin-confirmed ISO timestamp
+  createdAt: string;
+  updatedAt: string | null;
+}
+
 interface LeadDetail {
   id: string; name: string; company: string; businessType: string; city: string;
   email: string; phone: string; category: string; whatsappOptIn: boolean; createdAt: string;
+  consultation?: ConsultationRecord | null;
   assessment?: {
     id: string; totalScore: number; riskLevel: string;
     litigationScore: number; contractualScore: number; complianceScore: number;
@@ -64,6 +76,23 @@ interface AIInsights {
 }
 
 // ── Status config ──────────────────────────────────────────────────────────────
+
+// ── Consultation status config ─────────────────────────────────────────────────
+
+const CONSULT_STATUSES = ["Requested", "Scheduled", "Completed", "Cancelled", "No Show"] as const;
+type ConsultStatus = typeof CONSULT_STATUSES[number];
+
+const CONSULT_STATUS_META: Record<ConsultStatus, { color: string; bg: string; border: string; label: string }> = {
+  Requested:  { color: "#F59E0B", bg: "rgba(245,158,11,0.10)",  border: "rgba(245,158,11,0.30)",  label: "Requested" },
+  Scheduled:  { color: "#3B82F6", bg: "rgba(59,130,246,0.10)",  border: "rgba(59,130,246,0.30)",  label: "Scheduled" },
+  Completed:  { color: "#22C55E", bg: "rgba(34,197,94,0.10)",   border: "rgba(34,197,94,0.30)",   label: "Completed" },
+  Cancelled:  { color: "#EF4444", bg: "rgba(239,68,68,0.10)",   border: "rgba(239,68,68,0.30)",   label: "Cancelled" },
+  "No Show":  { color: "#8B5CF6", bg: "rgba(139,92,246,0.10)",  border: "rgba(139,92,246,0.30)",  label: "No Show" },
+};
+
+function consultStatusMeta(s?: string | null) {
+  return CONSULT_STATUS_META[s as ConsultStatus] ?? { color: "var(--liq-text-3)", bg: "rgba(201,168,76,0.08)", border: "rgba(201,168,76,0.15)", label: s ?? "Unknown" };
+}
 
 const STATUS_OPTIONS = ["new", "contacted", "converted", "dropped"];
 const STATUS_META: Record<string, string> = {
@@ -169,12 +198,22 @@ export default function LeadDetailPage() {
   const [insightsRateLimited, setInsightsRateLimited] = useState(false);
   const [insightsExpanded, setInsightsExpanded] = useState(true);
 
+  // Consultation management state
+  const [updatingConsultation, setUpdatingConsultation] = useState(false);
+  const [scheduledAtInput, setScheduledAtInput] = useState("");
+
   useEffect(() => {
     if (!id) return;
     const token = localStorage.getItem("liq_admin_token");
     if (!token) { navigate("/admin"); return; }
     apiFetch<{ success: boolean; lead: LeadDetail }>(`/admin/leads/${id}`, { headers: authHeaders() })
-      .then((res) => setLead(res.lead))
+      .then((res) => {
+        setLead(res.lead);
+        if (res.lead.consultation?.scheduledAt) {
+          const d = new Date(res.lead.consultation.scheduledAt);
+          setScheduledAtInput(d.toISOString().slice(0, 16));
+        }
+      })
       .catch(() => { toast.error("Lead not found"); navigate("/admin/leads"); })
       .finally(() => setLoading(false));
   }, [id, navigate]);
@@ -188,6 +227,43 @@ export default function LeadDetailPage() {
       toast.success("Status updated");
     } catch { toast.error("Update failed"); }
     finally { setUpdatingStatus(false); }
+  }
+
+  async function updateConsultationStatus(status: string) {
+    if (!lead?.id) return;
+    setUpdatingConsultation(true);
+    try {
+      const body: { status: string; scheduledAt?: string | null } = { status };
+      if (status === "Scheduled") body.scheduledAt = scheduledAtInput || null;
+      else body.scheduledAt = null; // clear scheduled time for non-scheduled statuses
+
+      await apiFetch(`/admin/leads/${lead.id}/consultation`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      });
+
+      setLead((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          consultation: prev.consultation
+            ? {
+                ...prev.consultation,
+                status,
+                scheduledAt: status === "Scheduled" && scheduledAtInput ? scheduledAtInput : null,
+                updatedAt: new Date().toISOString(),
+              }
+            : prev.consultation,
+        };
+      });
+      toast.success(`Consultation → ${status}`);
+      if (status !== "Scheduled") setScheduledAtInput("");
+    } catch {
+      toast.error("Failed to update consultation status");
+    } finally {
+      setUpdatingConsultation(false);
+    }
   }
 
   async function generateInsights(forceRefresh = false) {
@@ -485,6 +561,128 @@ export default function LeadDetailPage() {
                   </div>
                 </motion.div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* ── CONSULTATION RECORD ──────────────────────────────────────────── */}
+        <div className="rounded-2xl border mb-6 overflow-hidden"
+          style={{ background: "var(--card-glass-bg)", border: "1.5px solid var(--card-glass-border)", boxShadow: "var(--card-glass-shadow)" }}>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--nav-border)" }}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(59,130,246,0.10)", border: "1px solid rgba(59,130,246,0.20)" }}>
+                <Calendar size={13} className="text-blue-400" />
+              </div>
+              <span className="text-sm font-bold liq-text-1">Consultation</span>
+            </div>
+            {lead.consultation && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold"
+                style={{
+                  color: consultStatusMeta(lead.consultation.status).color,
+                  background: consultStatusMeta(lead.consultation.status).bg,
+                  borderColor: consultStatusMeta(lead.consultation.status).border,
+                }}>
+                {lead.consultation.status}
+              </div>
+            )}
+          </div>
+
+          {lead.consultation ? (
+            <div className="p-5 space-y-4">
+              {/* Details grid */}
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.12)", background: "rgba(201,168,76,0.04)" }}>
+                  <p className="text-[10px] font-bold text-[#C9A84C] uppercase tracking-wider mb-1">Requested Slot</p>
+                  <p className="text-sm font-semibold liq-text-1">{lead.consultation.date}</p>
+                  <p className="text-xs liq-text-3 mt-0.5">{lead.consultation.time}</p>
+                </div>
+                <div className="p-3 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.12)", background: "rgba(201,168,76,0.04)" }}>
+                  <p className="text-[10px] font-bold text-[#C9A84C] uppercase tracking-wider mb-1">Booked On</p>
+                  <p className="text-sm font-semibold liq-text-1">
+                    {new Date(lead.consultation.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  </p>
+                  {lead.consultation.updatedAt && (
+                    <p className="text-xs liq-text-4 mt-0.5">
+                      Updated {new Date(lead.consultation.updatedAt).toLocaleDateString("en-IN")}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Confirmed scheduled time */}
+              {lead.consultation.scheduledAt && (
+                <div className="flex items-start gap-2.5 p-3 rounded-xl border border-blue-500/20 bg-blue-500/05">
+                  <CheckCircle size={13} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-0.5">Confirmed Appointment</p>
+                    <p className="text-xs font-semibold liq-text-1">
+                      {new Date(lead.consultation.scheduledAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* User notes */}
+              {lead.consultation.notes && (
+                <div className="p-3 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.12)", background: "rgba(201,168,76,0.04)" }}>
+                  <p className="text-[10px] font-bold text-[#C9A84C] uppercase tracking-wider mb-1.5">User Notes</p>
+                  <p className="text-xs liq-text-2 leading-relaxed italic">"{lead.consultation.notes}"</p>
+                </div>
+              )}
+
+              {/* Admin status update */}
+              <div className="border-t pt-4" style={{ borderColor: "var(--nav-border)" }}>
+                <p className="text-[10px] font-bold liq-text-3 uppercase tracking-wider mb-2.5">Update Status</p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {CONSULT_STATUSES.map((s) => {
+                    const meta = CONSULT_STATUS_META[s];
+                    const isActive = lead.consultation?.status === s;
+                    return (
+                      <button key={s}
+                        onClick={() => updateConsultationStatus(s)}
+                        disabled={updatingConsultation || isActive}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all disabled:opacity-50"
+                        style={{
+                          color: isActive ? meta.color : "var(--liq-text-3)",
+                          background: isActive ? meta.bg : "transparent",
+                          borderColor: isActive ? meta.border : "var(--nav-border)",
+                        }}>
+                        {updatingConsultation && isActive ? "…" : s}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Confirm date/time input for Scheduled status */}
+                <div className="flex flex-col sm:flex-row gap-2 items-end">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold liq-text-3 uppercase tracking-wider mb-1.5 block">
+                      Confirmed Date/Time <span className="text-[9px] font-normal opacity-60">(set before marking Scheduled)</span>
+                    </label>
+                    <input type="datetime-local" value={scheduledAtInput}
+                      onChange={(e) => setScheduledAtInput(e.target.value)}
+                      className="liq-input text-xs py-1.5 w-full" />
+                  </div>
+                  {scheduledAtInput && lead.consultation?.status !== "Scheduled" && (
+                    <button onClick={() => updateConsultationStatus("Scheduled")}
+                      disabled={updatingConsultation}
+                      className="flex-shrink-0 text-xs font-bold px-4 py-1.5 rounded-xl disabled:opacity-40 transition-all"
+                      style={{ background: "#3B82F6", color: "#fff" }}>
+                      {updatingConsultation ? "Saving…" : "Mark Scheduled"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="px-5 py-8 text-center">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/8 border border-blue-500/15 flex items-center justify-center mx-auto mb-3">
+                <Calendar size={18} className="text-blue-400/50" />
+              </div>
+              <p className="text-sm font-semibold liq-text-1 mb-1">No consultation booked</p>
+              <p className="text-xs liq-text-3">This lead has not requested a consultation appointment yet.</p>
             </div>
           )}
         </div>

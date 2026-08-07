@@ -27,10 +27,23 @@ router.post("/consult", async (req, res) => {
     return;
   }
 
-  const [consultation] = await db
-    .insert(consultations)
-    .values({ leadId, date, time, notes })
-    .returning();
+  // Prevent duplicate records: if this lead already has a consultation, update it
+  const [existing] = await db.select().from(consultations).where(eq(consultations.leadId, leadId));
+  let consultation: typeof consultations.$inferSelect;
+  if (existing) {
+    const [updated] = await db
+      .update(consultations)
+      .set({ date, time, notes, status: "Requested", updatedAt: new Date() })
+      .where(eq(consultations.leadId, leadId))
+      .returning();
+    consultation = updated;
+  } else {
+    const [inserted] = await db
+      .insert(consultations)
+      .values({ leadId, date, time, notes, status: "Requested" })
+      .returning();
+    consultation = inserted;
+  }
 
   // Update lead status to contacted
   await db
@@ -46,7 +59,7 @@ router.post("/consult", async (req, res) => {
     (err) => logger.error({ err }, "Consultation email failed")
   );
 
-  res.json({ success: true, consultationId: consultation.id });
+  res.json({ success: true, consultationId: consultation.id, status: consultation.status });
 });
 
 export default router;

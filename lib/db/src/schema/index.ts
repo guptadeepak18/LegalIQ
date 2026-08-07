@@ -114,8 +114,12 @@ export const consultations = pgTable("consultations", {
   date: text("date"),
   time: text("time"),
   notes: text("notes"),
-  status: text("status").default("pending"),
+  // Status: Requested | Scheduled | Completed | Cancelled | No Show
+  status: text("status").default("Requested"),
+  // Admin-set confirmed scheduled date/time
+  scheduledAt: timestamp("scheduled_at"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const reviews = pgTable("reviews", {
