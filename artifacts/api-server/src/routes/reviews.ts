@@ -2,6 +2,8 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { reviews, leads, assessments } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
+import { sendTemplateEmail } from "../services/emailTemplates.js";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
 
@@ -70,6 +72,17 @@ router.post("/reviews", async (req, res) => {
     verifiedUser,
     status: "PENDING",
   });
+
+  // #10 Admin review alert
+  const adminEmail = process.env.ADMIN_EMAIL ?? "restthecase@gmail.com";
+  const appUrl = process.env.APP_URL ?? "";
+  sendTemplateEmail("admin_new_review", adminEmail, {
+    reviewerName,
+    company,
+    rating: String(rating),
+    headline,
+    adminUrl: `${appUrl}/admin/reviews`,
+  }).catch((err) => logger.warn({ err }, "Admin review alert failed"));
 
   res.json({ success: true, message: "Review submitted for moderation. Thank you!" });
 });

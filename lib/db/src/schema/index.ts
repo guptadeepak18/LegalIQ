@@ -143,6 +143,31 @@ export const adminUsers = pgTable("admin_users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const emailTemplates = pgTable("email_templates", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventKey: text("event_key").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  subject: text("subject").notNull(),
+  htmlBody: text("html_body").notNull(),
+  variables: text("variables").default(""),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const emailLogs = pgTable("email_logs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventKey: text("event_key").notNull(),
+  recipientEmail: text("recipient_email").notNull(),
+  leadId: text("lead_id"),
+  subject: text("subject"),
+  status: text("status").default("sent"),
+  error: text("error"),
+  metadata: jsonb("metadata").default({}),
+  sentAt: timestamp("sent_at").defaultNow(),
+});
+
 export type InsertLead = typeof leads.$inferInsert;
 export type Lead = typeof leads.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
@@ -153,3 +178,5 @@ export type Consultation = typeof consultations.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
 export type AdminUser = typeof adminUsers.$inferSelect;
 export type OtpVerification = typeof otpVerifications.$inferSelect;
+export type EmailTemplate = typeof emailTemplates.$inferSelect;
+export type EmailLog = typeof emailLogs.$inferSelect;

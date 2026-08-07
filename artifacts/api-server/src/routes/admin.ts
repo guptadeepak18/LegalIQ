@@ -12,6 +12,14 @@ import {
 import { eq, desc, gte, lt, and, count, avg } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";
 import { logger } from "../lib/logger.js";
+import {
+  listTemplates,
+  getTemplate,
+  updateTemplate,
+  createTemplate,
+  listEmailLogs,
+  sendTemplateEmail,
+} from "../services/emailTemplates.js";
 
 const router = Router();
 
@@ -381,6 +389,68 @@ router.get("/admin/export", requireAuth, async (_req, res) => {
   res.setHeader("Content-Type","text/csv");
   res.setHeader("Content-Disposition",`attachment; filename="legaliq-leads-${Date.now()}.csv"`);
   res.send(csv);
+});
+
+// ── Email template CRUD ───────────────────────────────────────────────────────
+
+router.get("/admin/email-templates", requireAuth, async (_req, res) => {
+  const templates = await listTemplates();
+  res.json({ success: true, templates });
+});
+
+router.get("/admin/email-templates/:id", requireAuth, async (req, res) => {
+  const template = await getTemplate(String(req.params.id));
+  if (!template) { res.status(404).json({ success: false, message: "Not found" }); return; }
+  res.json({ success: true, template });
+});
+
+router.put("/admin/email-templates/:id", requireAuth, async (req, res) => {
+  const { subject, htmlBody, isActive, name, description } =
+    req.body as { subject?: string; htmlBody?: string; isActive?: boolean; name?: string; description?: string };
+  const updated = await updateTemplate(String(req.params.id), { subject, htmlBody, isActive, name, description });
+  if (!updated) { res.status(404).json({ success: false, message: "Not found" }); return; }
+  res.json({ success: true, template: updated });
+});
+
+router.post("/admin/email-templates", requireAuth, async (req, res) => {
+  const { eventKey, name, description, subject, htmlBody, variables } =
+    req.body as { eventKey: string; name: string; description?: string; subject: string; htmlBody: string; variables?: string };
+  if (!eventKey || !name || !subject || !htmlBody) {
+    res.status(400).json({ success: false, message: "eventKey, name, subject, htmlBody are required" });
+    return;
+  }
+  const template = await createTemplate({ eventKey, name, description, subject, htmlBody, variables });
+  res.json({ success: true, template });
+});
+
+router.post("/admin/email-templates/:id/test", requireAuth, async (req, res) => {
+  const template = await getTemplate(String(req.params.id));
+  if (!template) { res.status(404).json({ success: false, message: "Not found" }); return; }
+  const toEmail = req.body.email as string | undefined;
+  if (!toEmail) { res.status(400).json({ success: false, message: "email is required" }); return; }
+
+  // Fill every {{variable}} with a placeholder value for preview
+  const vars: Record<string, string> = {
+    name: "Rahul Sharma", company: "Acme Pvt Ltd", city: "Mumbai",
+    score: "72", grade: "B", riskLevel: "STABLE", grade_label: "Stable",
+    date: "Monday, 12 Aug 2026", time: "3:00 PM IST",
+    leadName: "Rahul Sharma", reviewerName: "Rahul Sharma",
+    rating: "5", headline: "Excellent platform", body: "Really helped us understand our legal gaps.",
+    resultsUrl: "#", consultUrl: "#", assessUrl: "#", adminUrl: "#", certificateUrl: "#",
+    topAction: "Complete your GST registration and file pending compliance documents.",
+  };
+  try {
+    await sendTemplateEmail(template.eventKey, toEmail, vars);
+    res.json({ success: true, message: `Test email sent to ${toEmail}` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to send test email" });
+  }
+});
+
+router.get("/admin/email-logs", requireAuth, async (req, res) => {
+  const limit = Number(req.query.limit ?? 200);
+  const logs = await listEmailLogs(Math.min(limit, 500));
+  res.json({ success: true, logs });
 });
 
 // ── GET /admin/reviews ────────────────────────────────────────────────────────

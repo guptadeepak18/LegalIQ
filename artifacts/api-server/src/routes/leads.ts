@@ -7,6 +7,7 @@ import { alertAdminNewLead } from "../services/callmebot.js";
 import { sendAdminLeadAlert } from "../services/resend.js";
 import { requireAuth } from "../middleware/auth.js";
 import { generateSeedQuestionsForAssessment } from "../services/gemini.js";
+import { sendTemplateEmail } from "../services/emailTemplates.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -73,10 +74,21 @@ router.post("/leads", async (req, res) => {
     .returning();
 
   // Fire non-blocking notifications
-  const adminEmail = process.env.ADMIN_EMAIL;
-  if (adminEmail) {
-    sendAdminLeadAlert(adminEmail, { name, company, city, businessType, phone, email }).catch(() => {});
-  }
+  const adminEmail = process.env.ADMIN_EMAIL ?? "restthecase@gmail.com";
+  const appUrl = process.env.APP_URL ?? "";
+
+  // #1 Welcome email to user
+  sendTemplateEmail("welcome", email, {
+    name, company, city,
+    assessUrl: `${appUrl}/assess?leadId=${lead.id}`,
+  }, { leadId: lead.id }).catch((err) => logger.warn({ err }, "Welcome email failed"));
+
+  // #8 Admin new-lead alert
+  sendTemplateEmail("admin_new_lead", adminEmail, {
+    leadName: name, company, city, score: "—", grade: "—", riskLevel: "Pending",
+    adminUrl: `${appUrl}/admin/leads/${lead.id}`,
+  }).catch(() => {});
+  sendAdminLeadAlert(adminEmail, { name, company, city, businessType, phone, email }).catch(() => {});
   alertAdminNewLead(name, company, city, businessType).catch(() => {});
 
   // Warm the seed question cache immediately so questions are AI-personalised

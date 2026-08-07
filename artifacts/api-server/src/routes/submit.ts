@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { calculatePillarScores } from "../services/scoring.js";
 import { generateReport } from "../services/gemini.js";
 import { sendReportEmail } from "../services/resend.js";
+import { sendTemplateEmail } from "../services/emailTemplates.js";
 import { alertAdminAssessmentComplete, notifyUserReportReady } from "../services/callmebot.js";
 import { logger } from "../lib/logger.js";
 
@@ -104,8 +105,33 @@ router.post("/submit", async (req, res) => {
   const reviewToken = randomBytes(32).toString("hex");
   await db.update(leads).set({ reviewToken }).where(eq(leads.id, leadId));
 
+  const appUrl = process.env.APP_URL ?? "";
+  const adminEmail = process.env.ADMIN_EMAIL ?? "restthecase@gmail.com";
+
+  // #2 Report ready — to user (with template)
+  sendTemplateEmail("report_ready", lead.email, {
+    name: lead.name,
+    company: lead.company,
+    score: String(scoring.totalScore),
+    grade: scoring.grade,
+    riskLevel: scoring.riskLevel,
+    resultsUrl: `${appUrl}/results?leadId=${lead.id}`,
+  }, { leadId: lead.id }).catch((err) => logger.error({ err }, "Report ready email failed"));
+
+  // #8 Admin new-lead alert (updated with actual score now that assessment is done)
+  sendTemplateEmail("admin_new_lead", adminEmail, {
+    leadName: lead.name,
+    company: lead.company,
+    city: lead.city,
+    score: String(scoring.totalScore),
+    grade: scoring.grade,
+    riskLevel: scoring.riskLevel,
+    adminUrl: `${appUrl}/admin/leads/${lead.id}`,
+  }).catch(() => {});
+
+  // Legacy report email (PDF attachment) - kept for backward compat
   sendReportEmail(lead.email, lead.name, lead.company, scoring.totalScore, scoring.riskLevel).catch(
-    (err) => logger.error({ err }, "Report email failed")
+    (err) => logger.error({ err }, "Report legacy email failed")
   );
   alertAdminAssessmentComplete(lead.name, lead.company, scoring.totalScore, scoring.riskLevel).catch(
     (err) => logger.warn({ err }, "Admin WhatsApp failed")

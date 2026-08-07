@@ -4,17 +4,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, Sparkles, BarChart2,
   Star, Settings, Menu, X, LogOut, Scale,
-  ChevronRight,
+  ChevronRight, Mail,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
-  { to: "/admin/dashboard",   label: "Dashboard",   icon: LayoutDashboard, section: "main" },
-  { to: "/admin/leads",       label: "Lead Manager", icon: Users,          section: "main" },
-  { to: "/admin/ai-insights", label: "AI Insights",  icon: Sparkles,       section: "main", badge: "AI" },
-  { to: "/admin/analytics",   label: "Analytics",    icon: BarChart2,      section: "main" },
-  { to: "/admin/reviews",     label: "Reviews",      icon: Star,           section: "main" },
-  { to: "/admin/settings",    label: "Settings",     icon: Settings,       section: "config" },
+  { to: "/admin/dashboard",       label: "Dashboard",       icon: LayoutDashboard, section: "main" },
+  { to: "/admin/leads",           label: "Lead Manager",    icon: Users,           section: "main" },
+  { to: "/admin/ai-insights",     label: "AI Insights",     icon: Sparkles,        section: "main", badge: "AI" },
+  { to: "/admin/analytics",       label: "Analytics",       icon: BarChart2,       section: "main" },
+  { to: "/admin/reviews",         label: "Reviews",         icon: Star,            section: "main" },
+  { to: "/admin/email-templates", label: "Email Templates", icon: Mail,            section: "config" },
+  { to: "/admin/settings",        label: "Settings",        icon: Settings,        section: "config" },
 ];
 
 interface AdminLayoutProps {
