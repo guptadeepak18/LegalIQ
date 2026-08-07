@@ -106,7 +106,7 @@ const FAQ_GROUPS: Array<{
     items: [
       { q: "Is my business data kept confidential?", a: "Yes. Your assessment responses and report are private to your account. We do not sell or share your business information with third parties. Your data is stored securely and is only accessible to you and — if you book one — the REST THE CASE attorney assigned to your consultation." },
       { q: "What data do you collect and how is it used?", a: "We collect your business profile (name, type, city) and your assessment answers. This data is used solely to generate your report and to support consultation. Anonymised aggregated data may be used for industry benchmarks — never individual business data." },
-      { q: "Can I delete my account and data?", a: "Yes. Contact us at hello@restthecase.com to request deletion of your account and all associated data. We process deletion requests within 7 business days." },
+      { q: "Can I delete my account and data?", a: "Yes. Contact us at info@restthecase.com to request deletion of your account and all associated data. We process deletion requests within 7 business days." },
     ],
   },
   {
@@ -879,7 +879,7 @@ export default function LandingPage() {
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
             className="mt-10 text-center">
             <p className="text-sm liq-text-3 mb-4">Still have questions? We're happy to help.</p>
-            <a href="mailto:hello@restthecase.com"
+            <a href="mailto:info@restthecase.com"
               className="inline-flex items-center gap-2 border border-[#C9A84C]/35 text-[#C9A84C] hover:bg-[#C9A84C]/08 font-semibold text-sm px-6 py-2.5 rounded-xl transition-all">
               <MessageSquare size={14} /> Contact Us
             </a>
@@ -965,19 +965,15 @@ export default function LandingPage() {
                 <Globe size={14} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
                 <span className="text-xs liq-text-2 group-hover:text-[#C9A84C] transition-colors break-all">restthecase.com</span>
               </a>
-              <a href="mailto:hello@restthecase.com"
+              <a href="mailto:info@restthecase.com"
                 className="flex items-start gap-2.5 group">
                 <Mail size={14} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
-                <span className="text-xs liq-text-2 group-hover:text-[#C9A84C] transition-colors break-all">hello@restthecase.com</span>
+                <span className="text-xs liq-text-2 group-hover:text-[#C9A84C] transition-colors break-all">info@restthecase.com</span>
               </a>
-              <div className="flex items-start gap-2.5">
+              <a href="tel:+919284293610" className="flex items-start gap-2.5 group">
                 <Phone size={14} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
-                <span className="text-xs liq-text-2">PAN India — 25+ cities served</span>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <Users size={14} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
-                <span className="text-xs liq-text-2">40+ practising attorneys</span>
-              </div>
+                <span className="text-xs liq-text-2 group-hover:text-[#C9A84C] transition-colors">+91 9284293610</span>
+              </a>
             </div>
           </div>
         </div>

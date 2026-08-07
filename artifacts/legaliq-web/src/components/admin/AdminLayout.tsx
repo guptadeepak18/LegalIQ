@@ -143,7 +143,7 @@ function Sidebar({
           </div>
           <div className="min-w-0">
             <div className="text-xs font-semibold truncate liq-text-1">Admin</div>
-            <div className="text-[10px] truncate liq-text-3">admin@restthecase.com</div>
+            <div className="text-[10px] truncate liq-text-3">restthecase@gmail.com</div>
           </div>
         </div>
         <div className="flex items-center justify-between w-full mb-2">

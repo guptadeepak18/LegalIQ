@@ -2659,7 +2659,7 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   // Contact details
   const contacts = [
     "Website:  restthecase.com/virtualCLOPackage",
-    "Email:    hello@restthecase.com",
+    "Email:    info@restthecase.com",
     "Phone:    +91 9876543210",
   ];
   contacts.forEach((c, i) => {

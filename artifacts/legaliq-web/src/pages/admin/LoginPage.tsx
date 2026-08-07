@@ -51,7 +51,7 @@ export default function AdminLoginPage() {
             <input
               className="liq-input"
               type="email"
-              placeholder="admin@restthecase.com"
+              placeholder="restthecase@gmail.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleLogin()}

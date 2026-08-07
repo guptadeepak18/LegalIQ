@@ -105,7 +105,7 @@ export default function SettingsPage() {
           </h2>
           <div className="space-y-0">
             {[
-              { label: "Admin email",     value: "admin@restthecase.com" },
+              { label: "Admin email",     value: "restthecase@gmail.com" },
               { label: "Session length",  value: "8 hours (JWT)" },
               { label: "Auth method",     value: "Email + password (bcrypt hashed)" },
             ].map((item) => (
