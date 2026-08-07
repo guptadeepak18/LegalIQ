@@ -74,12 +74,15 @@ function buildRawMessage(opts: {
 }): string {
   const boundary = `liq_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
+  // RFC 2047 encoded-word — avoids garbled chars for em-dashes, accented letters, etc.
+  const encodedSubject = `=?UTF-8?B?${Buffer.from(opts.subject, "utf8").toString("base64")}?=`;
+
   const lines: string[] = [
     `MIME-Version: 1.0`,
     `From: ${opts.from}`,
     `To: ${opts.to}`,
     `Reply-To: ${opts.replyTo}`,
-    `Subject: ${opts.subject}`,
+    `Subject: ${encodedSubject}`,
   ];
 
   if (!opts.attachments?.length) {
