@@ -69,7 +69,7 @@ export default function ReviewsPage() {
         </span>
       ) : undefined}
     >
-      <div className="px-6 py-8 max-w-5xl mx-auto dark:bg-slate-950" style={{ background: "#FFFFFF" }}>
+      <div className="px-6 py-8 max-w-5xl mx-auto" style={{ background: "transparent" }}>
         {/* Filter tabs */}
         <div className="flex gap-2 mb-6">
           {FILTER_TABS.map((f) => (

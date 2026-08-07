@@ -105,7 +105,7 @@ export default function AIInsightsPage() {
 
   return (
     <AdminLayout active="/admin/ai-insights" title="AI Insights">
-      <div className="px-6 py-8 max-w-5xl mx-auto dark:bg-slate-950" style={{ background: "#FFFFFF" }}>
+      <div className="px-6 py-8 max-w-5xl mx-auto" style={{ background: "transparent" }}>
         {/* Header */}
         <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
           <div>

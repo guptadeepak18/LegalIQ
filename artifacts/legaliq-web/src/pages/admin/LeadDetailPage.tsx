@@ -116,7 +116,7 @@ export default function LeadDetailPage() {
 
   return (
     <AdminLayout active="/admin/leads" title={lead.name}>
-      <div className="px-6 py-8 max-w-5xl mx-auto dark:bg-slate-950" style={{ background: "#FFFFFF" }}>
+      <div className="px-6 py-8 max-w-5xl mx-auto" style={{ background: "transparent" }}>
         <button onClick={() => navigate("/admin/leads")} className="flex items-center gap-1.5 text-sm text-white/35 hover:text-white/60 mb-6 transition-colors">
           <ArrowLeft size={13} /> Back to leads
         </button>

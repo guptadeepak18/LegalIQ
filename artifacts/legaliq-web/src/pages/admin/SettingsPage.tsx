@@ -38,7 +38,7 @@ export default function SettingsPage() {
 
   return (
     <AdminLayout active="/admin/settings" title="Settings">
-      <div className="px-6 py-8 max-w-4xl mx-auto space-y-5 dark:bg-slate-950" style={{ background: "#FFFFFF" }}>
+      <div className="px-6 py-8 max-w-4xl mx-auto space-y-5" style={{ background: "transparent" }}>
 
         {/* Export */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-6">

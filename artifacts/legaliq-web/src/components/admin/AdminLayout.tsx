@@ -3,9 +3,10 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, Sparkles, BarChart2,
-  Star, Settings, Menu, X, LogOut, Scale,
+  Star, Settings, Menu, X, LogOut,
   ChevronRight, Mail,
 } from "lucide-react";
+import { useTheme } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
@@ -68,6 +69,32 @@ function NavItem({
   );
 }
 
+function SidebarLogo() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  return (
+    <div className="px-5 py-5 border-b" style={{ borderColor: "var(--nav-border)" }}>
+      <div className="flex items-center gap-3">
+        <img
+          src="/rtc-logo-transparent.png"
+          alt="Rest The Case"
+          style={{
+            height: 44,
+            width: "auto",
+            objectFit: "contain",
+            flexShrink: 0,
+            filter: isDark ? "brightness(0) invert(1)" : "none",
+          }}
+        />
+        <div>
+          <div className="font-serif text-sm font-bold liq-text-1 leading-none tracking-tight">LegalIQ</div>
+          <div className="type-caption liq-text-4 mt-0.5 leading-none tracking-widest uppercase" style={{ fontSize: "9px" }}>Admin Portal</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Sidebar({
   active,
   onNavigate,
@@ -90,15 +117,7 @@ function Sidebar({
   return (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-5 py-5 border-b" style={{ borderColor: "var(--nav-border)" }}>
-        <div className="flex items-center gap-2.5">
-          <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:brightness-0 dark:invert" />
-          <div>
-            <div className="font-serif text-sm font-bold liq-text-1 leading-none">LegalIQ</div>
-            <div className="type-caption liq-text-4 mt-0.5 leading-none">Admin Portal</div>
-          </div>
-        </div>
-      </div>
+      <SidebarLogo />
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
@@ -164,6 +183,8 @@ function Sidebar({
 export function AdminLayout({ active, children, title, actions }: AdminLayoutProps) {
   const [, navigate] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   useEffect(() => {
     const token = localStorage.getItem("liq_admin_token");
@@ -176,7 +197,7 @@ export function AdminLayout({ active, children, title, actions }: AdminLayoutPro
   }, [active]);
 
   return (
-    <div className="flex min-h-screen dark:bg-slate-950" style={{ background: "var(--body-bg)" }}>
+    <div className="flex min-h-screen" style={{ background: "var(--body-bg)" }}>
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-56 xl:w-60 fixed inset-y-0 left-0 flex-col z-40 border-r shadow-lg" style={{ background: "var(--nav-bg)", borderColor: "var(--nav-border)", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
         <Sidebar active={active} onNavigate={navigate} />
@@ -221,7 +242,14 @@ export function AdminLayout({ active, children, title, actions }: AdminLayoutPro
         <button onClick={() => setMobileOpen(true)} className="text-white/40 hover:text-white/70 p-1 liq-text-2">
           <Menu size={18} />
         </button>
-        <Scale size={14} className="text-[#C9A84C]" />
+        <img
+          src="/rtc-logo-transparent.png"
+          alt="RTC"
+          style={{
+            height: 22, width: "auto", objectFit: "contain", flexShrink: 0,
+            filter: isDark ? "brightness(0) invert(1)" : "none",
+          }}
+        />
         <span className="font-serif text-sm font-bold liq-text-1">LegalIQ Admin</span>
         {title && (
           <>

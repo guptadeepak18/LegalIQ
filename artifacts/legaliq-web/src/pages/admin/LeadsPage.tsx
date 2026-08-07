@@ -140,7 +140,7 @@ export default function LeadsPage() {
         </button>
       }
     >
-      <div className="px-6 py-6 max-w-7xl mx-auto dark:bg-slate-950" style={{ background: "#FFFFFF" }}>
+      <div className="px-6 py-6 max-w-7xl mx-auto" style={{ background: "transparent" }}>
         {/* Search + filter toggle */}
         <div className="flex gap-3 mb-6 items-center">
           <div className="relative flex-1">

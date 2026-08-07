@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
 
   return (
     <AdminLayout active="/admin/analytics" title="Analytics">
-      <div className="px-6 py-8 max-w-6xl mx-auto dark:bg-slate-950" style={{ background: "#FFFFFF" }}>
+      <div className="px-6 py-8 max-w-6xl mx-auto" style={{ background: "transparent" }}>
         {/* Top stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           {[
