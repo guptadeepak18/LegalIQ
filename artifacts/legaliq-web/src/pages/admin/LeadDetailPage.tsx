@@ -1,27 +1,49 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, Building2, Phone, Mail, MapPin, AlertTriangle, CheckCircle, Sparkles, Copy, Check, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft, User, Building2, Phone, Mail, MapPin,
+  CheckCircle, Sparkles, Copy, Check, RefreshCw,
+  Download, Calendar, ExternalLink,
+} from "lucide-react";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { riskBadgeClass } from "@/lib/risk";
 import { toast } from "sonner";
+import { LHSReport } from "@/components/LHSReport";
+import type { AssessmentResult } from "@/store/useStore";
+import { generateReportPDF, generateCertificatePDF } from "@/lib/pdfGenerator";
+import { PILLAR_META } from "@/components/LHSReport";
+
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 interface LeadDetail {
   id: string; name: string; company: string; businessType: string; city: string;
   email: string; phone: string; category: string; whatsappOptIn: boolean; createdAt: string;
   assessment?: {
-    id: string; totalScore: number; riskLevel: string; litigationScore: number; contractualScore: number;
-    complianceScore: number; costScore: number; futureScore: number; status: string;
+    id: string; totalScore: number; riskLevel: string;
+    litigationScore: number; contractualScore: number; complianceScore: number;
+    costScore: number; futureScore: number; status: string; completedAt?: string;
     report?: {
       summary: string;
+      pillarAssessments?: Record<string, string>;
       insights: Array<{
         title: string; description: string; severity: string; financialRisk: string;
         reason?: string; businessImpact?: string; futureProblem?: string; recommendation?: string;
       }>;
       futureRisks?: Array<{ title: string; level: string; impact: string; reason: string; action: string }>;
-      actions: Array<{ action: string; description: string; timeline: string }>;
-      vcloPitch: string;
+      actions: Array<{
+        action: string; description: string; timeline: string;
+        priority?: string; costMin?: string; costMax?: string;
+        delayImpact?: string; link?: { url: string; label: string } | null;
+      }>;
+      costSummary?: Array<{ issue: string; costRange: string; delayImpact: string }>;
+      similarCases?: Array<{ title: string; summary: string; relevance: string; readMoreUrl: string }>;
+      example?: {
+        businessName: string; whatHappened: string; consequences: string;
+        vcloWouldHave: string; lesson: string;
+      };
+      vcloPitch?: string;
     };
     answers?: Array<{ question: string; pillar: string; answer: string; score: number }>;
   };
@@ -29,12 +51,7 @@ interface LeadDetail {
 
 interface EmailDraft { subject: string; body: string }
 
-const PILLAR_META = [
-  { key: "litigationScore",  label: "Litigation",  color: "#EF4444" },
-  { key: "contractualScore", label: "Contractual", color: "#F59E0B" },
-  { key: "complianceScore",  label: "Compliance",  color: "#3B82F6" },
-  { key: "costScore",        label: "Cost Eff.",   color: "#8B5CF6" },
-];
+// ── Status config ──────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = ["new", "contacted", "converted", "dropped"];
 const STATUS_META: Record<string, string> = {
@@ -44,16 +61,83 @@ const STATUS_META: Record<string, string> = {
   dropped: "text-red-400 bg-red-500/10 border-red-500/25",
 };
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-      className="flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors">
+      className="flex items-center gap-1.5 text-xs liq-text-4 hover:liq-text-2 transition-colors">
       {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
       {copied ? "Copied" : "Copy"}
     </button>
   );
 }
+
+/** Map the admin API's assessment shape to AssessmentResult for LHSReport */
+function toAssessmentResult(lead: LeadDetail, a: NonNullable<LeadDetail["assessment"]>): AssessmentResult {
+  const r = a.report;
+  return {
+    assessmentId: a.id,
+    totalScore: a.totalScore,
+    riskLevel: a.riskLevel as AssessmentResult["riskLevel"],
+    litigationScore: a.litigationScore,
+    contractualScore: a.contractualScore,
+    complianceScore: a.complianceScore,
+    costScore: a.costScore,
+    futureScore: a.futureScore,
+    answers: (a.answers ?? []).map(ans => ({
+      question: ans.question,
+      pillar: ans.pillar,
+      answer: ans.answer,
+      score: ans.score,
+      maxScore: 10,
+      weight: 1,
+      isSeed: false,
+      info: "",
+      impact: "",
+      suggestion: "",
+      recommendation: "",
+    })),
+    report: {
+      summary: r?.summary ?? "",
+      pillarAssessments: r?.pillarAssessments ?? {},
+      insights: (r?.insights ?? []).map(ins => ({
+        title: ins.title,
+        description: ins.description,
+        severity: ins.severity as "HIGH" | "MEDIUM" | "LOW",
+        financialRisk: ins.financialRisk ?? "",
+        reason: ins.reason ?? "",
+        businessImpact: ins.businessImpact ?? "",
+        futureProblem: ins.futureProblem ?? "",
+        recommendation: ins.recommendation ?? "",
+      })),
+      futureRisks: (r?.futureRisks ?? []).map(fr => ({
+        title: fr.title,
+        level: fr.level as "HIGH" | "MEDIUM" | "LOW",
+        impact: fr.impact,
+        reason: fr.reason,
+        action: fr.action,
+      })),
+      actions: (r?.actions ?? []).map(act => ({
+        action: act.action,
+        description: act.description ?? "",
+        timeline: (act.timeline ?? "90 DAYS") as "THIS WEEK" | "THIS MONTH" | "90 DAYS",
+        priority: (act.priority ?? "Long-Term") as "Immediate" | "Short-Term" | "Long-Term",
+        costMin: act.costMin ?? "",
+        costMax: act.costMax ?? "",
+        delayImpact: act.delayImpact ?? "",
+        link: act.link ?? null,
+      })),
+      costSummary: r?.costSummary,
+      similarCases: r?.similarCases,
+      example: r?.example ?? { businessName: "", whatHappened: "", consequences: "", vcloWouldHave: "", lesson: "" },
+      vcloPitch: r?.vcloPitch ?? "",
+    },
+  };
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function LeadDetailPage() {
   const [, navigate] = useLocation();
@@ -64,6 +148,8 @@ export default function LeadDetailPage() {
   const [emailDraft, setEmailDraft] = useState<EmailDraft | null>(null);
   const [generatingEmail, setGeneratingEmail] = useState(false);
   const [emailRateLimited, setEmailRateLimited] = useState(false);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [certGenerating, setCertGenerating] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -100,9 +186,77 @@ export default function LeadDetailPage() {
     finally { setGeneratingEmail(false); }
   }
 
+  async function handleDownloadPdf() {
+    if (!lead?.assessment) return;
+    const a = lead.assessment;
+    const r = a.report;
+    setPdfDownloading(true);
+    try {
+      await generateReportPDF({
+        company: lead.company || "Business",
+        name: lead.name || "",
+        businessType: lead.businessType || "",
+        city: lead.city || "India",
+        totalScore: a.totalScore,
+        riskLevel: a.riskLevel,
+        summary: r?.summary ?? "",
+        pillars: PILLAR_META.map(({ label, key }) => ({
+          label,
+          score: a[key as keyof typeof a] as number ?? 0,
+        })),
+        insights: (r?.insights ?? []).map(ins => ({
+          title: ins.title, description: ins.description,
+          severity: ins.severity as "HIGH" | "MEDIUM" | "LOW",
+          financialRisk: ins.financialRisk ?? "",
+          reason: ins.reason ?? "", businessImpact: ins.businessImpact ?? "",
+          futureProblem: ins.futureProblem ?? "", recommendation: ins.recommendation ?? "",
+        })),
+        futureRisks: (r?.futureRisks ?? []).map(fr => ({
+          title: fr.title, level: fr.level as "HIGH" | "MEDIUM" | "LOW",
+          impact: fr.impact, reason: fr.reason, action: fr.action,
+        })),
+        actions: (r?.actions ?? []).map(act => ({
+          action: act.action, description: act.description ?? "",
+          timeline: (act.timeline ?? "90 DAYS") as "THIS WEEK" | "THIS MONTH" | "90 DAYS",
+          priority: (act.priority ?? "Long-Term") as "Immediate" | "Short-Term" | "Long-Term",
+          costMin: act.costMin ?? "", costMax: act.costMax ?? "",
+          delayImpact: act.delayImpact ?? "",
+        })),
+        costSummary: r?.costSummary,
+        similarCases: r?.similarCases,
+        vcloPitch: r?.vcloPitch,
+        answerHistory: (a.answers ?? []).map(ans => ({
+          question: ans.question, pillar: ans.pillar,
+          answer: ans.answer, score: ans.score,
+          maxScore: 10, weight: 1, isSeed: false,
+          info: "", impact: "", suggestion: "", recommendation: "",
+        })),
+        example: r?.example,
+      });
+    } catch (e) { console.error("PDF failed", e); toast.error("PDF generation failed"); }
+    finally { setPdfDownloading(false); }
+  }
+
+  async function handleDownloadCertificate() {
+    if (!lead?.assessment) return;
+    setCertGenerating(true);
+    try {
+      await generateCertificatePDF({
+        company: lead.company || "Business",
+        name: lead.name || "",
+        businessType: lead.businessType || "",
+        city: lead.city || "India",
+        totalScore: lead.assessment.totalScore,
+      });
+    } catch (e) { console.error("Certificate failed", e); }
+    finally { setCertGenerating(false); }
+  }
+
+  // ── Loading state ────────────────────────────────────────────────────────────
+
   if (loading) {
     return (
-      <AdminLayout active="/admin/leads" title="Lead Detail">
+      <AdminLayout active="/admin/leads">
         <div className="flex items-center justify-center min-h-[60vh]">
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
             className="w-10 h-10 rounded-full border-2 border-[#C9A84C]/20 border-t-[#C9A84C]" />
@@ -113,239 +267,198 @@ export default function LeadDetailPage() {
 
   if (!lead) return null;
   const a = lead.assessment;
+  const assessmentResult = a ? toAssessmentResult(lead, a) : null;
 
   return (
-    <AdminLayout active="/admin/leads" title={lead.name}>
-      <div className="px-6 py-8 max-w-5xl mx-auto" style={{ background: "transparent" }}>
-        <button onClick={() => navigate("/admin/leads")} className="flex items-center gap-1.5 text-sm text-white/35 hover:text-white/60 mb-6 transition-colors">
+    <AdminLayout active="/admin/leads">
+      <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto" style={{ background: "transparent" }}>
+
+        {/* Back button */}
+        <button onClick={() => navigate("/admin/leads")}
+          className="flex items-center gap-1.5 text-sm liq-text-4 hover:text-[#C9A84C] mb-5 transition-colors">
           <ArrowLeft size={13} /> Back to leads
         </button>
 
-        <div className="grid md:grid-cols-3 gap-5">
-          {/* LEFT: lead info */}
-          <div className="space-y-4">
-            <div className="glass-card rounded-2xl p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#C9A84C]/20 to-[#C9A84C]/5 border border-[#C9A84C]/20 flex items-center justify-center flex-shrink-0">
-                  <span className="font-black text-[#C9A84C] text-base">{lead.name[0]}</span>
-                </div>
-                <div>
-                  <div className="font-bold liq-text-1">{lead.name}</div>
-                  <div className="text-xs liq-text-3">{lead.category}</div>
-                </div>
-              </div>
-              <div className="space-y-2.5 type-body-sm">
-                <div className="flex items-center gap-2 liq-text-2"><Building2 size={12} className="text-[#C9A84C] flex-shrink-0" />{lead.company}</div>
-                <div className="flex items-center gap-2 liq-text-2"><MapPin size={12} className="text-[#C9A84C] flex-shrink-0" />{lead.city}</div>
-                <div className="flex items-center gap-2 liq-text-2"><Phone size={12} className="text-[#C9A84C] flex-shrink-0" />{lead.phone}</div>
-                <div className="flex items-center gap-2 liq-text-2"><Mail size={12} className="text-[#C9A84C] flex-shrink-0" /><span className="truncate">{lead.email}</span></div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-white/[0.05]">
-                <div className="text-[10px] text-white/25 uppercase tracking-wider mb-1">Business Type</div>
-                <div className="text-sm text-white/70 font-medium">{lead.businessType}</div>
-              </div>
-              {lead.whatsappOptIn && (
-                <div className="mt-3 text-xs text-emerald-400 flex items-center gap-1.5 bg-emerald-500/8 border border-emerald-500/15 rounded-lg px-2.5 py-1.5">
-                  <CheckCircle size={11} /> WhatsApp opted in
-                </div>
-              )}
-            </div>
+        {/* ── ADMIN CONTROLS CARD ────────────────────────────────────────── */}
+        <div className="rounded-2xl border mb-6 overflow-hidden"
+          style={{ background: "var(--card-glass-bg)", border: "1.5px solid var(--card-glass-border)", boxShadow: "var(--card-glass-shadow)" }}>
 
-            {/* Status */}
+          {/* Top bar: identity + actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4 border-b" style={{ borderColor: "var(--nav-border)" }}>
+            {/* Avatar + name */}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-black text-base"
+                style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.25)", color: "#C9A84C" }}>
+                {(lead.company || lead.name || "?")[0].toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <div className="font-bold liq-text-1 leading-tight">{lead.company || lead.name}</div>
+                <div className="text-xs liq-text-3">{lead.name} · {lead.category}</div>
+              </div>
+            </div>
+            {/* Risk badge */}
             {a && (
-              <div className="glass-card rounded-2xl p-5">
-                <div className="text-[10px] text-white/25 uppercase tracking-wider mb-3">Lead Status</div>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="text-2xl font-black font-grotesk text-[#C9A84C]">{a.totalScore}</span>
+                <span className="text-xs liq-text-4">/100</span>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ml-1 ${riskBadgeClass(a.riskLevel)}`}>
+                  {a.riskLevel}
+                </span>
+              </div>
+            )}
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {a && (
+                <>
+                  <button onClick={handleDownloadPdf} disabled={pdfDownloading}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all disabled:opacity-40"
+                    style={{ borderColor: "rgba(201,168,76,0.25)", color: "#C9A84C", background: "rgba(201,168,76,0.08)" }}>
+                    <Download size={11} /> {pdfDownloading ? "Generating…" : "PDF"}
+                  </button>
+                  <button onClick={handleDownloadCertificate} disabled={certGenerating}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all disabled:opacity-40"
+                    style={{ borderColor: "rgba(201,168,76,0.25)", color: "#C9A84C", background: "rgba(201,168,76,0.08)" }}>
+                    <Download size={11} /> {certGenerating ? "…" : "Certificate"}
+                  </button>
+                </>
+              )}
+              <a href={`https://wa.me/${lead.phone?.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all text-white"
+                style={{ background: "#25D366", borderColor: "#25D366" }}>
+                <Phone size={11} /> WhatsApp
+              </a>
+              <a href={`mailto:${lead.email}`}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all"
+                style={{ borderColor: "var(--nav-border)", color: "var(--liq-text-2)" }}>
+                <Mail size={11} /> Email
+              </a>
+            </div>
+          </div>
+
+          {/* Info grid */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-0 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: "var(--nav-border)" }}>
+            <div className="px-5 py-3 flex items-center gap-2.5">
+              <Building2 size={13} className="text-[#C9A84C] flex-shrink-0" />
+              <div>
+                <div className="text-[10px] liq-text-4 uppercase tracking-wider mb-0.5">Business Type</div>
+                <div className="text-xs font-medium liq-text-1">{lead.businessType}</div>
+              </div>
+            </div>
+            <div className="px-5 py-3 flex items-center gap-2.5">
+              <MapPin size={13} className="text-[#C9A84C] flex-shrink-0" />
+              <div>
+                <div className="text-[10px] liq-text-4 uppercase tracking-wider mb-0.5">Location</div>
+                <div className="text-xs font-medium liq-text-1">{lead.city}</div>
+              </div>
+            </div>
+            <div className="px-5 py-3 flex items-center gap-2.5">
+              <Phone size={13} className="text-[#C9A84C] flex-shrink-0" />
+              <div>
+                <div className="text-[10px] liq-text-4 uppercase tracking-wider mb-0.5">Phone</div>
+                <div className="text-xs font-medium liq-text-1 font-mono">{lead.phone}</div>
+              </div>
+            </div>
+            <div className="px-5 py-3 flex items-center gap-2.5 min-w-0">
+              <Mail size={13} className="text-[#C9A84C] flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[10px] liq-text-4 uppercase tracking-wider mb-0.5">Email</div>
+                <div className="text-xs font-medium liq-text-1 truncate">{lead.email}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Status + AI Email row */}
+          {a && (
+            <div className="flex flex-col sm:flex-row gap-4 px-5 py-4 border-t" style={{ borderColor: "var(--nav-border)" }}>
+              {/* Status selector */}
+              <div className="flex-1">
+                <div className="text-[10px] liq-text-4 uppercase tracking-wider mb-2">Lead Status</div>
+                <div className="flex flex-wrap gap-2">
                   {STATUS_OPTIONS.map((s) => (
                     <button key={s} onClick={() => updateStatus(s)} disabled={updatingStatus}
-                      className={`text-xs font-semibold px-3 py-2 rounded-xl border transition-all capitalize ${
-                        a.status === s ? STATUS_META[s] ?? "text-white/60 bg-white/5 border-white/10" : "text-white/25 border-white/8 hover:border-white/20 hover:text-white/50"
-                      } disabled:opacity-40`}
-                    >
+                      className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all capitalize ${
+                        a.status === s
+                          ? STATUS_META[s] ?? "liq-text-2 border-[#C9A84C]/30"
+                          : "liq-text-4 border-[rgba(201,168,76,0.12)] hover:liq-text-2 hover:border-[rgba(201,168,76,0.25)]"
+                      } disabled:opacity-40`}>
                       {s}
                     </button>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* RIGHT: assessment */}
-          <div className="md:col-span-2 space-y-5">
-            {!a ? (
-              <div className="glass-card rounded-2xl p-10 text-center text-white/30">Assessment not yet completed</div>
-            ) : (
-              <>
-                {/* Score card */}
-                <div className="glass-card rounded-2xl p-6">
-                  <div className="flex items-center justify-between mb-5">
-                    <h2 className="font-semibold text-white/80">Legal Health Score</h2>
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
-                      riskBadgeClass(a.riskLevel)
-                    }`}>{a.riskLevel}</span>
-                  </div>
-                  <div className="flex items-end gap-2 mb-6">
-                    <span className="text-6xl font-black font-grotesk text-[#C9A84C]">{a.totalScore}</span>
-                    <span className="text-lg text-white/20 mb-2">/100</span>
-                  </div>
-                  <div className="space-y-3">
-                    {PILLAR_META.map(({ key, label, color }) => {
-                      const score = a[key as keyof typeof a] as number;
-                      return (
-                        <div key={key}>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="text-white/50">{label}</span>
-                            <span style={{ color }} className="font-bold">{score}/20</span>
-                          </div>
-                          <div className="progress-bar">
-                            <motion.div initial={{ width: 0 }} animate={{ width: `${(score / 20) * 100}%` }} transition={{ duration: 0.6, ease: "easeOut" }}
-                              className="h-full rounded-full" style={{ background: color }} />
-                          </div>
-                        </div>
-                      );
-                    })}
+              {/* WhatsApp opt-in badge */}
+              {lead.whatsappOptIn && (
+                <div className="flex-shrink-0 flex items-center">
+                  <div className="text-xs text-emerald-500 flex items-center gap-1.5 bg-emerald-500/8 border border-emerald-500/15 rounded-lg px-2.5 py-1.5">
+                    <CheckCircle size={11} /> WhatsApp opted in
                   </div>
                 </div>
-
-                {/* AI Outreach email draft */}
-                <div className="glass-card rounded-2xl p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-white/80 flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center">
-                        <Sparkles size={12} className="text-emerald-400" />
-                      </div>
-                      AI Follow-up Email
-                    </h3>
-                    <button onClick={generateEmail} disabled={generatingEmail}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-emerald-500/25 text-emerald-400 bg-emerald-500/8 hover:bg-emerald-500/15 transition-all disabled:opacity-40">
-                      {generatingEmail ? (
-                        <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Sparkles size={11} /></motion.div> Generating…</>
-                      ) : emailDraft ? (
-                        <><RefreshCw size={11} /> Regenerate</>
-                      ) : (
-                        <><Sparkles size={11} /> Generate Draft</>
-                      )}
-                    </button>
-                  </div>
-
-                  {emailRateLimited && (
-                    <div className="type-caption text-amber-400 bg-amber-500/8 border border-amber-500/20 rounded-xl p-3">
-                      Daily AI quota reached. Try again tomorrow or use a paid Gemini key.
-                    </div>
+              )}
+              {/* AI Email Draft */}
+              <div className="flex-shrink-0 flex items-center gap-2">
+                <button onClick={generateEmail} disabled={generatingEmail}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all disabled:opacity-40"
+                  style={{ borderColor: "rgba(34,197,94,0.25)", color: "#22C55E", background: "rgba(34,197,94,0.08)" }}>
+                  {generatingEmail ? (
+                    <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Sparkles size={11} /></motion.div> Generating…</>
+                  ) : emailDraft ? (
+                    <><RefreshCw size={11} /> Regenerate Email</>
+                  ) : (
+                    <><Sparkles size={11} /> AI Follow-up Email</>
                   )}
+                </button>
+              </div>
+            </div>
+          )}
 
-                  {!emailDraft && !emailRateLimited && !generatingEmail && (
-                    <p className="type-body-sm liq-text-3">
-                      Generate a personalised follow-up email tailored to {lead.name}'s score, risk profile, and business type.
-                    </p>
-                  )}
-
-                  {emailDraft && (
-                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-                      <div className="rounded-xl border border-black/5 dark:border-white/[0.07] bg-black/[0.02] dark:bg-white/[0.02] p-3">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="type-label liq-text-3">Subject</span>
-                          <CopyBtn text={emailDraft.subject} />
-                        </div>
-                        <p className="type-body-sm liq-text-1 font-medium">{emailDraft.subject}</p>
-                      </div>
-                      <div className="rounded-xl border border-black/5 dark:border-white/[0.07] bg-black/[0.02] dark:bg-white/[0.02] p-3">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="type-label liq-text-3">Email Body</span>
-                          <CopyBtn text={emailDraft.body} />
-                        </div>
-                        <p className="type-body-sm liq-text-2 whitespace-pre-wrap">{emailDraft.body}</p>
-                      </div>
-                    </motion.div>
-                  )}
+          {/* Email draft */}
+          {(emailDraft || emailRateLimited) && (
+            <div className="px-5 pb-5">
+              {emailRateLimited && (
+                <div className="text-xs text-amber-500 bg-amber-500/8 border border-amber-500/20 rounded-xl p-3">
+                  Daily AI quota reached. Try again tomorrow or use a paid Gemini key.
                 </div>
-
-                {/* Report summary */}
-                {a.report && (
-                  <>
-                    <div className="glass-card rounded-2xl p-5">
-                      <h3 className="type-h3 liq-text-1 mb-3">AI Summary</h3>
-                      <p className="type-body-sm liq-text-2">{a.report.summary}</p>
+              )}
+              {emailDraft && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+                  <div className="rounded-xl border p-3" style={{ background: "rgba(201,168,76,0.04)", borderColor: "rgba(201,168,76,0.15)" }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-bold liq-text-3 uppercase tracking-wider">Subject</span>
+                      <CopyBtn text={emailDraft.subject} />
                     </div>
-
-                    {a.report.insights?.length > 0 && (
-                      <div className="glass-card rounded-2xl p-5">
-                        <h3 className="type-h3 liq-text-1 mb-3 flex items-center gap-2">
-                          <AlertTriangle size={14} className="text-amber-400" /> Key Risks
-                        </h3>
-                        <div className="space-y-3">
-                          {a.report.insights.map((ins, i) => (
-                            <div key={i} className="p-3 rounded-xl bg-black/[0.02] dark:bg-white/[0.025] border border-black/[0.04] dark:border-white/[0.06]">
-                              <div className="flex items-start justify-between mb-1">
-                                <span className="type-body-sm font-medium liq-text-1">{ins.title}</span>
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ml-2 ${
-                                  ins.severity === "HIGH" ? "text-red-400 bg-red-500/10 border-red-500/20" :
-                                  ins.severity === "MEDIUM" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
-                                  "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                                }`}>{ins.severity}</span>
-                              </div>
-                              <p className="type-caption liq-text-3">{ins.description}</p>
-                              {ins.businessImpact && (
-                                <p className="type-caption text-red-500/80 mt-1">Impact: {ins.businessImpact}</p>
-                              )}
-                              <p className="type-caption text-amber-500/80 mt-1">{ins.financialRisk}</p>
-                              {ins.recommendation && (
-                                <p className="type-caption text-emerald-500/80 mt-1">Recommendation: {ins.recommendation}</p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {a.report.futureRisks && a.report.futureRisks.length > 0 && (
-                      <div className="glass-card rounded-2xl p-5">
-                        <h3 className="type-h3 liq-text-1 mb-3 flex items-center gap-2">
-                          <AlertTriangle size={14} className="text-sky-400" /> Future Risk Exposure
-                        </h3>
-                        <div className="space-y-3">
-                          {a.report.futureRisks.map((fr, i) => (
-                            <div key={i} className="p-3 rounded-xl bg-black/[0.02] dark:bg-white/[0.025] border border-black/[0.04] dark:border-white/[0.06]">
-                              <div className="flex items-start justify-between mb-1">
-                                <span className="type-body-sm font-medium liq-text-1">{fr.title}</span>
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ml-2 ${
-                                  fr.level === "HIGH" ? "text-red-400 bg-red-500/10 border-red-500/20" :
-                                  fr.level === "MEDIUM" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
-                                  "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                                }`}>{fr.level}</span>
-                              </div>
-                              <p className="type-caption liq-text-3">{fr.impact}</p>
-                              <p className="type-caption liq-text-4 mt-1 italic">{fr.reason}</p>
-                              <p className="type-caption text-emerald-500/80 mt-1">{fr.action}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Answers */}
-                {a.answers && a.answers.length > 0 && (
-                  <div className="glass-card rounded-2xl p-5">
-                    <h3 className="type-h3 liq-text-1 mb-3">Assessment Answers ({a.answers.length})</h3>
-                    <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-                      {a.answers.map((ans, i) => (
-                        <div key={i} className="flex items-start justify-between gap-3 type-caption py-2 border-b border-black/[0.04] dark:border-white/[0.04] last:border-0">
-                          <div className="flex-1 liq-text-2">{ans.question}</div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className={`font-bold ${ans.answer === "YES" ? "text-emerald-500" : ans.answer === "NO" ? "text-red-500" : "text-amber-500"}`}>{ans.answer}</span>
-                            <span className="text-[#C9A84C]">+{ans.score}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <p className="text-xs font-medium liq-text-1">{emailDraft.subject}</p>
                   </div>
-                )}
-              </>
-            )}
-          </div>
+                  <div className="rounded-xl border p-3" style={{ background: "rgba(201,168,76,0.04)", borderColor: "rgba(201,168,76,0.15)" }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-bold liq-text-3 uppercase tracking-wider">Email Body</span>
+                      <CopyBtn text={emailDraft.body} />
+                    </div>
+                    <p className="text-xs liq-text-2 whitespace-pre-wrap leading-relaxed">{emailDraft.body}</p>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* ── LHS REPORT (identical to user view) ─────────────────────────── */}
+        {!a ? (
+          <div className="rounded-2xl p-12 text-center liq-text-4 border"
+            style={{ background: "var(--card-glass-bg)", borderColor: "var(--card-glass-border)" }}>
+            <User size={32} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-medium">Assessment not yet completed</p>
+            <p className="text-xs mt-1 opacity-60">This lead has not finished the LegalIQ assessment yet.</p>
+          </div>
+        ) : assessmentResult && (
+          <LHSReport
+            result={assessmentResult}
+            company={lead.company || lead.name}
+            name={lead.name}
+            businessType={lead.businessType}
+            city={lead.city}
+            adminMode={true}
+          />
+        )}
       </div>
     </AdminLayout>
   );

@@ -395,7 +395,7 @@ router.get("/admin/leads/:id", requireAuth, async (req, res) => {
       ...lead,
       assessment: assessment ? {
         ...assessment,
-        report: report ? { summary: report.summary, pillarAssessments: report.pillarAssessments, insights: report.insights, futureRisks: report.futureRisks, actions: report.actions, example: report.example, vcloPitch: report.vcloPitch } : null,
+        report: report ? { summary: report.summary, pillarAssessments: report.pillarAssessments, insights: report.insights, futureRisks: report.futureRisks, actions: report.actions, costSummary: report.costSummary, similarCases: report.similarCases, example: report.example, vcloPitch: report.vcloPitch } : null,
         answers: answersList.map((a) => ({ question: a.question, pillar: a.pillar, answer: a.answer, score: a.score })),
       } : null,
     },
