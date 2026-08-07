@@ -9,7 +9,7 @@ import {
   reviews,
   consultations,
 } from "@workspace/db";
-import { eq, desc, gte, lt, and, count, avg } from "drizzle-orm";
+import { eq, desc, gte, lte, lt, and, count, avg } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";
 import { logger } from "../lib/logger.js";
 import {
@@ -52,10 +52,33 @@ function extractJSON(raw: string): Record<string, unknown> {
 }
 
 // ── GET /admin/stats ─────────────────────────────────────────────────────────
-router.get("/admin/stats", requireAuth, async (_req, res) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+router.get("/admin/stats", requireAuth, async (req, res) => {
+  // ── Parse filter params ───────────────────────────────────────────────────
+  const dateFromParam  = req.query.dateFrom  as string | undefined;
+  const dateToParam    = req.query.dateTo    as string | undefined;
+  const riskLevelParam = req.query.riskLevel as string | undefined;
+  const scoreMinParam  = req.query.scoreMin  !== undefined ? Number(req.query.scoreMin)  : undefined;
+  const scoreMaxParam  = req.query.scoreMax  !== undefined ? Number(req.query.scoreMax)  : undefined;
+
+  // Date boundaries
+  const today     = new Date(); today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const weekAgo     = new Date(Date.now() - 7  * 24 * 60 * 60 * 1000);
+  const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const monthAgo    = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  // Build base filter applied to every assessment query
+  const dateFrom = dateFromParam ? new Date(dateFromParam) : undefined;
+  let   dateTo: Date | undefined;
+  if (dateToParam) { dateTo = new Date(dateToParam); dateTo.setHours(23, 59, 59, 999); }
+
+  const f = and(
+    dateFrom      ? gte(assessments.completedAt, dateFrom)   : undefined,
+    dateTo        ? lte(assessments.completedAt, dateTo)     : undefined,
+    riskLevelParam ? eq(assessments.riskLevel, riskLevelParam) : undefined,
+    scoreMinParam !== undefined ? gte(assessments.totalScore, scoreMinParam) : undefined,
+    scoreMaxParam !== undefined ? lte(assessments.totalScore, scoreMaxParam) : undefined,
+  );
 
   const [
     [totalLeadsResult],
@@ -63,32 +86,40 @@ router.get("/admin/stats", requireAuth, async (_req, res) => {
     [consultationsResult],
     [todayResult],
     [weekResult],
+    [monthResult],
     [avgResult],
-    [d0_40],
-    [d40_60],
-    [d60_80],
-    [d80],
+    [d0_40], [d40_60], [d60_80], [d80],
     riskBreakdown,
     recentLeads,
     allReportsInsights,
+    [yesterdayResult],
+    [prevWeekResult],
+    businessTypeRows,
   ] = await Promise.all([
     db.select({ count: count() }).from(leads),
-    db.select({ count: count() }).from(assessments),
+    db.select({ count: count() }).from(assessments).where(f),
     db.select({ count: count() }).from(consultations),
-    db.select({ count: count() }).from(assessments).where(gte(assessments.completedAt, today)),
-    db.select({ count: count() }).from(assessments).where(gte(assessments.completedAt, weekAgo)),
-    db.select({ avg: avg(assessments.totalScore) }).from(assessments),
-    db.select({ count: count() }).from(assessments).where(lt(assessments.totalScore, 40)),
-    db.select({ count: count() }).from(assessments).where(and(gte(assessments.totalScore, 40), lt(assessments.totalScore, 60))),
-    db.select({ count: count() }).from(assessments).where(and(gte(assessments.totalScore, 60), lt(assessments.totalScore, 80))),
-    db.select({ count: count() }).from(assessments).where(gte(assessments.totalScore, 80)),
-    db.select({ riskLevel: assessments.riskLevel, count: count() }).from(assessments).groupBy(assessments.riskLevel),
+    db.select({ count: count() }).from(assessments).where(and(f, gte(assessments.completedAt, today))),
+    db.select({ count: count() }).from(assessments).where(and(f, gte(assessments.completedAt, weekAgo))),
+    db.select({ count: count() }).from(assessments).where(and(f, gte(assessments.completedAt, monthAgo))),
+    db.select({ avg: avg(assessments.totalScore) }).from(assessments).where(f),
+    db.select({ count: count() }).from(assessments).where(and(f, lt(assessments.totalScore, 40))),
+    db.select({ count: count() }).from(assessments).where(and(f, gte(assessments.totalScore, 40), lt(assessments.totalScore, 60))),
+    db.select({ count: count() }).from(assessments).where(and(f, gte(assessments.totalScore, 60), lt(assessments.totalScore, 80))),
+    db.select({ count: count() }).from(assessments).where(and(f, gte(assessments.totalScore, 80))),
+    db.select({ riskLevel: assessments.riskLevel, count: count() }).from(assessments).where(f).groupBy(assessments.riskLevel),
     db.select({
       id: leads.id, name: leads.name, company: leads.company, businessType: leads.businessType,
       city: leads.city, createdAt: leads.createdAt, totalScore: assessments.totalScore,
-      riskLevel: assessments.riskLevel, status: assessments.status,
-    }).from(leads).leftJoin(assessments, eq(leads.id, assessments.leadId)).orderBy(desc(leads.createdAt)).limit(5),
+      riskLevel: assessments.riskLevel, status: assessments.status, completedAt: assessments.completedAt,
+    }).from(leads).leftJoin(assessments, eq(leads.id, assessments.leadId)).where(f).orderBy(desc(leads.createdAt)).limit(8),
     db.select({ insights: reports.insights }).from(reports),
+    // Trend: yesterday
+    db.select({ count: count() }).from(assessments).where(and(gte(assessments.completedAt, yesterday), lt(assessments.completedAt, today))),
+    // Trend: prev week (same 7-day window, one week earlier)
+    db.select({ count: count() }).from(assessments).where(and(gte(assessments.completedAt, twoWeeksAgo), lt(assessments.completedAt, weekAgo))),
+    // Distinct business types
+    db.selectDistinct({ businessType: leads.businessType }).from(leads).orderBy(leads.businessType),
   ]);
 
   const riskBreakdownMap: Record<string, number> = {};
@@ -104,24 +135,28 @@ router.get("/admin/stats", requireAuth, async (_req, res) => {
     }
   }
   const topRiskFlags = Object.entries(flagCounts)
-    .sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5)
     .map(([title, flagCount]) => ({ title, count: flagCount }));
 
   res.json({
     success: true,
-    totalLeads: totalLeadsResult.count,
+    totalLeads:          totalLeadsResult.count,
     assessmentsComplete: assessmentsResult.count,
     consultationsBooked: consultationsResult.count,
-    todayCount: todayResult.count,
-    weekCount: weekResult.count,
-    avgScore: Math.round(Number(avgResult?.avg ?? 0)),
+    todayCount:  todayResult.count,
+    weekCount:   weekResult.count,
+    monthCount:  monthResult.count,
+    avgScore:    Math.round(Number(avgResult?.avg ?? 0)),
     scoreDistribution: { critical: d0_40.count, moderate: d40_60.count, healthy: d60_80.count, excellent: d80.count },
-    criticalRisk: riskBreakdownMap["CRITICAL"] ?? 0,
-    moderateRisk: (riskBreakdownMap["STABLE"] ?? 0) + (riskBreakdownMap["RISKY"] ?? 0) + (riskBreakdownMap["MODERATE"] ?? 0),
+    criticalRisk:   riskBreakdownMap["CRITICAL"] ?? 0,
+    moderateRisk:   (riskBreakdownMap["STABLE"] ?? 0) + (riskBreakdownMap["RISKY"] ?? 0) + (riskBreakdownMap["MODERATE"] ?? 0),
     legallyHealthy: riskBreakdownMap["HEALTHY"] ?? 0,
-    riskBreakdown: riskBreakdownMap,
+    riskBreakdown:  riskBreakdownMap,
     topRiskFlags,
     recentLeads,
+    yesterdayCount: yesterdayResult.count,
+    prevWeekCount:  prevWeekResult.count,
+    businessTypes:  businessTypeRows.map((r) => r.businessType).filter(Boolean),
   });
 });
 
