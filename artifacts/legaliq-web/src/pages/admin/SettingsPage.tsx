@@ -6,6 +6,46 @@ import { apiFetch, authHeaders, API_BASE } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
 
+function PasswordInput({
+  label,
+  value,
+  onChange,
+  visible,
+  onToggle,
+  autoComplete,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  visible: boolean;
+  onToggle: () => void;
+  autoComplete: string;
+}) {
+  return (
+    <label className="block">
+      <span className="type-caption liq-text-2 mb-1.5 block">{label}</span>
+      <div className="relative">
+        <input
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoComplete={autoComplete}
+          className="liq-input w-full pr-10"
+          minLength={8}
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          className="absolute right-3 top-1/2 -translate-y-1/2 liq-text-4 hover:liq-text-1 transition-colors"
+        >
+          {visible ? <EyeOff size={15} /> : <Eye size={15} />}
+        </button>
+      </div>
+    </label>
+  );
+}
+
 export default function SettingsPage() {
   const [, navigate] = useLocation();
   const [exporting, setExporting] = useState(false);
@@ -75,46 +115,6 @@ export default function SettingsPage() {
     } finally {
       setChangingPassword(false);
     }
-  }
-
-  function PasswordInput({
-    label,
-    value,
-    onChange,
-    visible,
-    onToggle,
-    autoComplete,
-  }: {
-    label: string;
-    value: string;
-    onChange: (value: string) => void;
-    visible: boolean;
-    onToggle: () => void;
-    autoComplete: string;
-  }) {
-    return (
-      <label className="block">
-        <span className="type-caption liq-text-2 mb-1.5 block">{label}</span>
-        <div className="relative">
-          <input
-            type={visible ? "text" : "password"}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            autoComplete={autoComplete}
-            className="liq-input w-full pr-10"
-            minLength={8}
-          />
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
-            className="absolute right-3 top-1/2 -translate-y-1/2 liq-text-4 hover:liq-text-1 transition-colors"
-          >
-            {visible ? <EyeOff size={15} /> : <Eye size={15} />}
-          </button>
-        </div>
-      </label>
-    );
   }
 
   return (
