@@ -1,7 +1,5 @@
 import { logger } from "../lib/logger.js";
-
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.FROM_EMAIL ?? "LegalIQ <noreply@restthecase.com>";
+import { sendGmail } from "./gmail.js";
 
 interface SendEmailOptions {
   to: string;
@@ -14,43 +12,8 @@ interface SendEmailOptions {
 }
 
 export async function sendEmail(opts: SendEmailOptions): Promise<void> {
-  if (!RESEND_API_KEY) {
-    logger.warn("RESEND_API_KEY not set, skipping email");
-    return;
-  }
-
-  const body: Record<string, unknown> = {
-    from: FROM_EMAIL,
-    to: opts.to,
-    subject: opts.subject,
-    html: opts.html,
-  };
-
-  if (opts.attachments?.length) {
-    body.attachments = opts.attachments.map((a) => ({
-      filename: a.filename,
-      content:
-        typeof a.content === "string"
-          ? a.content
-          : a.content.toString("base64"),
-      encoding: typeof a.content === "string" ? undefined : "base64",
-    }));
-  }
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    logger.error({ status: res.status, text }, "Resend email failed");
-    throw new Error(`Email delivery failed (${res.status}): ${text}`);
-  }
+  await sendGmail(opts);
+  logger.info({ to: opts.to, subject: opts.subject }, "Legacy email sender delivered through Gmail");
 }
 
 export async function sendOtpEmail(email: string, otp: string): Promise<void> {

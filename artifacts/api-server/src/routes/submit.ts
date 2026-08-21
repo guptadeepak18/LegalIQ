@@ -5,9 +5,8 @@ import { leads, assessments, answers as answersTable, reports } from "@workspace
 import { eq } from "drizzle-orm";
 import { calculatePillarScores } from "../services/scoring.js";
 import { generateReport } from "../services/gemini.js";
-import { sendReportEmail } from "../services/resend.js";
 import { sendTemplateEmail } from "../services/emailTemplates.js";
-import { alertAdminAssessmentComplete, notifyUserReportReady } from "../services/callmebot.js";
+import { getAdminNotificationEmail } from "../services/gmail.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -106,9 +105,9 @@ router.post("/submit", async (req, res) => {
   await db.update(leads).set({ reviewToken }).where(eq(leads.id, leadId));
 
   const appUrl = process.env.APP_URL ?? "";
-  const adminEmail = process.env.ADMIN_EMAIL ?? "restthecase@gmail.com";
+  const adminEmail = await getAdminNotificationEmail();
 
-  // #2 Report ready — to user (with template)
+  // Report ready — to user (with template)
   sendTemplateEmail("report_ready", lead.email, {
     name: lead.name,
     company: lead.company,
@@ -118,8 +117,8 @@ router.post("/submit", async (req, res) => {
     resultsUrl: `${appUrl}/results?leadId=${lead.id}`,
   }, { leadId: lead.id }).catch((err) => logger.error({ err }, "Report ready email failed"));
 
-  // #8 Admin new-lead alert (updated with actual score now that assessment is done)
-  sendTemplateEmail("admin_new_lead", adminEmail, {
+  // Admin assessment-complete alert.
+  sendTemplateEmail("admin_assessment_complete", adminEmail, {
     leadName: lead.name,
     company: lead.company,
     city: lead.city,
@@ -127,20 +126,9 @@ router.post("/submit", async (req, res) => {
     grade: scoring.grade,
     riskLevel: scoring.riskLevel,
     adminUrl: `${appUrl}/admin/leads/${lead.id}`,
-  }).catch(() => {});
-
-  // Legacy report email (PDF attachment) - kept for backward compat
-  sendReportEmail(lead.email, lead.name, lead.company, scoring.totalScore, scoring.riskLevel).catch(
-    (err) => logger.error({ err }, "Report legacy email failed")
+  }, { leadId: lead.id }).catch(
+    (err) => logger.error({ err, eventKey: "admin_assessment_complete", leadId: lead.id }, "Admin assessment email failed")
   );
-  alertAdminAssessmentComplete(lead.name, lead.company, scoring.totalScore, scoring.riskLevel).catch(
-    (err) => logger.warn({ err }, "Admin WhatsApp failed")
-  );
-  if (lead.whatsappOptIn) {
-    notifyUserReportReady(lead.phone, lead.name, scoring.totalScore, scoring.riskLevel).catch(
-      (err) => logger.warn({ err }, "User WhatsApp failed")
-    );
-  }
 
   logger.info(
     { assessmentId: assessment.id, reportId: report.id, score: scoring.totalScore },

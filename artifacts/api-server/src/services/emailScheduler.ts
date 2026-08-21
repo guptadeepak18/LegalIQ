@@ -12,7 +12,6 @@ import { eq, and, gte, lt, isNull } from "drizzle-orm";
 import { sendTemplateEmail } from "./emailTemplates.js";
 import { logger } from "../lib/logger.js";
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "restthecase@gmail.com";
 const APP_URL = process.env.APP_URL ?? "https://legaliq.restthecase.com";
 
 // ── Reminder: 24 h before consultation ────────────────────────────────────────

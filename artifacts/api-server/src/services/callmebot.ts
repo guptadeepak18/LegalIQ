@@ -5,7 +5,7 @@
 import { logger } from "../lib/logger.js";
 import { sendEmail } from "./resend.js";
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "restthecase@gmail.com";
+const ADMIN_EMAIL = "info@restthecase.com";
 
 export async function alertAdminNewLead(
   name: string,

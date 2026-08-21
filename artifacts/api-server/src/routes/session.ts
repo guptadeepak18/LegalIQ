@@ -6,8 +6,8 @@ import { eq } from "drizzle-orm";
 import { generateSeedQuestionsForAssessment, generateReport, STATIC_SEED_PILLARS } from "../services/gemini.js";
 import { getNextAction, type StoredAnswer } from "../services/quizEngine.js";
 import { calculatePillarScores, calculateAnswerScore } from "../services/scoring.js";
-import { sendReportEmail } from "../services/resend.js";
-import { alertAdminAssessmentComplete, notifyUserReportReady } from "../services/callmebot.js";
+import { sendTemplateEmail } from "../services/emailTemplates.js";
+import { getAdminNotificationEmail } from "../services/gmail.js";
 import { logger } from "../lib/logger.js";
 import type { AssessmentPillar, AssessmentQuestion } from "../services/gemini.js";
 
@@ -298,19 +298,33 @@ router.post("/session/answer", async (req, res) => {
       "Session complete: assessment + report saved"
     );
 
-    // Fire-and-forget notifications
+    // Fire-and-forget template notifications.
     if (lead) {
-      sendReportEmail(lead.email, lead.name, lead.company, scoring.totalScore, scoring.riskLevel).catch(
-        (err) => logger.error({ err }, "Report email failed")
+      const appUrl = process.env.APP_URL ?? "";
+      const adminEmail = await getAdminNotificationEmail();
+
+      sendTemplateEmail("report_ready", lead.email, {
+        name: lead.name,
+        company: lead.company,
+        score: String(scoring.totalScore),
+        grade: scoring.grade,
+        riskLevel: scoring.riskLevel,
+        resultsUrl: `${appUrl}/results?leadId=${lead.id}`,
+      }, { leadId: lead.id }).catch(
+        (err) => logger.error({ err, eventKey: "report_ready", leadId: lead.id }, "Report-ready email failed")
       );
-      alertAdminAssessmentComplete(lead.name, lead.company, scoring.totalScore, scoring.riskLevel).catch(
-        (err) => logger.warn({ err }, "Admin WhatsApp failed")
+
+      sendTemplateEmail("admin_assessment_complete", adminEmail, {
+        leadName: lead.name,
+        company: lead.company,
+        city: lead.city,
+        score: String(scoring.totalScore),
+        grade: scoring.grade,
+        riskLevel: scoring.riskLevel,
+        adminUrl: `${appUrl}/admin/leads/${lead.id}`,
+      }, { leadId: lead.id }).catch(
+        (err) => logger.error({ err, eventKey: "admin_assessment_complete", leadId: lead.id }, "Admin assessment email failed")
       );
-      if (lead.whatsappOptIn) {
-        notifyUserReportReady(lead.phone, lead.name, scoring.totalScore, scoring.riskLevel).catch(
-          (err) => logger.warn({ err }, "User WhatsApp failed")
-        );
-      }
     }
 
     const detailedAnswers = updatedAnswers.map((a) => {

@@ -2,8 +2,8 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { leads, consultations, assessments } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { alertAdminConsultationBooked } from "../services/callmebot.js";
-import { sendConsultationConfirmation } from "../services/resend.js";
+import { sendTemplateEmail } from "../services/emailTemplates.js";
+import { getAdminNotificationEmail } from "../services/gmail.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -51,12 +51,32 @@ router.post("/consult", async (req, res) => {
     .set({ status: "contacted" })
     .where(eq(assessments.leadId, leadId));
 
-  // Non-blocking notifications
-  alertAdminConsultationBooked(lead.name, lead.company, date, time).catch(
-    (err) => logger.warn({ err }, "Admin WhatsApp failed")
+  const [assessment] = await db
+    .select()
+    .from(assessments)
+    .where(eq(assessments.leadId, leadId));
+  const appUrl = process.env.APP_URL ?? "";
+  const adminEmail = await getAdminNotificationEmail();
+
+  // Non-blocking template notifications
+  sendTemplateEmail("consult_confirmed", lead.email, {
+    name: lead.name,
+    company: lead.company,
+    date,
+    time,
+    notes: notes ?? "",
+  }, { leadId: lead.id }).catch(
+    (err) => logger.error({ err, eventKey: "consult_confirmed", leadId: lead.id }, "Consultation confirmation email failed")
   );
-  sendConsultationConfirmation(lead.email, lead.name, date, time).catch(
-    (err) => logger.error({ err }, "Consultation email failed")
+  sendTemplateEmail("admin_consult_booked", adminEmail, {
+    leadName: lead.name,
+    company: lead.company,
+    date,
+    time,
+    score: assessment ? String(assessment.totalScore) : "—",
+    adminUrl: `${appUrl}/admin/leads/${lead.id}`,
+  }, { leadId: lead.id }).catch(
+    (err) => logger.error({ err, eventKey: "admin_consult_booked", leadId: lead.id }, "Admin consultation email failed")
   );
 
   res.json({ success: true, consultationId: consultation.id, status: consultation.status });

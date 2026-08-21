@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { reviews, leads, assessments } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { sendTemplateEmail } from "../services/emailTemplates.js";
+import { getAdminNotificationEmail } from "../services/gmail.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -74,7 +75,7 @@ router.post("/reviews", async (req, res) => {
   });
 
   // #10 Admin review alert
-  const adminEmail = process.env.ADMIN_EMAIL ?? "restthecase@gmail.com";
+  const adminEmail = await getAdminNotificationEmail();
   const appUrl = process.env.APP_URL ?? "";
   sendTemplateEmail("admin_new_review", adminEmail, {
     reviewerName,

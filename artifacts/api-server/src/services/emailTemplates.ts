@@ -12,6 +12,37 @@ import { eq, desc } from "drizzle-orm";
 import { sendGmail } from "./gmail.js";
 import { logger } from "../lib/logger.js";
 
+const REQUIRED_TEMPLATES = [
+  {
+    eventKey: "admin_assessment_complete",
+    name: "Admin — Assessment Completed",
+    description: "Sent to the LegalIQ admin when a lead completes their assessment.",
+    subject: "Assessment complete — {{leadName}} scored {{score}}/100",
+    htmlBody: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#0A0A0A;color:#F0EDE8;border-radius:16px;">
+        <h1 style="margin:0 0 20px;color:#C9A84C;font-size:24px;">Assessment Completed</h1>
+        <p style="line-height:1.6;">{{leadName}} from <strong>{{company}}</strong> has completed their Legal Health Assessment.</p>
+        <table style="width:100%;margin:24px 0;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#9B8E82;">Legal Health Score</td><td style="padding:8px 0;font-weight:700;">{{score}}/100</td></tr>
+          <tr><td style="padding:8px 0;color:#9B8E82;">Grade</td><td style="padding:8px 0;font-weight:700;">{{grade}}</td></tr>
+          <tr><td style="padding:8px 0;color:#9B8E82;">Risk level</td><td style="padding:8px 0;font-weight:700;">{{riskLevel}}</td></tr>
+        </table>
+        <a href="{{adminUrl}}" style="display:inline-block;padding:12px 18px;background:#C9A84C;color:#111;text-decoration:none;border-radius:8px;font-weight:700;">View lead</a>
+      </div>
+    `,
+    variables: "{{leadName}}, {{company}}, {{score}}, {{grade}}, {{riskLevel}}, {{adminUrl}}",
+  },
+] as const;
+
+export async function ensureRequiredEmailTemplates(): Promise<void> {
+  for (const template of REQUIRED_TEMPLATES) {
+    await db
+      .insert(emailTemplates)
+      .values({ ...template, isActive: true })
+      .onConflictDoNothing({ target: emailTemplates.eventKey });
+  }
+}
+
 // ── Template rendering ────────────────────────────────────────────────────────
 
 export function renderTemplate(

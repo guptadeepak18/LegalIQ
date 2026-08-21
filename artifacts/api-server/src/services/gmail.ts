@@ -51,6 +51,11 @@ export async function getEmailSettings(): Promise<{
   }
 }
 
+export async function getAdminNotificationEmail(): Promise<string> {
+  await getEmailSettings();
+  return _settingsCache?.["email.admin_recipient"]?.trim() || "info@restthecase.com";
+}
+
 export function invalidateSettingsCache() {
   _settingsCache = null;
 }
