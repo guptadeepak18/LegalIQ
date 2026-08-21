@@ -1,6 +1,7 @@
 /**
  * Gmail sender via Replit Connectors SDK.
- * Sends emails using the connected Google account (deepak.gupta@mile.education).
+ * Sends emails using the connected Google account, with this app's own sender
+ * identity stored in app_settings.
  * Display name and Reply-To are configurable from the admin panel.
  */
 
@@ -26,7 +27,7 @@ export async function getEmailSettings(): Promise<{
   if (_settingsCache && Date.now() - _settingsCachedAt < CACHE_TTL_MS) {
     return {
       senderName:  _settingsCache["email.sender_name"]  ?? "LegalIQ by Rest The Case",
-      senderEmail: _settingsCache["email.sender_email"] ?? "deepak.gupta@mile.education",
+      senderEmail: _settingsCache["email.sender_email"] ?? "info@restthecase.com",
       replyTo:     _settingsCache["email.reply_to"]     ?? "info@restthecase.com",
     };
   }
@@ -38,13 +39,13 @@ export async function getEmailSettings(): Promise<{
     _settingsCachedAt = Date.now();
     return {
       senderName:  map["email.sender_name"]  ?? "LegalIQ by Rest The Case",
-      senderEmail: map["email.sender_email"] ?? "deepak.gupta@mile.education",
+      senderEmail: map["email.sender_email"] ?? "info@restthecase.com",
       replyTo:     map["email.reply_to"]     ?? "info@restthecase.com",
     };
   } catch {
     return {
       senderName:  "LegalIQ by Rest The Case",
-      senderEmail: "deepak.gupta@mile.education",
+      senderEmail: "info@restthecase.com",
       replyTo:     "info@restthecase.com",
     };
   }
