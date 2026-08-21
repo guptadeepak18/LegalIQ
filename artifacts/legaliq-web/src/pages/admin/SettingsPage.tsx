@@ -1,14 +1,21 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Download, FileSpreadsheet, Info, CheckCircle, Shield, Zap } from "lucide-react";
+import { Download, FileSpreadsheet, Info, CheckCircle, Shield, Zap, Lock, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
-import { authHeaders, API_BASE } from "@/lib/api";
+import { apiFetch, authHeaders, API_BASE } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
   const [, navigate] = useLocation();
   const [exporting, setExporting] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("liq_admin_token");
@@ -34,6 +41,80 @@ export default function SettingsPage() {
       toast.success("Downloaded — import via Google Sheets: File → Import");
     } catch { toast.error("Export failed"); }
     finally { setExporting(false); }
+  }
+
+  async function handleChangePassword(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("Complete all password fields");
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const res = await apiFetch<{ success: boolean; token: string }>("/auth/change-password", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      localStorage.setItem("liq_admin_token", res.token);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success("Admin password changed successfully");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Could not change password");
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
+  function PasswordInput({
+    label,
+    value,
+    onChange,
+    visible,
+    onToggle,
+    autoComplete,
+  }: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    visible: boolean;
+    onToggle: () => void;
+    autoComplete: string;
+  }) {
+    return (
+      <label className="block">
+        <span className="type-caption liq-text-2 mb-1.5 block">{label}</span>
+        <div className="relative">
+          <input
+            type={visible ? "text" : "password"}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            autoComplete={autoComplete}
+            className="liq-input w-full pr-10"
+            minLength={8}
+          />
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+            className="absolute right-3 top-1/2 -translate-y-1/2 liq-text-4 hover:liq-text-1 transition-colors"
+          >
+            {visible ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+      </label>
+    );
   }
 
   return (
@@ -74,6 +155,52 @@ export default function SettingsPage() {
           </div>
         </motion.div>
 
+        {/* Change password */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }} className="glass-card rounded-2xl p-6">
+          <h2 className="type-h2 liq-text-1 mb-1 flex items-center gap-2">
+            <Lock size={14} className="text-[#C9A84C]" /> Change Admin Password
+          </h2>
+          <p className="type-caption liq-text-3 mb-5">
+            Verify your current password before setting a new one. Passwords must be at least 8 characters.
+          </p>
+          <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
+            <PasswordInput
+              label="Current password"
+              value={currentPassword}
+              onChange={setCurrentPassword}
+              visible={showCurrentPassword}
+              onToggle={() => setShowCurrentPassword((visible) => !visible)}
+              autoComplete="current-password"
+            />
+            <div className="grid sm:grid-cols-2 gap-4">
+              <PasswordInput
+                label="New password"
+                value={newPassword}
+                onChange={setNewPassword}
+                visible={showNewPassword}
+                onToggle={() => setShowNewPassword((visible) => !visible)}
+                autoComplete="new-password"
+              />
+              <PasswordInput
+                label="Confirm new password"
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                visible={showConfirmPassword}
+                onToggle={() => setShowConfirmPassword((visible) => !visible)}
+                autoComplete="new-password"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={changingPassword}
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-40"
+              style={{ background: "#C9A84C", color: "#0A0A0A" }}
+            >
+              {changingPassword ? "Changing password…" : "Change password"}
+            </button>
+          </form>
+        </motion.div>
+
         {/* System config */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }} className="glass-card rounded-2xl p-6">
           <h2 className="type-h2 liq-text-1 mb-4 flex items-center gap-2">
@@ -105,7 +232,7 @@ export default function SettingsPage() {
           </h2>
           <div className="space-y-0">
             {[
-              { label: "Admin email",     value: "restthecase@gmail.com" },
+              { label: "Admin email",     value: "info@restthecase.com" },
               { label: "Session length",  value: "8 hours (JWT)" },
               { label: "Auth method",     value: "Email + password (bcrypt hashed)" },
             ].map((item) => (
@@ -116,7 +243,7 @@ export default function SettingsPage() {
             ))}
           </div>
           <p className="type-caption liq-text-3 mt-4 leading-relaxed">
-            To change the admin password, update the ADMIN_PASSWORD environment secret in the server configuration.
+            Password changes are handled securely through the form above and stored as a bcrypt hash.
           </p>
         </motion.div>
 
