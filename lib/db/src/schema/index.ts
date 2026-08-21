@@ -7,6 +7,7 @@ import {
   timestamp,
   jsonb,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const otpVerifications = pgTable("otp_verifications", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -142,9 +143,14 @@ export const reviews = pgTable("reviews", {
 
 export const adminUsers = pgTable("admin_users", {
   id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull().default("Admin"),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  permissions: jsonb("permissions").$type<string[]>().notNull()
+    .default(sql`'["dashboard","leads:view","leads:update","leads:export","ai","analytics","reviews","email","settings","admin-users"]'::jsonb`),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 export const appSettings = pgTable("app_settings", {

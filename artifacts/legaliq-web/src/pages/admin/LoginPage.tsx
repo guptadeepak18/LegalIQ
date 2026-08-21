@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTheme } from "@/components/ThemeProvider";
+import { storeAdminProfile, type AdminProfile } from "@/lib/adminAccess";
 
 export default function AdminLoginPage() {
   const [, navigate] = useLocation();
@@ -19,11 +20,12 @@ export default function AdminLoginPage() {
     if (!email || !password) { toast.error("Enter email and password"); return; }
     setLoading(true);
     try {
-      const res = await apiFetch<{ success: boolean; token: string }>("/auth/login", {
+      const res = await apiFetch<{ success: boolean; token: string; admin: AdminProfile }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
       localStorage.setItem("liq_admin_token", res.token);
+      storeAdminProfile(res.admin);
       navigate("/admin/dashboard");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Login failed");
@@ -194,7 +196,7 @@ export default function AdminLoginPage() {
               </div>
 
               {/* Form */}
-              <div className="space-y-4">
+              <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void handleLogin(); }}>
                 <div>
                   <label className="text-xs font-semibold liq-text-3 mb-1.5 block tracking-wide">
                     Email Address
@@ -205,7 +207,6 @@ export default function AdminLoginPage() {
                     placeholder="restthecase@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                     autoComplete="email"
                   />
                 </div>
@@ -220,13 +221,12 @@ export default function AdminLoginPage() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                     autoComplete="current-password"
                   />
                 </div>
 
                 <button
-                  onClick={handleLogin}
+                  type="submit"
                   disabled={loading}
                   className="w-full font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
                   style={{
@@ -245,7 +245,7 @@ export default function AdminLoginPage() {
                     "Sign In"
                   )}
                 </button>
-              </div>
+              </form>
             </div>
           </div>
 

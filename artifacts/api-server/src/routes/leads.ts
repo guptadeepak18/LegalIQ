@@ -5,7 +5,7 @@ import { db } from "@workspace/db";
 import { leads } from "@workspace/db";
 import { alertAdminNewLead } from "../services/callmebot.js";
 import { sendAdminLeadAlert } from "../services/resend.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { generateSeedQuestionsForAssessment } from "../services/gemini.js";
 import { sendTemplateEmail } from "../services/emailTemplates.js";
 import { logger } from "../lib/logger.js";
@@ -111,7 +111,7 @@ router.post("/leads", async (req, res) => {
   res.json({ success: true, leadId: lead.id });
 });
 
-router.post("/leads/:id/resend-report", requireAuth, async (req, res) => {
+router.post("/leads/:id/resend-report", requireAuth, requirePermission("leads:update"), async (req, res) => {
   // TODO: implement resend report
   res.json({ success: true, message: "Report resend queued" });
 });

@@ -10,7 +10,7 @@ import {
   consultations,
 } from "@workspace/db";
 import { eq, desc, gte, lte, lt, and, count, avg } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { logger } from "../lib/logger.js";
 import {
   listTemplates,
@@ -52,7 +52,7 @@ function extractJSON(raw: string): Record<string, unknown> {
 }
 
 // ── GET /admin/stats ─────────────────────────────────────────────────────────
-router.get("/admin/stats", requireAuth, async (req, res) => {
+router.get("/admin/stats", requireAuth, requirePermission("dashboard"), async (req, res) => {
   // ── Parse filter params ───────────────────────────────────────────────────
   const dateFromParam  = req.query.dateFrom  as string | undefined;
   const dateToParam    = req.query.dateTo    as string | undefined;
@@ -168,7 +168,7 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
 });
 
 // ── GET /admin/analytics ─────────────────────────────────────────────────────
-router.get("/admin/analytics", requireAuth, async (_req, res) => {
+router.get("/admin/analytics", requireAuth, requirePermission("analytics"), async (_req, res) => {
   const [byTypeRows, [pillarRow], [totalAssessmentsResult], [totalConsultationsResult]] = await Promise.all([
     db.select({ businessType: leads.businessType, avgScore: avg(assessments.totalScore), count: count() })
       .from(assessments).innerJoin(leads, eq(assessments.leadId, leads.id)).groupBy(leads.businessType),
@@ -185,7 +185,7 @@ router.get("/admin/analytics", requireAuth, async (_req, res) => {
 });
 
 // ── GET /admin/ai-insights ────────────────────────────────────────────────────
-router.get("/admin/ai-insights", requireAuth, async (_req, res) => {
+router.get("/admin/ai-insights", requireAuth, requirePermission("ai"), async (_req, res) => {
   const [[totalLeads], [totalAssessments], [avgResult], [d0], [d40], [d60], [d80], [pillarRow], byType, allFlags, [totalConsultations]] = await Promise.all([
     db.select({ count: count() }).from(leads),
     db.select({ count: count() }).from(assessments),
@@ -277,7 +277,7 @@ Return ONLY valid JSON in this exact format:
 });
 
 // ── POST /admin/leads/:id/draft-email ─────────────────────────────────────────
-router.post("/admin/leads/:id/draft-email", requireAuth, async (req, res) => {
+router.post("/admin/leads/:id/draft-email", requireAuth, requirePermission("ai"), async (req, res) => {
   const { id } = req.params;
 
   const [lead] = await db.select().from(leads).where(eq(leads.id, String(id)));
@@ -356,8 +356,10 @@ interface LeadInsightData {
 const leadInsightsCache = new Map<string, { data: LeadInsightData; generatedAt: number }>();
 const INSIGHTS_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
-router.post("/admin/leads/:id/ai-insights", requireAuth, async (req, res) => {
-  const { id } = req.params;
+router.post("/admin/leads/:id/ai-insights", requireAuth, requirePermission("ai"), async (req, res) => {
+  const rawId = req.params.id;
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
+  if (!id) { res.status(400).json({ success: false, message: "Lead id is required" }); return; }
   const forceRefresh = (req.body as Record<string, unknown>)?.forceRefresh === true;
 
   // Serve from cache unless forced refresh
@@ -440,17 +442,18 @@ Return ONLY valid JSON with NO markdown fences:
 
   try {
     const raw = await callGeminiAdmin(prompt, 1400);
-    const parsed = extractJSON(raw) as LeadInsightData;
+    const parsed = extractJSON(raw) as unknown as LeadInsightData;
 
     if (!parsed.overallAssessment || !Array.isArray(parsed.keyRiskFindings)) {
-      logger.warn("Invalid AI insights response structure", { id });
+      logger.warn({ id }, "Invalid AI insights response structure");
       res.status(500).json({ success: false, message: "AI returned an unexpected response. Please retry." });
       return;
     }
 
     // Validate + normalise consultationPriority
     if (!["HIGH", "MEDIUM", "LOW"].includes(parsed.consultationPriority)) {
-      parsed.consultationPriority = assessment.totalScore < 40 ? "HIGH" : assessment.totalScore < 70 ? "MEDIUM" : "LOW";
+      const totalScore = assessment.totalScore ?? 0;
+      parsed.consultationPriority = totalScore < 40 ? "HIGH" : totalScore < 70 ? "MEDIUM" : "LOW";
     }
 
     // Store in cache
@@ -461,14 +464,14 @@ Return ONLY valid JSON with NO markdown fences:
     if (message === "RATE_LIMITED") {
       res.json({ success: true, rateLimited: true });
     } else {
-      logger.error("Lead AI insights failed", { err, id });
+      logger.error({ err, id }, "Lead AI insights failed");
       res.status(500).json({ success: false, message: "Insights generation failed. Please try again." });
     }
   }
 });
 
 // ── GET /admin/leads ─────────────────────────────────────────────────────────
-router.get("/admin/leads", requireAuth, async (req, res) => {
+router.get("/admin/leads", requireAuth, requirePermission("leads:view"), async (req, res) => {
   const page = Number(req.query.page ?? 1);
   const limit = Number(req.query.limit ?? 20);
   const search = req.query.search as string | undefined;
@@ -512,7 +515,7 @@ router.get("/admin/leads", requireAuth, async (req, res) => {
 });
 
 // ── GET /admin/leads/:id ─────────────────────────────────────────────────────
-router.get("/admin/leads/:id", requireAuth, async (req, res) => {
+router.get("/admin/leads/:id", requireAuth, requirePermission("leads:view"), async (req, res) => {
   const { id } = req.params;
   const [lead] = await db.select().from(leads).where(eq(leads.id, String(id)));
   if (!lead) { res.status(404).json({ success: false, message: "Lead not found" }); return; }
@@ -552,8 +555,10 @@ router.get("/admin/leads/:id", requireAuth, async (req, res) => {
 });
 
 // ── PATCH /admin/leads/:id/consultation ──────────────────────────────────────
-router.patch("/admin/leads/:id/consultation", requireAuth, async (req, res) => {
-  const { id } = req.params;
+router.patch("/admin/leads/:id/consultation", requireAuth, requirePermission("leads:update"), async (req, res) => {
+  const rawId = req.params.id;
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
+  if (!id) { res.status(400).json({ success: false, message: "Lead id is required" }); return; }
   const body = (req.body ?? {}) as { status?: string; scheduledAt?: string | null };
   const { status, scheduledAt } = body;
 
@@ -580,7 +585,7 @@ router.patch("/admin/leads/:id/consultation", requireAuth, async (req, res) => {
 });
 
 // ── PATCH /admin/leads/:id/status ────────────────────────────────────────────
-router.patch("/admin/leads/:id/status", requireAuth, async (req, res) => {
+router.patch("/admin/leads/:id/status", requireAuth, requirePermission("leads:update"), async (req, res) => {
   const { id } = req.params;
   const status = (req.body as { status?: string } | undefined)?.status;
   if (!status) { res.status(400).json({ success: false, message: "Status required" }); return; }
@@ -589,7 +594,7 @@ router.patch("/admin/leads/:id/status", requireAuth, async (req, res) => {
 });
 
 // ── GET /admin/export ─────────────────────────────────────────────────────────
-router.get("/admin/export", requireAuth, async (_req, res) => {
+router.get("/admin/export", requireAuth, requirePermission("leads:export"), async (_req, res) => {
   const allLeads = await db.select({
     id: leads.id, name: leads.name, email: leads.email, phone: leads.phone, company: leads.company,
     city: leads.city, category: leads.category, businessType: leads.businessType, createdAt: leads.createdAt,
@@ -612,12 +617,12 @@ router.get("/admin/export", requireAuth, async (_req, res) => {
 
 // ── Email sender settings ─────────────────────────────────────────────────────
 
-router.get("/admin/email-settings", requireAuth, async (_req, res) => {
+router.get("/admin/email-settings", requireAuth, requirePermission("email"), async (_req, res) => {
   const settings = await getEmailSettings();
   res.json({ success: true, settings });
 });
 
-router.put("/admin/email-settings", requireAuth, async (req, res) => {
+router.put("/admin/email-settings", requireAuth, requirePermission("email"), async (req, res) => {
   const { senderName, senderEmail, replyTo } =
     req.body as { senderName?: string; senderEmail?: string; replyTo?: string };
   if (senderName)  await updateEmailSetting("email.sender_name",  senderName);
@@ -629,18 +634,18 @@ router.put("/admin/email-settings", requireAuth, async (req, res) => {
 
 // ── Email template CRUD ───────────────────────────────────────────────────────
 
-router.get("/admin/email-templates", requireAuth, async (_req, res) => {
+router.get("/admin/email-templates", requireAuth, requirePermission("email"), async (_req, res) => {
   const templates = await listTemplates();
   res.json({ success: true, templates });
 });
 
-router.get("/admin/email-templates/:id", requireAuth, async (req, res) => {
+router.get("/admin/email-templates/:id", requireAuth, requirePermission("email"), async (req, res) => {
   const template = await getTemplate(String(req.params.id));
   if (!template) { res.status(404).json({ success: false, message: "Not found" }); return; }
   res.json({ success: true, template });
 });
 
-router.put("/admin/email-templates/:id", requireAuth, async (req, res) => {
+router.put("/admin/email-templates/:id", requireAuth, requirePermission("email"), async (req, res) => {
   const { subject, htmlBody, isActive, name, description } =
     req.body as { subject?: string; htmlBody?: string; isActive?: boolean; name?: string; description?: string };
   const updated = await updateTemplate(String(req.params.id), { subject, htmlBody, isActive, name, description });
@@ -648,7 +653,7 @@ router.put("/admin/email-templates/:id", requireAuth, async (req, res) => {
   res.json({ success: true, template: updated });
 });
 
-router.post("/admin/email-templates", requireAuth, async (req, res) => {
+router.post("/admin/email-templates", requireAuth, requirePermission("email"), async (req, res) => {
   const { eventKey, name, description, subject, htmlBody, variables } =
     req.body as { eventKey: string; name: string; description?: string; subject: string; htmlBody: string; variables?: string };
   if (!eventKey || !name || !subject || !htmlBody) {
@@ -659,7 +664,7 @@ router.post("/admin/email-templates", requireAuth, async (req, res) => {
   res.json({ success: true, template });
 });
 
-router.post("/admin/email-templates/:id/test", requireAuth, async (req, res) => {
+router.post("/admin/email-templates/:id/test", requireAuth, requirePermission("email"), async (req, res) => {
   const template = await getTemplate(String(req.params.id));
   if (!template) { res.status(404).json({ success: false, message: "Not found" }); return; }
   const toEmail = req.body.email as string | undefined;
@@ -683,20 +688,20 @@ router.post("/admin/email-templates/:id/test", requireAuth, async (req, res) => 
   }
 });
 
-router.get("/admin/email-logs", requireAuth, async (req, res) => {
+router.get("/admin/email-logs", requireAuth, requirePermission("email"), async (req, res) => {
   const limit = Number(req.query.limit ?? 200);
   const logs = await listEmailLogs(Math.min(limit, 500));
   res.json({ success: true, logs });
 });
 
 // ── GET /admin/reviews ────────────────────────────────────────────────────────
-router.get("/admin/reviews", requireAuth, async (_req, res) => {
+router.get("/admin/reviews", requireAuth, requirePermission("reviews"), async (_req, res) => {
   const allReviews = await db.select().from(reviews).orderBy(desc(reviews.createdAt));
   res.json({ success: true, reviews: allReviews, pendingCount: allReviews.filter((r) => r.status === "PENDING").length });
 });
 
 // ── PATCH /admin/reviews/:id ──────────────────────────────────────────────────
-router.patch("/admin/reviews/:id", requireAuth, async (req, res) => {
+router.patch("/admin/reviews/:id", requireAuth, requirePermission("reviews"), async (req, res) => {
   const { id } = req.params;
   const { action, rejectionNote } = req.body as { action: "APPROVE" | "REJECT"; rejectionNote?: string };
   const status = action === "APPROVE" ? "APPROVED" : "REJECTED";

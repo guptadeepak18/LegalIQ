@@ -1,6 +1,15 @@
 /** Read the signed-in admin email from the JWT already stored by admin login. */
 export function getAdminEmailFromToken(): string {
   if (typeof window === "undefined") return "Admin";
+  try {
+    const profile = localStorage.getItem("liq_admin_profile");
+    if (profile) {
+      const parsed = JSON.parse(profile) as { email?: unknown };
+      if (typeof parsed.email === "string" && parsed.email.length > 0) return parsed.email;
+    }
+  } catch {
+    // Fall back to the token payload for existing sessions.
+  }
 
   const token = localStorage.getItem("liq_admin_token");
   if (!token) return "Admin";
