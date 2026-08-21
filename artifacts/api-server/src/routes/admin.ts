@@ -27,8 +27,13 @@ const router = Router();
 // ── Gemini helper (admin-only) ────────────────────────────────────────────────
 
 function getAdminAiClient(): GoogleGenAI {
+  const directApiKey = process.env.GEMINI_API_KEY;
+  if (directApiKey) {
+    return new GoogleGenAI({ apiKey: directApiKey });
+  }
+
   const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
-  const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY ?? process.env.GEMINI_API_KEY ?? "";
+  const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY ?? "";
   if (baseUrl) {
     return new GoogleGenAI({ apiKey, httpOptions: { apiVersion: "", baseUrl } });
   }
@@ -40,7 +45,12 @@ async function callGeminiAdmin(prompt: string, maxTokens = 1200): Promise<string
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: { temperature: 0.7, maxOutputTokens: maxTokens },
+    config: {
+      temperature: 0.7,
+      maxOutputTokens: maxTokens,
+      responseMimeType: "application/json",
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   });
   return response.text ?? "";
 }

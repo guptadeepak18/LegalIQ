@@ -248,13 +248,7 @@ export default function SettingsPage() {
     }
   }
 
-  function handleExportCSV() {
-    const token = localStorage.getItem("liq_admin_token");
-    window.open(`${API_BASE}/admin/export?token=${token}`, "_blank");
-    toast.success("CSV download started");
-  }
-
-  async function handleExportSheets() {
+  async function handleExportCSV() {
     setExporting(true);
     try {
       const response = await fetch(`${API_BASE}/admin/export`, { headers: authHeaders() });
@@ -266,7 +260,7 @@ export default function SettingsPage() {
       link.download = `legaliq-leads-${Date.now()}.csv`;
       link.click();
       URL.revokeObjectURL(url);
-      toast.success("Downloaded — import via Google Sheets: File → Import");
+      toast.success("CSV download started");
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : "Export failed");
     } finally {
@@ -438,7 +432,7 @@ export default function SettingsPage() {
               <button type="button" onClick={handleExportCSV} className="flex items-center gap-3 p-4 rounded-xl border border-gray-300 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5 text-left">
                 <Download size={17} className="text-[#C9A84C]" /><span><span className="type-h3 liq-text-1 block">Download CSV</span><span className="type-caption liq-text-3">All leads · full pillar scores</span></span>
               </button>
-              <button type="button" onClick={handleExportSheets} disabled={exporting} className="flex items-center gap-3 p-4 rounded-xl border border-gray-300 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5 text-left disabled:opacity-40">
+              <button type="button" onClick={handleExportCSV} disabled={exporting} className="flex items-center gap-3 p-4 rounded-xl border border-gray-300 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5 text-left disabled:opacity-40">
                 <FileSpreadsheet size={17} className="text-emerald-500" /><span><span className="type-h3 liq-text-1 block">{exporting ? "Downloading…" : "Export for Google Sheets"}</span><span className="type-caption liq-text-3">CSV formatted for import</span></span>
               </button>
             </div>

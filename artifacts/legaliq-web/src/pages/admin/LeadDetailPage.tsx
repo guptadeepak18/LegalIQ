@@ -15,6 +15,11 @@ import { LHSReport } from "@/components/LHSReport";
 import type { AssessmentResult } from "@/store/useStore";
 import { generateReportPDF, generateCertificatePDF } from "@/lib/pdfGenerator";
 import { PILLAR_META } from "@/components/LHSReport";
+import {
+  hasAdminPermission,
+  loadAdminProfile,
+  type AdminProfile,
+} from "@/lib/adminAccess";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -197,10 +202,17 @@ export default function LeadDetailPage() {
   const [insightsCached, setInsightsCached] = useState(false);
   const [insightsRateLimited, setInsightsRateLimited] = useState(false);
   const [insightsExpanded, setInsightsExpanded] = useState(true);
+  const [profile, setProfile] = useState<AdminProfile | null>(null);
 
   // Consultation management state
   const [updatingConsultation, setUpdatingConsultation] = useState(false);
   const [scheduledAtInput, setScheduledAtInput] = useState("");
+  const canUpdateLeads = hasAdminPermission(profile, "leads:update");
+  const canUseAi = hasAdminPermission(profile, "ai");
+
+  useEffect(() => {
+    loadAdminProfile().then(setProfile).catch(() => setProfile(null));
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -219,7 +231,7 @@ export default function LeadDetailPage() {
   }, [id, navigate]);
 
   async function updateStatus(status: string) {
-    if (!lead) return;
+    if (!lead || !canUpdateLeads) return;
     setUpdatingStatus(true);
     try {
       await apiFetch(`/admin/leads/${lead.id}/status`, { method: "PATCH", headers: authHeaders(), body: JSON.stringify({ status }) });
@@ -230,7 +242,7 @@ export default function LeadDetailPage() {
   }
 
   async function updateConsultationStatus(status: string) {
-    if (!lead?.id) return;
+    if (!lead?.id || !canUpdateLeads) return;
     setUpdatingConsultation(true);
     try {
       const body: { status: string; scheduledAt?: string | null } = { status };
@@ -267,7 +279,7 @@ export default function LeadDetailPage() {
   }
 
   async function generateInsights(forceRefresh = false) {
-    if (!lead?.id) return;
+    if (!lead?.id || !canUseAi) return;
     setInsightsLoading(true);
     setInsightsError(null);
     setInsightsRateLimited(false);
@@ -297,7 +309,7 @@ export default function LeadDetailPage() {
   }
 
   async function generateEmail() {
-    if (!lead) return;
+    if (!lead || !canUseAi) return;
     setGeneratingEmail(true);
     setEmailRateLimited(false);
     try {
@@ -495,6 +507,7 @@ export default function LeadDetailPage() {
           {a && (
             <div className="flex flex-col sm:flex-row gap-4 px-5 py-4 border-t" style={{ borderColor: "var(--nav-border)" }}>
               {/* Status selector */}
+              {canUpdateLeads && (
               <div className="flex-1">
                 <div className="text-[10px] liq-text-4 uppercase tracking-wider mb-2">Lead Status</div>
                 <div className="flex flex-wrap gap-2">
@@ -510,6 +523,7 @@ export default function LeadDetailPage() {
                   ))}
                 </div>
               </div>
+              )}
               {/* WhatsApp opt-in badge */}
               {lead.whatsappOptIn && (
                 <div className="flex-shrink-0 flex items-center">
@@ -519,6 +533,7 @@ export default function LeadDetailPage() {
                 </div>
               )}
               {/* AI Email Draft */}
+              {canUseAi && (
               <div className="flex-shrink-0 flex items-center gap-2">
                 <button onClick={generateEmail} disabled={generatingEmail}
                   className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all disabled:opacity-40"
@@ -532,6 +547,7 @@ export default function LeadDetailPage() {
                   )}
                 </button>
               </div>
+              )}
             </div>
           )}
 
@@ -633,6 +649,7 @@ export default function LeadDetailPage() {
               )}
 
               {/* Admin status update */}
+              {canUpdateLeads && (
               <div className="border-t pt-4" style={{ borderColor: "var(--nav-border)" }}>
                 <p className="text-[10px] font-bold liq-text-3 uppercase tracking-wider mb-2.5">Update Status</p>
                 <div className="flex flex-wrap gap-2 mb-3">
@@ -675,6 +692,7 @@ export default function LeadDetailPage() {
                   )}
                 </div>
               </div>
+              )}
             </div>
           ) : (
             <div className="px-5 py-8 text-center">
@@ -688,7 +706,7 @@ export default function LeadDetailPage() {
         </div>
 
         {/* ── AI ADMIN INSIGHTS ───────────────────────────────────────────── */}
-        {a && (
+        {a && canUseAi && (
           <div className="rounded-2xl border mb-6 overflow-hidden"
             style={{ background: "var(--card-glass-bg)", border: "1.5px solid var(--card-glass-border)", boxShadow: "var(--card-glass-shadow)" }}>
 

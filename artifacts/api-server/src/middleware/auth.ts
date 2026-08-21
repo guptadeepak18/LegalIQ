@@ -7,7 +7,14 @@ import {
   type AdminPermission,
 } from "../lib/adminPermissions.js";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "legaliq-default-secret-change-me";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET ?? process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET or SESSION_SECRET must be configured for admin authentication");
+  }
+  return secret;
+}
+const JWT_SECRET = getJwtSecret();
 
 export interface AuthRequest extends Request {
   adminId?: string;

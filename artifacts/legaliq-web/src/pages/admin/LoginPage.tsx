@@ -8,6 +8,16 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTheme } from "@/components/ThemeProvider";
 import { storeAdminProfile, type AdminProfile } from "@/lib/adminAccess";
 
+function firstAccessibleAdminRoute(profile: AdminProfile): string {
+  if (profile.permissions.includes("dashboard")) return "/admin/dashboard";
+  if (profile.permissions.includes("leads:view")) return "/admin/leads";
+  if (profile.permissions.includes("ai")) return "/admin/ai-insights";
+  if (profile.permissions.includes("analytics")) return "/admin/analytics";
+  if (profile.permissions.includes("reviews")) return "/admin/reviews";
+  if (profile.permissions.includes("email")) return "/admin/email-templates";
+  return "/admin/settings";
+}
+
 export default function AdminLoginPage() {
   const [, navigate] = useLocation();
   const [email, setEmail]       = useState("");
@@ -26,7 +36,7 @@ export default function AdminLoginPage() {
       });
       localStorage.setItem("liq_admin_token", res.token);
       storeAdminProfile(res.admin);
-      navigate("/admin/dashboard");
+      navigate(firstAccessibleAdminRoute(res.admin));
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Login failed");
     } finally {

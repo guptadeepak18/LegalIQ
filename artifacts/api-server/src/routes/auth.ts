@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
 import { adminUsers } from "@workspace/db";
-import { and, eq, ne } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import {
   requireAuth,
   requirePermission,
@@ -50,18 +50,23 @@ function parsePermissions(value: unknown): AdminPermission[] | null {
   return permissions.length === value.length ? permissions : null;
 }
 
-async function wouldRemoveLastFullAdmin(
-  target: typeof adminUsers.$inferSelect,
-  nextIsActive: boolean,
-  nextPermissions: AdminPermission[],
-): Promise<boolean> {
-  if (!target.isActive || !hasFullPermissions(target.permissions)) return false;
-  if (nextIsActive && hasFullPermissions(nextPermissions)) return false;
+function canGrantPermissions(
+  actorPermissions: AdminPermission[] | undefined,
+  requestedPermissions: AdminPermission[],
+): boolean {
+  if (!actorPermissions) return false;
+  if (hasFullPermissions(actorPermissions)) return true;
+  if (requestedPermissions.includes("admin-users")) return false;
+  return requestedPermissions.every((permission) => actorPermissions.includes(permission));
+}
 
-  const activeAdmins = await db.select().from(adminUsers).where(eq(adminUsers.isActive, true));
-  return !activeAdmins.some((admin) =>
-    admin.id !== target.id && hasFullPermissions(admin.permissions),
-  );
+class AdminPolicyError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
 router.post("/auth/login", async (req, res) => {
@@ -210,7 +215,7 @@ router.get("/auth/admin-users", requireAuth, requirePermission("admin-users"), a
   res.json({ success: true, admins: admins.map(publicAdmin), availablePermissions: ADMIN_PERMISSIONS });
 });
 
-router.post("/auth/admin-users", requireAuth, requirePermission("admin-users"), async (req, res): Promise<void> => {
+router.post("/auth/admin-users", requireAuth, requirePermission("admin-users"), async (req: AuthRequest, res): Promise<void> => {
   const { name: rawName, email: rawEmail, password, permissions, isActive = true } = (req.body ?? {}) as {
     name?: unknown; email?: unknown; password?: unknown; permissions?: unknown; isActive?: unknown;
   };
@@ -219,6 +224,10 @@ router.post("/auth/admin-users", requireAuth, requirePermission("admin-users"), 
   const selectedPermissions = parsePermissions(permissions);
   if (!name || !email || typeof password !== "string" || password.length < 8 || !selectedPermissions || typeof isActive !== "boolean") {
     res.status(400).json({ success: false, message: "Provide a valid name, email, password (8+ characters), active status, and permissions" });
+    return;
+  }
+  if (!canGrantPermissions(req.adminPermissions, selectedPermissions)) {
+    res.status(403).json({ success: false, message: "You cannot grant permissions you do not hold" });
     return;
   }
   const [existing] = await db.select().from(adminUsers).where(eq(adminUsers.email, email));
@@ -235,48 +244,82 @@ router.post("/auth/admin-users", requireAuth, requirePermission("admin-users"), 
 
 router.patch("/auth/admin-users/:id", requireAuth, requirePermission("admin-users"), async (req: AuthRequest, res): Promise<void> => {
   const id = String(req.params.id);
-  const [target] = await db.select().from(adminUsers).where(eq(adminUsers.id, id));
-  if (!target) {
-    res.status(404).json({ success: false, message: "Admin account not found" });
-    return;
-  }
-
   const body = (req.body ?? {}) as { name?: unknown; email?: unknown; password?: unknown; permissions?: unknown; isActive?: unknown };
-  const nextName = body.name === undefined ? target.name : parseName(body.name);
-  const nextEmail = body.email === undefined ? target.email : parseEmail(body.email);
-  const nextPermissions = body.permissions === undefined ? normalizePermissions(target.permissions) : parsePermissions(body.permissions);
-  const nextIsActive = body.isActive === undefined ? target.isActive : body.isActive;
-  if (!nextName || !nextEmail || !nextPermissions || typeof nextIsActive !== "boolean") {
-    res.status(400).json({ success: false, message: "Provide valid account details and permissions" });
-    return;
-  }
   if (body.password !== undefined && (typeof body.password !== "string" || body.password.length < 8)) {
     res.status(400).json({ success: false, message: "New passwords must be at least 8 characters" });
     return;
   }
-  if (req.adminId === target.id && (!nextIsActive || !nextPermissions.includes("admin-users"))) {
-    res.status(400).json({ success: false, message: "You cannot remove your own admin management access or deactivate your account" });
-    return;
-  }
-  if (await wouldRemoveLastFullAdmin(target, nextIsActive, nextPermissions)) {
-    res.status(400).json({ success: false, message: "Keep at least one active administrator with full permissions" });
-    return;
-  }
-  if (nextEmail !== target.email) {
-    const [existing] = await db.select().from(adminUsers)
-      .where(and(eq(adminUsers.email, nextEmail), ne(adminUsers.id, target.id)));
-    if (existing) {
+
+  const passwordHash = typeof body.password === "string"
+    ? await bcrypt.hash(body.password, 12)
+    : undefined;
+
+  let updated: typeof adminUsers.$inferSelect | undefined;
+  try {
+    updated = await db.transaction(async (tx) => {
+      // Lock the complete admin set in a stable order so the final-full-admin
+      // invariant cannot be bypassed by concurrent demotions/deactivations.
+      const lockedAdmins = await tx.select().from(adminUsers).orderBy(asc(adminUsers.id)).for("update");
+      const target = lockedAdmins.find((admin) => admin.id === id);
+      if (!target) throw new AdminPolicyError(404, "Admin account not found");
+
+      const nextName = body.name === undefined ? target.name : parseName(body.name);
+      const nextEmail = body.email === undefined ? target.email : parseEmail(body.email);
+      const nextPermissions = body.permissions === undefined
+        ? normalizePermissions(target.permissions)
+        : parsePermissions(body.permissions);
+      const nextIsActive = body.isActive === undefined ? target.isActive : body.isActive;
+      if (!nextName || !nextEmail || !nextPermissions || typeof nextIsActive !== "boolean") {
+        throw new AdminPolicyError(400, "Provide valid account details and permissions");
+      }
+      if (!canGrantPermissions(req.adminPermissions, nextPermissions)) {
+        throw new AdminPolicyError(403, "You cannot grant permissions you do not hold");
+      }
+      if (req.adminId === target.id && (!nextIsActive || !nextPermissions.includes("admin-users"))) {
+        throw new AdminPolicyError(400, "You cannot remove your own admin management access or deactivate your account");
+      }
+      if (
+        target.isActive &&
+        hasFullPermissions(target.permissions) &&
+        (!nextIsActive || !hasFullPermissions(nextPermissions)) &&
+        !lockedAdmins.some((admin) =>
+          admin.id !== target.id && admin.isActive && hasFullPermissions(admin.permissions),
+        )
+      ) {
+        throw new AdminPolicyError(400, "Keep at least one active administrator with full permissions");
+      }
+      if (nextEmail !== target.email) {
+        const existing = lockedAdmins.find((admin) => admin.email === nextEmail && admin.id !== target.id);
+        if (existing) throw new AdminPolicyError(409, "An admin already uses this email address");
+      }
+
+      const updates: {
+        name: string; email: string; permissions: AdminPermission[]; isActive: boolean;
+        passwordHash?: string; updatedAt: Date;
+      } = {
+        name: nextName,
+        email: nextEmail,
+        permissions: nextPermissions,
+        isActive: nextIsActive,
+        updatedAt: new Date(),
+      };
+      if (passwordHash) updates.passwordHash = passwordHash;
+      const [result] = await tx.update(adminUsers).set(updates).where(eq(adminUsers.id, target.id)).returning();
+      return result;
+    });
+  } catch (error) {
+    if (error instanceof AdminPolicyError) {
+      res.status(error.status).json({ success: false, message: error.message });
+      return;
+    }
+    if ((error as { code?: string }).code === "23505") {
       res.status(409).json({ success: false, message: "An admin already uses this email address" });
       return;
     }
+    throw error;
   }
-  const updates: {
-    name: string; email: string; permissions: AdminPermission[]; isActive: boolean;
-    passwordHash?: string; updatedAt: Date;
-  } = { name: nextName, email: nextEmail, permissions: nextPermissions, isActive: nextIsActive, updatedAt: new Date() };
-  if (typeof body.password === "string") updates.passwordHash = await bcrypt.hash(body.password, 12);
-  const [updated] = await db.update(adminUsers).set(updates).where(eq(adminUsers.id, target.id)).returning();
-  res.json({ success: true, admin: publicAdmin(updated), message: "Admin account updated successfully" });
+
+  res.json({ success: true, admin: publicAdmin(updated!), message: "Admin account updated successfully" });
 });
 
 export default router;
