@@ -4,6 +4,7 @@ import { Download, FileSpreadsheet, Info, CheckCircle, Shield, Zap, Lock, Eye, E
 import { motion } from "framer-motion";
 import { apiFetch, authHeaders, API_BASE } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { getAdminEmailFromToken } from "@/lib/adminAuth";
 import { toast } from "sonner";
 
 function PasswordInput({
@@ -48,6 +49,7 @@ function PasswordInput({
 
 export default function SettingsPage() {
   const [, navigate] = useLocation();
+  const adminEmail = getAdminEmailFromToken();
   const [exporting, setExporting] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -56,6 +58,8 @@ export default function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("liq_admin_token");
@@ -85,16 +89,24 @@ export default function SettingsPage() {
 
   async function handleChangePassword(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
     if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error("Complete all password fields");
+      const message = "Complete all password fields";
+      setPasswordError(message);
+      toast.error(message);
       return;
     }
     if (newPassword.length < 8) {
-      toast.error("New password must be at least 8 characters");
+      const message = "New password must be at least 8 characters";
+      setPasswordError(message);
+      toast.error(message);
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error("New passwords do not match");
+      const message = "New passwords do not match";
+      setPasswordError(message);
+      toast.error(message);
       return;
     }
 
@@ -109,9 +121,13 @@ export default function SettingsPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      toast.success("Admin password changed successfully");
+      const message = "Admin password changed successfully";
+      setPasswordSuccess(message);
+      toast.success(message);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Could not change password");
+      const message = err instanceof Error ? err.message : "Could not change password";
+      setPasswordError(message);
+      toast.error(message);
     } finally {
       setChangingPassword(false);
     }
@@ -167,7 +183,11 @@ export default function SettingsPage() {
             <PasswordInput
               label="Current password"
               value={currentPassword}
-              onChange={setCurrentPassword}
+              onChange={(value) => {
+                setCurrentPassword(value);
+                setPasswordError(null);
+                setPasswordSuccess(null);
+              }}
               visible={showCurrentPassword}
               onToggle={() => setShowCurrentPassword((visible) => !visible)}
               autoComplete="current-password"
@@ -176,7 +196,11 @@ export default function SettingsPage() {
               <PasswordInput
                 label="New password"
                 value={newPassword}
-                onChange={setNewPassword}
+                onChange={(value) => {
+                  setNewPassword(value);
+                  setPasswordError(null);
+                  setPasswordSuccess(null);
+                }}
                 visible={showNewPassword}
                 onToggle={() => setShowNewPassword((visible) => !visible)}
                 autoComplete="new-password"
@@ -184,12 +208,26 @@ export default function SettingsPage() {
               <PasswordInput
                 label="Confirm new password"
                 value={confirmPassword}
-                onChange={setConfirmPassword}
+                onChange={(value) => {
+                  setConfirmPassword(value);
+                  setPasswordError(null);
+                  setPasswordSuccess(null);
+                }}
                 visible={showConfirmPassword}
                 onToggle={() => setShowConfirmPassword((visible) => !visible)}
                 autoComplete="new-password"
               />
             </div>
+            {passwordError && (
+              <div role="alert" className="rounded-xl border border-red-500/25 bg-red-500/8 px-3 py-2.5 text-xs text-red-400">
+                {passwordError}
+              </div>
+            )}
+            {passwordSuccess && (
+              <div role="status" className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 px-3 py-2.5 text-xs text-emerald-400">
+                {passwordSuccess}
+              </div>
+            )}
             <button
               type="submit"
               disabled={changingPassword}
@@ -232,7 +270,7 @@ export default function SettingsPage() {
           </h2>
           <div className="space-y-0">
             {[
-              { label: "Admin email",     value: "info@restthecase.com" },
+              { label: "Admin email",     value: adminEmail },
               { label: "Session length",  value: "8 hours (JWT)" },
               { label: "Auth method",     value: "Email + password (bcrypt hashed)" },
             ].map((item) => (

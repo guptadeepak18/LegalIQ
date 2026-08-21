@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { getAdminEmailFromToken } from "@/lib/adminAuth";
 
 const NAV_ITEMS = [
   { to: "/admin/dashboard",       label: "Dashboard",       icon: LayoutDashboard, section: "main" },
@@ -105,6 +106,7 @@ function Sidebar({
   onClose?: () => void;
 }) {
   const [, navigate] = useLocation();
+  const adminEmail = getAdminEmailFromToken();
 
   function logout() {
     localStorage.removeItem("liq_admin_token");
@@ -162,8 +164,10 @@ function Sidebar({
             <span className="text-xs font-bold text-[#C9A84C]">A</span>
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-semibold truncate liq-text-1">Admin</div>
-            <div className="text-[10px] truncate liq-text-3">restthecase@gmail.com</div>
+            <div className="text-xs font-semibold truncate liq-text-1">
+              {adminEmail === "Admin" ? "Admin" : adminEmail.split("@")[0]}
+            </div>
+            <div className="text-[10px] truncate liq-text-3">{adminEmail}</div>
           </div>
         </div>
         <div className="flex items-center justify-between w-full mb-2">

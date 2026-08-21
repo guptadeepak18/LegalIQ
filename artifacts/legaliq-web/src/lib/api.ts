@@ -16,12 +16,13 @@ export async function apiFetch<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
+  const { headers: requestHeaders, ...requestOptions } = options ?? {};
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
-      ...options?.headers,
+      ...requestHeaders,
     },
-    ...options,
+    ...requestOptions,
   });
 
   const data = await res.json();
