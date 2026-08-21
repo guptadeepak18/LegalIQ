@@ -356,10 +356,10 @@ export function LHSReport({
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold liq-text-1 mb-1">What is your Legal Health Score?</p>
               <p className="text-xs liq-text-2 leading-relaxed">
-                Your LHS is calculated across 4 pillars — Litigation, Contracts, Compliance, and Legal Costs — each scored out of 25.
+                Your Legal Health Score is calculated across 4 pillars — Litigation, Contracts, Compliance, and Legal Costs — each scored out of 25.
                 A score of <strong>{totalScore}/100</strong> maps to <strong>Grade {grade} ({gradeLabel})</strong>.{" "}
                 <a href="/#about-lhs" target="_blank" rel="noopener noreferrer" className="text-[#C9A84C] underline underline-offset-2 hover:opacity-80 transition-opacity">
-                  Learn more about how LHS is calculated →
+                  Learn more about how the Legal Health Score is calculated →
                 </a>
               </p>
             </div>

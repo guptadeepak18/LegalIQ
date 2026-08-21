@@ -50,7 +50,7 @@ export async function alertAdminAssessmentComplete(
         <table style="width:100%;border-collapse:collapse;color:#F0EDE8;">
           <tr><td style="padding:8px 0;color:#9B8E82;width:140px;">Name</td><td style="padding:8px 0;font-weight:600;">${name}</td></tr>
           <tr><td style="padding:8px 0;color:#9B8E82;">Company</td><td style="padding:8px 0;font-weight:600;">${company}</td></tr>
-          <tr><td style="padding:8px 0;color:#9B8E82;">LHS Score</td><td style="padding:8px 0;font-size:24px;font-weight:900;color:#C9A84C;">${score}/100</td></tr>
+          <tr><td style="padding:8px 0;color:#9B8E82;">Legal Health Score</td><td style="padding:8px 0;font-size:24px;font-weight:900;color:#C9A84C;">${score}/100</td></tr>
           <tr><td style="padding:8px 0;color:#9B8E82;">Risk Level</td><td style="padding:8px 0;font-weight:700;color:${riskColor};">${risk}</td></tr>
         </table>
         <p style="margin-top:24px;color:#9B8E82;font-size:13px;">Login to the LegalIQ admin panel to view the full AI report.</p>
