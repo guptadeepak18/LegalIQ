@@ -122,6 +122,28 @@ export interface AssessmentResult {
   };
 }
 
+export interface AccountAssessmentStatus {
+  success: boolean;
+  canAssess: boolean;
+  naturallyEligible: boolean;
+  hasGrant: boolean;
+  nextEligibleAt: string | null;
+  latestCompletedAt: string | null;
+  lead: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    company: string;
+    city: string;
+    category: string;
+    subCategory: string;
+    businessType: string;
+    whatsappOptIn: boolean | null;
+  } | null;
+  result: AssessmentResult | null;
+}
+
 interface Store {
   // Verified identity (from Clerk auth + mobile number)
   phone: string;
@@ -156,6 +178,9 @@ interface Store {
   // Result
   result: AssessmentResult | null;
   setResult: (v: AssessmentResult) => void;
+  canAssess: boolean;
+  nextEligibleAt: string | null;
+  hydrateAccountStatus: (status: AccountAssessmentStatus) => void;
 
   // Reset
   reset: () => void;
@@ -183,6 +208,25 @@ export const useStore = create<Store>((set) => ({
 
   result: null,
   setResult: (v) => set({ result: v }),
+  canAssess: true,
+  nextEligibleAt: null,
+  hydrateAccountStatus: (status) => set({
+    canAssess: status.canAssess,
+    nextEligibleAt: status.nextEligibleAt,
+    ...(status.lead ? {
+      leadId: status.lead.id,
+      name: status.lead.name,
+      email: status.lead.email,
+      phone: status.lead.phone,
+      company: status.lead.company,
+      city: status.lead.city,
+      category: status.lead.category,
+      subCategory: status.lead.subCategory,
+      businessType: status.lead.businessType,
+      whatsappOptIn: Boolean(status.lead.whatsappOptIn),
+    } : {}),
+    ...(status.result ? { result: status.result } : {}),
+  }),
 
   reset: () =>
     set({
@@ -198,5 +242,7 @@ export const useStore = create<Store>((set) => ({
       whatsappOptIn: false,
       answers: [],
       result: null,
+      canAssess: true,
+      nextEligibleAt: null,
     }),
 }));

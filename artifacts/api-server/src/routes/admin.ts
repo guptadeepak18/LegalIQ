@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { GoogleGenAI } from "@google/genai";
+import { clerkClient } from "@clerk/express";
 import { db } from "@workspace/db";
 import {
   leads,
@@ -9,9 +10,10 @@ import {
   reviews,
   consultations,
   brochureTemplates,
+  reassessmentGrants,
 } from "@workspace/db";
-import { eq, desc, gte, lte, lt, and, count, avg } from "drizzle-orm";
-import { requireAuth, requirePermission } from "../middleware/auth.js";
+import { eq, desc, gte, lte, lt, and, count, avg, sql } from "drizzle-orm";
+import { requireAuth, requirePermission, type AuthRequest } from "../middleware/auth.js";
 import { logger } from "../lib/logger.js";
 import { parseAdminDateTime } from "../services/consultationTime.js";
 import {
@@ -26,6 +28,7 @@ import {
 import { getAdminNotificationEmail, getEmailSettings, updateEmailSetting } from "../services/gmail.js";
 import { isBrochureTemplateConfig } from "../services/brochureTemplates.js";
 import { resolveCaseStudies } from "../data/caseStudies.js";
+import { getAccountAssessmentStatus, lockAssessmentAccount } from "../services/assessmentAccess.js";
 
 const router = Router();
 
@@ -671,6 +674,72 @@ router.get("/admin/leads/:id", requireAuth, requirePermission("leads:view"), asy
       } : null,
     },
   });
+});
+
+router.post("/admin/reassessment-grants", requireAuth, requirePermission("leads:update"), async (req: AuthRequest, res) => {
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  if (!email.endsWith("@gmail.com") || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(400).json({ success: false, message: "Enter the user's verified Gmail address" });
+    return;
+  }
+  if (!req.adminId) {
+    res.status(401).json({ success: false, message: "Unauthorized" });
+    return;
+  }
+
+  const matchingLeads = await db.select({
+    clerkUserId: leads.clerkUserId,
+    name: leads.name,
+  }).from(leads).where(sql`lower(${leads.email}) = ${email}`);
+  const accountIds = [...new Set(matchingLeads.map((lead) => lead.clerkUserId).filter((id): id is string => Boolean(id)))];
+  if (accountIds.length === 0) {
+    res.status(404).json({ success: false, message: "No LegalIQ account was found for that Gmail address" });
+    return;
+  }
+  if (accountIds.length > 1) {
+    res.status(409).json({ success: false, message: "That Gmail address is linked to more than one account; contact support before granting access" });
+    return;
+  }
+
+  const clerkUser = await clerkClient.users.getUser(accountIds[0]);
+  const matchingVerifiedEmail = clerkUser.emailAddresses.find((address) =>
+    address.emailAddress.trim().toLowerCase() === email &&
+    address.verification?.status === "verified"
+  );
+  if (!matchingVerifiedEmail) {
+    res.status(409).json({
+      success: false,
+      message: "That Gmail address is not currently verified on the linked LegalIQ account",
+    });
+    return;
+  }
+
+  try {
+    const grant = await db.transaction(async (tx) => {
+      const clerkUserId = accountIds[0];
+      await lockAssessmentAccount(tx, clerkUserId);
+      const status = await getAccountAssessmentStatus(clerkUserId, tx);
+      if (!status.latestResult) throw Object.assign(new Error("This account has not completed an assessment yet"), { status: 400 });
+      if (status.naturallyEligible) throw Object.assign(new Error("This account is already eligible for a new assessment"), { status: 409 });
+      if (status.hasGrant) throw Object.assign(new Error("This account already has unused reassessment access"), { status: 409 });
+      const [created] = await tx.insert(reassessmentGrants).values({
+        clerkUserId,
+        email,
+        grantedByAdminId: req.adminId!,
+      }).returning();
+      return created;
+    });
+    res.status(201).json({
+      success: true,
+      message: `Reassessment access granted to ${email}`,
+      grant: { id: grant.id, email: grant.email, grantedAt: grant.grantedAt },
+    });
+  } catch (error) {
+    const status = typeof (error as { status?: unknown }).status === "number"
+      ? (error as { status: number }).status
+      : (error as { code?: string }).code === "23505" ? 409 : 500;
+    res.status(status).json({ success: false, message: error instanceof Error ? error.message : "Could not grant reassessment access" });
+  }
 });
 
 // ── Brochure templates ───────────────────────────────────────────────────────

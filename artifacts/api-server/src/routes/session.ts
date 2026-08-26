@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { randomBytes } from "crypto";
+import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { leads, sessions, assessments, answers as answersTable, reports } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { generateSeedQuestionsForAssessment, generateReport, STATIC_SEED_PILLARS } from "../services/gemini.js";
 import { getNextAction, type StoredAnswer } from "../services/quizEngine.js";
 import { calculatePillarScores, calculateAnswerScore } from "../services/scoring.js";
@@ -10,6 +11,14 @@ import { logger } from "../lib/logger.js";
 import type { AssessmentPillar, AssessmentQuestion } from "../services/gemini.js";
 import { assignDefaultBrochureTemplate } from "../services/brochureTemplates.js";
 import { sendReportNotifications } from "../services/reportNotifications.js";
+import {
+  AssessmentAccessError,
+  assertCanAssess,
+  consumeGrantIfRequired,
+  getActiveSession,
+  getOwnedLead,
+  lockAssessmentAccount,
+} from "../services/assessmentAccess.js";
 
 // How long to wait for AI seed generation before falling back to static questions.
 // A warm (per-lead) cache resolves in <50ms. A cold call to Gemini typically
@@ -19,11 +28,37 @@ const SEED_TIMEOUT_MS = 30000;
 
 const router = Router();
 
+function resumedSessionAction(session: typeof sessions.$inferSelect) {
+  const pillars = (session.pillarsJson as unknown as AssessmentPillar[]) ?? [];
+  const pillarIndex = session.currentPillarIndex ?? 0;
+  const questionIndex = session.currentQuestionIndex ?? 0;
+  const pillar = pillars[pillarIndex];
+  const question = pillar?.questions[questionIndex];
+  if (!pillar || !question) return null;
+  return {
+    success: true,
+    resumed: true,
+    sessionId: session.id,
+    type: "QUESTION" as const,
+    question,
+    pillarIndex,
+    pillarName: pillar.name,
+    pillarIcon: pillar.icon,
+    totalPillars: pillars.length,
+    recordedAnswers: session.answersJson ?? [],
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/session/start
 // Creates a session, generates seed questions, returns the first question
 // ─────────────────────────────────────────────────────────────────────────────
 router.post("/session/start", async (req, res) => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) {
+    res.status(401).json({ success: false, message: "Please sign in to continue" });
+    return;
+  }
   const { leadId } = req.body as { leadId: string };
 
   if (!leadId) {
@@ -31,10 +66,25 @@ router.post("/session/start", async (req, res) => {
     return;
   }
 
-  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
-  if (!lead) {
-    res.status(404).json({ success: false, message: "Lead not found" });
-    return;
+  let lead;
+  try {
+    lead = await getOwnedLead(db, leadId, userId);
+    await assertCanAssess(db, userId);
+  } catch (error) {
+    if (error instanceof AssessmentAccessError) {
+      res.status(error.status).json({ success: false, code: error.code, message: error.message, nextEligibleAt: error.nextEligibleAt });
+      return;
+    }
+    throw error;
+  }
+
+  const activeSession = await getActiveSession(db, userId);
+  if (activeSession) {
+    const action = resumedSessionAction(activeSession);
+    if (action) {
+      res.json(action);
+      return;
+    }
   }
 
   const companyName = lead.company ?? "your business";
@@ -67,22 +117,43 @@ router.post("/session/start", async (req, res) => {
     aiPromise.catch(() => {}); // keep resolving in background to warm cache
   }
 
-  const [session] = await db
-    .insert(sessions)
-    .values({
-      leadId,
-      businessType,
-      registration,
-      employeeCount,
-      industry,
-      state,
-      pillarsJson: pillars as unknown as Record<string, unknown>[],
-      answersJson: [],
-      currentPillarIndex: 0,
-      currentQuestionIndex: 0,
-      status: "in_progress",
-    })
-    .returning();
+  let session!: typeof sessions.$inferSelect;
+  let resumed = false;
+  try {
+    ({ session, resumed } = await db.transaction(async (tx) => {
+      await lockAssessmentAccount(tx, userId);
+      await assertCanAssess(tx, userId);
+      const existing = await getActiveSession(tx, userId);
+      if (existing) return { session: existing, resumed: true };
+      const [created] = await tx.insert(sessions).values({
+        leadId,
+        clerkUserId: userId,
+        businessType,
+        registration,
+        employeeCount,
+        industry,
+        state,
+        pillarsJson: pillars as unknown as Record<string, unknown>[],
+        answersJson: [],
+        currentPillarIndex: 0,
+        currentQuestionIndex: 0,
+        status: "in_progress",
+      }).returning();
+      return { session: created, resumed: false };
+    }));
+  } catch (error) {
+    if (error instanceof AssessmentAccessError) {
+      res.status(error.status).json({ success: false, code: error.code, message: error.message, nextEligibleAt: error.nextEligibleAt });
+      return;
+    }
+    throw error;
+  }
+
+  const resumedAction = resumedSessionAction(session);
+  if (resumed && resumedAction) {
+    res.json(resumedAction);
+    return;
+  }
 
   const firstPillar = pillars[0];
   const firstQuestion = firstPillar?.questions[0];
@@ -109,6 +180,11 @@ router.post("/session/start", async (req, res) => {
 // Records an answer, runs the quiz engine, returns the next action
 // ─────────────────────────────────────────────────────────────────────────────
 router.post("/session/answer", async (req, res) => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) {
+    res.status(401).json({ success: false, message: "Please sign in to continue" });
+    return;
+  }
   const {
     sessionId,
     questionId,
@@ -140,7 +216,8 @@ router.post("/session/answer", async (req, res) => {
     return;
   }
 
-  const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+  const [session] = await db.select().from(sessions)
+    .where(and(eq(sessions.id, sessionId), eq(sessions.clerkUserId, userId)));
   if (!session) {
     res.status(404).json({ success: false, message: "Session not found" });
     return;
@@ -149,6 +226,16 @@ router.post("/session/answer", async (req, res) => {
   if (session.status === "complete") {
     res.status(400).json({ success: false, message: "Session already complete" });
     return;
+  }
+
+  try {
+    await assertCanAssess(db, userId);
+  } catch (error) {
+    if (error instanceof AssessmentAccessError) {
+      res.status(error.status).json({ success: false, code: error.code, message: error.message, nextEligibleAt: error.nextEligibleAt });
+      return;
+    }
+    throw error;
   }
 
   const [answerLead] = await db.select().from(leads).where(eq(leads.id, session.leadId!));
@@ -228,34 +315,6 @@ router.post("/session/answer", async (req, res) => {
       answersJSON,
     });
 
-    // Save assessment + answers + report
-    const [assessment] = await db
-      .insert(assessments)
-      .values({
-        leadId: session.leadId!,
-        totalScore: scoring.totalScore,
-        riskLevel: scoring.riskLevel,
-        grade: scoring.grade,
-        gradeLabel: scoring.gradeLabel,
-        litigationScore: scoring.litigationScore,
-        contractualScore: scoring.contractualScore,
-        complianceScore: scoring.complianceScore,
-        costScore: scoring.costScore,
-        futureScore: scoring.futureScore,
-      })
-      .returning();
-
-    await db.insert(answersTable).values(
-      scoring.answersWithScores.map((a) => ({
-        assessmentId: assessment.id,
-        question: a.question,
-        pillar: a.pillar,
-        answer: a.answer,
-        score: a.score,
-        isSeed: a.isSeed,
-      }))
-    );
-
     const detailedAnswers = updatedAnswers.map((a) => {
       const insight = a.fullQuestion?.insight;
       return {
@@ -297,47 +356,82 @@ router.post("/session/answer", async (req, res) => {
       example: aiReport.example,
     };
 
-    const [report] = await db
-      .insert(reports)
-      .values({
-        assessmentId: assessment.id,
-        summary: aiReport.summary,
-        pillarAssessments: aiReport.pillarAssessments,
-        insights: aiReport.insights,
-        futureRisks: aiReport.futureRisks,
-        actions: aiReport.actions,
-        costSummary: aiReport.costSummary,
-        similarCases: aiReport.similarCases,
-        example: aiReport.example,
-        vcloPitch: aiReport.vcloPitch,
-        pdfRenderSnapshot,
-      })
-      .returning();
+    let assessment!: typeof assessments.$inferSelect;
+    let report!: typeof reports.$inferSelect;
+    try {
+      ({ assessment, report } = await db.transaction(async (tx) => {
+        await lockAssessmentAccount(tx, userId);
+        const [lockedSession] = await tx.select({ status: sessions.status }).from(sessions)
+          .where(and(eq(sessions.id, sessionId), eq(sessions.clerkUserId, userId)))
+          .for("update");
+        if (!lockedSession || lockedSession.status !== "in_progress") {
+          throw new AssessmentAccessError(409, "This assessment session has already been completed");
+        }
+        const access = await assertCanAssess(tx, userId);
+        const [createdAssessment] = await tx.insert(assessments).values({
+          leadId: session.leadId!,
+          totalScore: scoring.totalScore,
+          riskLevel: scoring.riskLevel,
+          grade: scoring.grade,
+          gradeLabel: scoring.gradeLabel,
+          litigationScore: scoring.litigationScore,
+          contractualScore: scoring.contractualScore,
+          complianceScore: scoring.complianceScore,
+          costScore: scoring.costScore,
+          futureScore: scoring.futureScore,
+        }).returning();
+        await consumeGrantIfRequired(tx, access, createdAssessment.id);
+        await tx.insert(answersTable).values(scoring.answersWithScores.map((a) => ({
+          assessmentId: createdAssessment.id,
+          question: a.question,
+          pillar: a.pillar,
+          answer: a.answer,
+          score: a.score,
+          isSeed: a.isSeed,
+        })));
+        const [createdReport] = await tx.insert(reports).values({
+          assessmentId: createdAssessment.id,
+          summary: aiReport.summary,
+          pillarAssessments: aiReport.pillarAssessments,
+          insights: aiReport.insights,
+          futureRisks: aiReport.futureRisks,
+          actions: aiReport.actions,
+          costSummary: aiReport.costSummary,
+          similarCases: aiReport.similarCases,
+          example: aiReport.example,
+          vcloPitch: aiReport.vcloPitch,
+          pdfRenderSnapshot,
+        }).returning();
+        await tx.update(sessions).set({
+          assessmentId: createdAssessment.id,
+          answersJson: updatedAnswers as unknown as Record<string, unknown>[],
+          score: scoring.totalScore,
+          scoreBreakdownJson: {
+            litigation: scoring.litigationScore,
+            contractual: scoring.contractualScore,
+            compliance: scoring.complianceScore,
+            cost: scoring.costScore,
+            future: scoring.futureScore,
+          } as unknown as Record<string, unknown>,
+          reportJson: aiReport as unknown as Record<string, unknown>,
+          status: "complete",
+          completedAt: new Date(),
+        }).where(and(eq(sessions.id, sessionId), eq(sessions.status, "in_progress")));
+        return { assessment: createdAssessment, report: createdReport };
+      }));
+    } catch (error) {
+      if (error instanceof AssessmentAccessError) {
+        res.status(error.status).json({ success: false, code: error.code, message: error.message, nextEligibleAt: error.nextEligibleAt });
+        return;
+      }
+      throw error;
+    }
     await assignDefaultBrochureTemplate(report.id);
 
     const reviewToken = randomBytes(32).toString("hex");
     if (lead) {
       await db.update(leads).set({ reviewToken }).where(eq(leads.id, lead.id));
     }
-
-    // Mark session complete
-    await db
-      .update(sessions)
-      .set({
-        answersJson: updatedAnswers as unknown as Record<string, unknown>[],
-        score: scoring.totalScore,
-        scoreBreakdownJson: {
-          litigation: scoring.litigationScore,
-          contractual: scoring.contractualScore,
-          compliance: scoring.complianceScore,
-          cost: scoring.costScore,
-          future: scoring.futureScore,
-        } as unknown as Record<string, unknown>,
-        reportJson: aiReport as unknown as Record<string, unknown>,
-        status: "complete",
-        completedAt: new Date(),
-      })
-      .where(eq(sessions.id, sessionId));
 
     logger.info(
       { assessmentId: assessment.id, reportId: report.id, score: scoring.totalScore },
@@ -417,6 +511,11 @@ router.post("/session/answer", async (req, res) => {
 // user can review/edit it before continuing forward again.
 // ─────────────────────────────────────────────────────────────────────────────
 router.post("/session/back", async (req, res) => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) {
+    res.status(401).json({ success: false, message: "Please sign in to continue" });
+    return;
+  }
   const { sessionId } = req.body as { sessionId: string };
 
   if (!sessionId) {
@@ -424,7 +523,8 @@ router.post("/session/back", async (req, res) => {
     return;
   }
 
-  const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+  const [session] = await db.select().from(sessions)
+    .where(and(eq(sessions.id, sessionId), eq(sessions.clerkUserId, userId)));
   if (!session) {
     res.status(404).json({ success: false, message: "Session not found" });
     return;

@@ -245,6 +245,8 @@ interface LHSReportProps {
   certGenerating?: boolean;
   whatsappLink?: string;
   linkedinLink?: string;
+  nextEligibleAt?: string | null;
+  canReassess?: boolean;
 }
 
 export function LHSReport({
@@ -263,6 +265,8 @@ export function LHSReport({
   certGenerating = false,
   whatsappLink,
   linkedinLink,
+  nextEligibleAt = null,
+  canReassess: canReassessOverride,
 }: LHSReportProps) {
   const [showAboutLhs, setShowAboutLhs] = useState(!adminMode);
   const [showHistory, setShowHistory] = useState(false);
@@ -303,10 +307,11 @@ export function LHSReport({
     ? "Stable legal position, but a few gaps are worth addressing soon."
     : "Good legal health. Continue monitoring and maintaining compliance.";
 
-  const nextAssessmentDate = history.length > 0 && history[history.length - 1]?.completedAt
+  const historyNextAssessmentDate = history.length > 0 && history[history.length - 1]?.completedAt
     ? new Date(new Date(history[history.length - 1]!.completedAt!).getTime() + 180 * 24 * 60 * 60 * 1000)
     : null;
-  const canReassess = !nextAssessmentDate || new Date() >= nextAssessmentDate;
+  const nextAssessmentDate = nextEligibleAt ? new Date(nextEligibleAt) : historyNextAssessmentDate;
+  const canReassess = canReassessOverride ?? (!nextAssessmentDate || new Date() >= nextAssessmentDate);
 
   const RTC_URL = "https://restthecase.com/virtualCLOPackage";
 
@@ -1011,7 +1016,7 @@ export function LHSReport({
       {!adminMode && onReassess && (
         <div className="text-center pb-6">
           <button onClick={onReassess} className="text-sm liq-text-3 hover:text-[#C9A84C] transition-colors flex items-center gap-1 mx-auto">
-            ← Assess another business
+            {canReassess ? "← Assess another business" : `Assessment locked until ${nextAssessmentDate?.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`}
           </button>
         </div>
       )}

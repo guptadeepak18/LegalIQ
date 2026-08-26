@@ -7,6 +7,7 @@ import {
   timestamp,
   jsonb,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -45,6 +46,8 @@ export const leads = pgTable("leads", {
 export const sessions = pgTable("sessions", {
   id: uuid("id").defaultRandom().primaryKey(),
   leadId: uuid("lead_id").references(() => leads.id, { onDelete: "cascade" }),
+  clerkUserId: text("clerk_user_id"),
+  assessmentId: uuid("assessment_id"),
   businessType: text("business_type"),
   registration: text("registration"),
   employeeCount: text("employee_count"),
@@ -61,7 +64,11 @@ export const sessions = pgTable("sessions", {
   status: text("status").default("in_progress"),
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
-});
+}, (table) => [
+  uniqueIndex("sessions_one_active_per_clerk_user")
+    .on(table.clerkUserId)
+    .where(sql`${table.status} = 'in_progress'`),
+]);
 
 export const assessments = pgTable("assessments", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -257,6 +264,21 @@ export const adminUsers = pgTable("admin_users", {
   updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
+export const reassessmentGrants = pgTable("reassessment_grants", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  clerkUserId: text("clerk_user_id").notNull(),
+  email: text("email").notNull(),
+  grantedByAdminId: uuid("granted_by_admin_id").notNull().references(() => adminUsers.id),
+  grantedAt: timestamp("granted_at").notNull().defaultNow(),
+  consumedAt: timestamp("consumed_at"),
+  consumedAssessmentId: uuid("consumed_assessment_id").references(() => assessments.id),
+}, (table) => [
+  index("reassessment_grants_account_idx").on(table.clerkUserId, table.grantedAt),
+  uniqueIndex("reassessment_grants_one_unused_per_account")
+    .on(table.clerkUserId)
+    .where(sql`${table.consumedAt} is null`),
+]);
+
 export const appSettings = pgTable("app_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
@@ -300,6 +322,7 @@ export type Answer = typeof answers.$inferSelect;
 export type Consultation = typeof consultations.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
 export type AdminUser = typeof adminUsers.$inferSelect;
+export type ReassessmentGrant = typeof reassessmentGrants.$inferSelect;
 export type OtpVerification = typeof otpVerifications.$inferSelect;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type EmailLog = typeof emailLogs.$inferSelect;

@@ -12,6 +12,7 @@ import { logger } from "../lib/logger.js";
 import { sendReportNotifications } from "../services/reportNotifications.js";
 import { ensureCanonicalReportArtifact } from "../services/reportArtifact.js";
 import { resolveCaseStudies } from "../data/caseStudies.js";
+import { getAccountAssessmentStatus } from "../services/assessmentAccess.js";
 
 const router = Router();
 
@@ -31,6 +32,17 @@ router.post("/leads", async (req, res) => {
 
   if (!email) {
     res.status(400).json({ success: false, message: "Your account has no verified email address" });
+    return;
+  }
+
+  const accountStatus = await getAccountAssessmentStatus(userId);
+  if (accountStatus.latestResult && !accountStatus.canAssess) {
+    res.status(409).json({
+      success: false,
+      code: "REASSESSMENT_RESTRICTED",
+      message: "You already completed an assessment in the last six months",
+      nextEligibleAt: accountStatus.nextEligibleAt,
+    });
     return;
   }
 
@@ -112,6 +124,25 @@ router.post("/leads", async (req, res) => {
   });
 
   res.json({ success: true, leadId: lead.id });
+});
+
+router.get("/account/assessment-status", async (req, res) => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) {
+    res.status(401).json({ success: false, message: "Please sign in to continue" });
+    return;
+  }
+  const status = await getAccountAssessmentStatus(userId);
+  res.json({
+    success: true,
+    canAssess: status.canAssess,
+    naturallyEligible: status.naturallyEligible,
+    hasGrant: status.hasGrant,
+    nextEligibleAt: status.nextEligibleAt,
+    latestCompletedAt: status.latestCompletedAt,
+    lead: status.latestLead,
+    result: status.latestResult,
+  });
 });
 
 router.get("/assessments/:id/brochure-template", async (req, res) => {

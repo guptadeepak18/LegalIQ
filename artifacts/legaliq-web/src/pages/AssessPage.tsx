@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ChevronLeft, Loader2, Check, Lightbulb, TrendingDown, ListChecks, Sparkles, BookOpen } from "lucide-react";
-import { useStore } from "@/store/useStore";
+import { useStore, type AccountAssessmentStatus } from "@/store/useStore";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { LogoWatermark } from "@/components/LogoWatermark";
@@ -248,11 +248,22 @@ export default function AssessPage() {
       setPhase("loading");
       setIsGeneratingReport(false);
       try {
-        const res = await apiFetch<{ success: boolean; sessionId: string; type: "QUESTION"; question: AQuestion; pillarIndex: number; pillarName: string; pillarIcon: string; }>("/session/start", { method: "POST", body: JSON.stringify({ leadId: store.leadId }) });
+        const res = await apiFetch<{ success: boolean; sessionId: string; type: "QUESTION"; question: AQuestion; pillarIndex: number; pillarName: string; pillarIcon: string; recordedAnswers?: Array<{ pillar: string; answer: string; score: number }>; }>("/session/start", { method: "POST", body: JSON.stringify({ leadId: store.leadId }) });
         setSessionId(res.sessionId); setCurrentQuestion(res.question);
         setPillarIndex(res.pillarIndex); setPillarName(res.pillarName); setPillarIcon(res.pillarIcon);
+        setAllAnswers((res.recordedAnswers ?? []).map((item) => ({ pillar: item.pillar, label: item.answer, score: item.score })));
         setPhase("asking");
-      } catch { toast.error("Could not load assessment. Please try again."); }
+      } catch (error) {
+        try {
+          const status = await apiFetch<AccountAssessmentStatus>("/account/assessment-status");
+          store.hydrateAccountStatus(status);
+          if (status.result && !status.canAssess) {
+            navigate("/results");
+            return;
+          }
+        } catch {}
+        toast.error(error instanceof Error ? error.message : "Could not load assessment. Please try again.");
+      }
     }
     startSession();
   }, [store.leadId]);
@@ -282,7 +293,19 @@ export default function AssessPage() {
       setIsGeneratingReport(false);
       setCurrentQuestion(res.question); setPillarIndex(res.pillarIndex); setPillarName(res.pillarName); setPillarIcon(res.pillarIcon);
       setPhase("asking");
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Something went wrong."); setIsGeneratingReport(false); setPhase("asking"); }
+    } catch (err: unknown) {
+      try {
+        const status = await apiFetch<AccountAssessmentStatus>("/account/assessment-status");
+        store.hydrateAccountStatus(status);
+        if (status.result && !status.canAssess) {
+          navigate("/results");
+          return;
+        }
+      } catch {}
+      toast.error(err instanceof Error ? err.message : "Something went wrong.");
+      setIsGeneratingReport(false);
+      setPhase("asking");
+    }
   }, [currentQuestion, sessionId, phase, pillarIcon, pillarIndex, allAnswers, store, navigate]);
 
   const handleBack = useCallback(async () => {

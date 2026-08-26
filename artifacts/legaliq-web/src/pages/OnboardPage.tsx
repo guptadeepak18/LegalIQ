@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Phone, ChevronRight, Building2, MapPin, Layers, ArrowLeft, Check, Loader2, Search, X, ShieldCheck, Mail, LogOut } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
-import { useStore } from "@/store/useStore";
+import { useStore, type AccountAssessmentStatus } from "@/store/useStore";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { LogoWatermark } from "@/components/LogoWatermark";
@@ -176,10 +176,12 @@ function CityCombobox({ value, onChange }: { value: string; onChange: (v: string
 export default function OnboardPage() {
   const [, navigate] = useLocation();
   const store = useStore();
+  const hydrateAccountStatus = store.hydrateAccountStatus;
   const { isSignedIn, isLoaded, user } = useUser();
   const { signOut } = useClerk();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
 
   const [phone, setPhone] = useState("");
 
@@ -191,13 +193,27 @@ export default function OnboardPage() {
 
   const categoryList = Object.keys(BUSINESS_CATEGORIES).sort();
 
-  // Once the user has verified their identity via Clerk (Google or
-  // email/password + email OTP), auto-advance to the business details step.
   useEffect(() => {
-    if (isLoaded && isSignedIn && step === 0) {
-      setStep(1);
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      setCheckingAccess(false);
+      return;
     }
-  }, [isLoaded, isSignedIn, step]);
+    let cancelled = false;
+    apiFetch<AccountAssessmentStatus>("/account/assessment-status")
+      .then((status) => {
+        if (cancelled) return;
+        hydrateAccountStatus(status);
+        if (status.result && !status.canAssess) {
+          navigate("/results");
+          return;
+        }
+        setStep(1);
+      })
+      .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Could not check assessment access"))
+      .finally(() => { if (!cancelled) setCheckingAccess(false); });
+    return () => { cancelled = true; };
+  }, [isLoaded, isSignedIn, navigate, hydrateAccountStatus]);
 
   async function createLead() {
     if (!phone.match(/^(\+91)?[6-9]\d{9}$/)) { toast.error("Enter a valid 10-digit Indian mobile number"); return; }
@@ -245,6 +261,12 @@ export default function OnboardPage() {
       </div>
 
       <AnimatePresence mode="wait">
+        {checkingAccess && isSignedIn ? (
+          <div className="glass-card rounded-2xl p-8 text-center w-full max-w-md">
+            <Loader2 size={24} className="animate-spin text-[#C9A84C] mx-auto mb-3" />
+            <p className="type-body-sm liq-text-2">Checking your assessment access…</p>
+          </div>
+        ) : (
         <motion.div key={step} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.25 }} className="w-full max-w-md">
 
           {/* ── Step 0: Identity Verification (Clerk) ────────────────────── */}
@@ -369,6 +391,7 @@ export default function OnboardPage() {
             </div>
           )}
         </motion.div>
+        )}
       </AnimatePresence>
 
       <p className="text-xs liq-text-4 mt-8 text-center max-w-xs">

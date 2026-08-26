@@ -3,7 +3,8 @@ import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Download, Calendar } from "lucide-react";
 import { useUser } from "@clerk/react";
-import { useStore } from "@/store/useStore";
+import { useStore, type AccountAssessmentStatus } from "@/store/useStore";
+import { apiFetch } from "@/lib/api";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { generateVCLOBrochurePDF, type BrochureTemplateSelection } from "@/lib/pdfGenerator";
@@ -23,6 +24,7 @@ export default function ResultsPage() {
   const [benchmark, setBenchmark] = useState<Benchmark | null>(null);
   const [certGenerating, setCertGenerating] = useState(false);
   const [brochureSelection, setBrochureSelection] = useState<BrochureTemplateSelection | null>(null);
+  const [accessLoaded, setAccessLoaded] = useState(false);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -30,8 +32,12 @@ export default function ResultsPage() {
       navigate(`${basePath}/sign-in`.replace(/\/\//g, "/"));
       return;
     }
-    if (!result) navigate("/");
-  }, [isLoaded, isSignedIn, result, navigate]);
+    if (!isSignedIn) return;
+    apiFetch<AccountAssessmentStatus>("/account/assessment-status")
+      .then((status) => store.hydrateAccountStatus(status))
+      .catch(() => { if (!result) navigate("/onboard"); })
+      .finally(() => setAccessLoaded(true));
+  }, [isLoaded, isSignedIn, navigate]);
 
   useEffect(() => {
     if (!store.leadId || !result) return;
@@ -83,7 +89,7 @@ export default function ResultsPage() {
       .catch(() => {});
   }, [result?.assessmentId]);
 
-  if (!isLoaded || !isSignedIn) {
+  if (!isLoaded || !isSignedIn || (!result && !accessLoaded)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <motion.div animate={{ scale: [1, 1.1, 1], opacity: [0.6, 1, 0.6] }} transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}>
@@ -208,6 +214,20 @@ export default function ResultsPage() {
       )}
 
       <div className="max-w-4xl mx-auto px-4 py-8">
+        {!store.canAssess && store.nextEligibleAt && (
+          <div className="mb-6 rounded-2xl border border-[#C9A84C]/30 bg-[#C9A84C]/8 px-5 py-4 flex items-start gap-3 print:hidden">
+            <Calendar size={18} className="text-[#C9A84C] mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-bold liq-text-1">Your latest LegalIQ report remains available</p>
+              <p className="text-sm liq-text-2 mt-1">
+                You can complete a new assessment on{" "}
+                <span className="font-bold text-[#C9A84C]">
+                  {new Date(store.nextEligibleAt).toLocaleDateString("en-IN", { dateStyle: "long" })}
+                </span>.
+              </p>
+            </div>
+          </div>
+        )}
         <LHSReport
           result={result}
           company={store.company || "Your Business"}
@@ -219,11 +239,23 @@ export default function ResultsPage() {
           adminMode={false}
           onBookConsult={() => navigate("/consult")}
           onReview={() => navigate("/review")}
-          onReassess={() => { store.reset(); navigate("/"); }}
           onDownloadCertificate={handleDownloadCertificate}
           certGenerating={certGenerating}
           whatsappLink={whatsappLink}
           linkedinLink={linkedinLink}
+          nextEligibleAt={store.nextEligibleAt}
+          canReassess={store.canAssess}
+          onReassess={() => {
+            if (!store.canAssess) {
+              const date = store.nextEligibleAt
+                ? new Date(store.nextEligibleAt).toLocaleDateString("en-IN", { dateStyle: "long" })
+                : "your next eligible date";
+              toast.info(`You can complete another assessment on ${date}.`);
+              return;
+            }
+            store.reset();
+            navigate("/onboard");
+          }}
         />
       </div>
     </div>

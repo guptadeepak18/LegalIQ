@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { randomBytes } from "crypto";
+import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { leads, assessments, answers as answersTable, reports } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -8,10 +9,22 @@ import { generateReport } from "../services/gemini.js";
 import { logger } from "../lib/logger.js";
 import { assignDefaultBrochureTemplate } from "../services/brochureTemplates.js";
 import { sendReportNotifications } from "../services/reportNotifications.js";
+import {
+  AssessmentAccessError,
+  assertCanAssess,
+  consumeGrantIfRequired,
+  getOwnedLead,
+  lockAssessmentAccount,
+} from "../services/assessmentAccess.js";
 
 const router = Router();
 
 router.post("/submit", async (req, res) => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) {
+    res.status(401).json({ success: false, message: "Please sign in to continue" });
+    return;
+  }
   const { leadId, answers } = req.body as {
     leadId: string;
     answers: Array<{
@@ -29,40 +42,19 @@ router.post("/submit", async (req, res) => {
     return;
   }
 
-  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
-  if (!lead) {
-    res.status(404).json({ success: false, message: "Lead not found" });
-    return;
+  let lead;
+  try {
+    lead = await getOwnedLead(db, leadId, userId);
+    await assertCanAssess(db, userId);
+  } catch (error) {
+    if (error instanceof AssessmentAccessError) {
+      res.status(error.status).json({ success: false, code: error.code, message: error.message, nextEligibleAt: error.nextEligibleAt });
+      return;
+    }
+    throw error;
   }
 
   const scoring = calculatePillarScores(answers as Parameters<typeof calculatePillarScores>[0]);
-
-  const [assessment] = await db
-    .insert(assessments)
-    .values({
-      leadId,
-      totalScore: scoring.totalScore,
-      riskLevel: scoring.riskLevel,
-      grade: scoring.grade,
-      gradeLabel: scoring.gradeLabel,
-      litigationScore: scoring.litigationScore,
-      contractualScore: scoring.contractualScore,
-      complianceScore: scoring.complianceScore,
-      costScore: scoring.costScore,
-      futureScore: scoring.futureScore,
-    })
-    .returning();
-
-  await db.insert(answersTable).values(
-    scoring.answersWithScores.map((a) => ({
-      assessmentId: assessment.id,
-      question: a.question,
-      pillar: a.pillar,
-      answer: a.answer,
-      score: a.score,
-      isSeed: a.isSeed,
-    }))
-  );
 
   // Build compact answers summary for the report prompt
   const answersJSON = answers
@@ -86,10 +78,7 @@ router.post("/submit", async (req, res) => {
     answersJSON,
   });
 
-  const [report] = await db
-    .insert(reports)
-    .values({
-      assessmentId: assessment.id,
+  const reportValues = {
       summary: aiReport.summary,
       pillarAssessments: aiReport.pillarAssessments,
       insights: aiReport.insights,
@@ -126,8 +115,48 @@ router.post("/submit", async (req, res) => {
         })),
         example: aiReport.example,
       },
-    })
-    .returning();
+    };
+
+  let assessment!: typeof assessments.$inferSelect;
+  let report!: typeof reports.$inferSelect;
+  try {
+    ({ assessment, report } = await db.transaction(async (tx) => {
+      await lockAssessmentAccount(tx, userId);
+      const access = await assertCanAssess(tx, userId);
+      const [createdAssessment] = await tx.insert(assessments).values({
+        leadId,
+        totalScore: scoring.totalScore,
+        riskLevel: scoring.riskLevel,
+        grade: scoring.grade,
+        gradeLabel: scoring.gradeLabel,
+        litigationScore: scoring.litigationScore,
+        contractualScore: scoring.contractualScore,
+        complianceScore: scoring.complianceScore,
+        costScore: scoring.costScore,
+        futureScore: scoring.futureScore,
+      }).returning();
+      await consumeGrantIfRequired(tx, access, createdAssessment.id);
+      await tx.insert(answersTable).values(scoring.answersWithScores.map((a) => ({
+        assessmentId: createdAssessment.id,
+        question: a.question,
+        pillar: a.pillar,
+        answer: a.answer,
+        score: a.score,
+        isSeed: a.isSeed,
+      })));
+      const [createdReport] = await tx.insert(reports).values({
+        assessmentId: createdAssessment.id,
+        ...reportValues,
+      }).returning();
+      return { assessment: createdAssessment, report: createdReport };
+    }));
+  } catch (error) {
+    if (error instanceof AssessmentAccessError) {
+      res.status(error.status).json({ success: false, code: error.code, message: error.message, nextEligibleAt: error.nextEligibleAt });
+      return;
+    }
+    throw error;
+  }
   await assignDefaultBrochureTemplate(report.id);
 
   const reviewToken = randomBytes(32).toString("hex");

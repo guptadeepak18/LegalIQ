@@ -82,6 +82,8 @@ export default function SettingsPage() {
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [adminForm, setAdminForm] = useState<AdminUserForm | null>(null);
   const [savingAdmin, setSavingAdmin] = useState(false);
+  const [grantEmail, setGrantEmail] = useState("");
+  const [grantingAccess, setGrantingAccess] = useState(false);
 
   const can = (permission: AdminPermission) => hasAdminPermission(profile, permission);
   const canManageAdmins = can("admin-users");
@@ -268,6 +270,28 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleGrantReassessment(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!grantEmail.trim().toLowerCase().endsWith("@gmail.com")) {
+      toast.error("Enter the user's verified Gmail address");
+      return;
+    }
+    setGrantingAccess(true);
+    try {
+      const response = await apiFetch<{ success: boolean; message: string }>("/admin/reassessment-grants", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ email: grantEmail.trim() }),
+      });
+      toast.success(response.message);
+      setGrantEmail("");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Could not grant reassessment access");
+    } finally {
+      setGrantingAccess(false);
+    }
+  }
+
   return (
     <AdminLayout active="/admin/settings" title="Settings">
       <div className="px-6 py-8 max-w-5xl mx-auto space-y-5">
@@ -421,6 +445,35 @@ export default function SettingsPage() {
                 </div>
               </form>
             )}
+          </motion.div>
+        )}
+
+        {can("leads:update") && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card rounded-2xl p-6">
+            <h2 className="type-h2 liq-text-1 mb-1 flex items-center gap-2">
+              <Shield size={15} className="text-[#C9A84C]" /> Grant Reassessment Access
+            </h2>
+            <p className="type-caption liq-text-3 mb-5">
+              Give one additional assessment to an existing user before their six-month eligibility date. The grant is single-use and recorded against your admin account.
+            </p>
+            <form onSubmit={handleGrantReassessment} className="flex flex-col sm:flex-row gap-3 max-w-2xl">
+              <label className="flex-1">
+                <span className="type-caption liq-text-2 mb-1.5 block">User's verified Gmail address</span>
+                <input
+                  className="liq-input w-full"
+                  type="email"
+                  value={grantEmail}
+                  onChange={(event) => setGrantEmail(event.target.value)}
+                  placeholder="user@gmail.com"
+                  autoComplete="off"
+                />
+              </label>
+              <button type="submit" disabled={grantingAccess || !grantEmail.trim()}
+                className="sm:self-end inline-flex justify-center items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-40"
+                style={{ background: "#C9A84C", color: "#0A0A0A" }}>
+                <CheckCircle size={15} /> {grantingAccess ? "Granting…" : "Grant one assessment"}
+              </button>
+            </form>
           </motion.div>
         )}
 
