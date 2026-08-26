@@ -7,6 +7,7 @@ import { useStore, type AccountAssessmentStatus } from "@/store/useStore";
 import { apiFetch } from "@/lib/api";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserLogoutButton } from "@/components/UserLogoutButton";
 import { generateVCLOBrochurePDF, type BrochureTemplateSelection } from "@/lib/pdfGenerator";
 import { basePath } from "@/lib/clerk";
 import { toast } from "sonner";
@@ -189,6 +190,7 @@ export default function ResultsPage() {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          <UserLogoutButton />
           <button onClick={handleDownloadPdf} disabled={downloading}
             className="flex items-center gap-2 text-sm liq-text-2 hover:text-[#C9A84C] border border-[#C9A84C]/20 hover:border-[#C9A84C]/40 px-3 py-2 rounded-lg transition-all">
             <Download size={14} /> PDF

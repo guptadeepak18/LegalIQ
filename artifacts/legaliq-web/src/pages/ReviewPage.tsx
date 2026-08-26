@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserLogoutButton } from "@/components/UserLogoutButton";
 
 export default function ReviewPage() {
   const [, navigate] = useLocation();
@@ -52,7 +53,10 @@ export default function ReviewPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
         <LogoWatermark />
-        <ThemeToggle className="fixed top-4 right-4 z-50" />
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+          <UserLogoutButton showLabel={false} />
+          <ThemeToggle />
+        </div>
         <motion.div
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -80,6 +84,7 @@ export default function ReviewPage() {
           <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="h-11 w-11 object-contain flex-shrink-0 dark:brightness-0 dark:invert" />
           <span className="font-serif text-lg font-bold text-[#C9A84C]">LegalIQ</span>
         </div>
+        <UserLogoutButton />
         <ThemeToggle />
       </div>
 

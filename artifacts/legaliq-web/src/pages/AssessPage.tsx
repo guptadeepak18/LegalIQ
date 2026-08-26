@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserLogoutButton } from "@/components/UserLogoutButton";
 
 interface AnswerOption {
   value: string;
@@ -108,7 +109,10 @@ function AssessLoadingScreen({ businessType, city }: { businessType: string; cit
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 gap-0">
       <LogoWatermark />
-      <ThemeToggle className="fixed top-4 right-4 z-50" />
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <UserLogoutButton showLabel={false} />
+        <ThemeToggle />
+      </div>
 
       {/* Card */}
       <div className="w-full max-w-sm glass-card rounded-3xl p-8 flex flex-col items-center gap-6">
@@ -343,7 +347,10 @@ export default function AssessPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center gap-8">
         <LogoWatermark />
-        <ThemeToggle className="fixed top-4 right-4 z-50" />
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+          <UserLogoutButton showLabel={false} />
+          <ThemeToggle />
+        </div>
         <div className="relative w-24 h-24">
           <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(201,168,76,0.12)" strokeWidth="7" />
@@ -383,7 +390,10 @@ export default function AssessPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10">
         <LogoWatermark />
-        <ThemeToggle className="fixed top-4 right-4 z-50" />
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+          <UserLogoutButton showLabel={false} />
+          <ThemeToggle />
+        </div>
         <PillarDots current={pendingTransition.completedIndex} colors={PILLAR_COLORS} done />
         <AnimatePresence mode="wait">
           <motion.div key={`done-${pendingTransition.completedIndex}`} initial={{ opacity: 0, scale: 0.94, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: -20 }} transition={{ duration: 0.35 }} className="w-full max-w-sm mt-10">
@@ -465,7 +475,10 @@ export default function AssessPage() {
   return (
     <div className="min-h-screen flex flex-col px-4 pt-10 pb-8">
       <LogoWatermark />
-      <ThemeToggle className="fixed top-4 right-4 z-50" />
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <UserLogoutButton showLabel={false} />
+        <ThemeToggle />
+      </div>
 
       <PillarDots current={pillarIndex} colors={PILLAR_COLORS} />
 
