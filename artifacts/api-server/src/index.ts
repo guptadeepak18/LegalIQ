@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { startEmailScheduler } from "./services/emailScheduler";
 import { ensureRequiredEmailTemplates } from "./services/emailTemplates";
 import { ensureDefaultBrochureTemplate } from "./services/brochureTemplates";
+import { ensureBootstrapAdmin } from "./services/adminBootstrap";
 
 const rawPort = process.env["PORT"];
 
@@ -22,6 +23,7 @@ async function startServer() {
   try {
     await ensureRequiredEmailTemplates();
     await ensureDefaultBrochureTemplate();
+    await ensureBootstrapAdmin();
   } catch (err) {
     logger.warn({ err }, "Failed to ensure required email templates");
   }
