@@ -13,6 +13,7 @@ import {
 import { eq, desc, gte, lte, lt, and, count, avg } from "drizzle-orm";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { logger } from "../lib/logger.js";
+import { parseAdminDateTime } from "../services/consultationTime.js";
 import {
   listTemplates,
   getTemplate,
@@ -774,7 +775,11 @@ router.patch("/admin/leads/:id/consultation", requireAuth, requirePermission("le
     res.status(400).json({ success: false, message: "A confirmed date and time are required" }); return;
   }
 
-  const nextScheduledAt = scheduledAt ? new Date(scheduledAt) : existing.scheduledAt;
+  const nextScheduledAt = scheduledAt ? parseAdminDateTime(scheduledAt) : existing.scheduledAt;
+  if (scheduledAt && !nextScheduledAt) {
+    res.status(400).json({ success: false, message: "scheduledAt must be a valid India date and time" });
+    return;
+  }
   const scheduleDate = nextScheduledAt
     ? nextScheduledAt.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" })
     : existing.confirmedDate;
