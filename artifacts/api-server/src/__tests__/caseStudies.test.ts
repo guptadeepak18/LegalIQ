@@ -58,4 +58,17 @@ assert.equal(hydratedLegacy[0]?.caseStudy.provenance.verificationStatus, "verifi
 assert.ok(hydratedLegacy[0]?.whatHappened, "legacy records must regain explicit report facts");
 assert.equal(hydratedLegacy[0]?.readMoreUrl, hydratedLegacy[0]?.caseStudy.provenance.sourceUrl);
 
+const copyrightCase = selectCaseStudies(
+  "Translation and localization services",
+  "Professional Services",
+  [{ title: "Content copyright and licensing exposure" }],
+).find((item) => item.caseStudyId === "rg-anand-copyright-substantial-similarity");
+assert.ok(copyrightCase, "copyright signals must select the R.G. Anand case");
+assert.equal(
+  copyrightCase.readMoreUrl,
+  "https://indiankanoon.org/doc/1734007/",
+  "R.G. Anand card must link to the exact R.G. Anand v Deluxe Films judgment",
+);
+assert.equal(copyrightCase.readMoreUrl, copyrightCase.caseStudy.provenance.sourceUrl);
+
 console.log("caseStudies tests passed");

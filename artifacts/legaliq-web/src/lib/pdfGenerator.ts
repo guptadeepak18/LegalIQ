@@ -106,6 +106,9 @@ export interface ReportData {
       outcome: string;
       whyItMatters: string;
       sourceWebsite: string;
+      provenance?: {
+        sourceUrl: string;
+      };
     };
   }>;
   vcloPitch?: string;
@@ -1513,6 +1516,8 @@ export async function renderReportPDFBytes(data: ReportData): Promise<Uint8Array
     y += 14;
 
     data.similarCases.slice(0, 5).forEach((caseItem, index) => {
+      const exactSourceUrl = caseItem.caseStudy?.provenance?.sourceUrl || caseItem.readMoreUrl;
+      const exactSourceWebsite = new URL(exactSourceUrl).hostname.replace(/^www\./, "");
       if (index > 0) {
         doc.addPage();
         page++;
@@ -1564,11 +1569,11 @@ export async function renderReportPDFBytes(data: ReportData): Promise<Uint8Array
       y += 4.5;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
-      doc.text(caseItem.sourceWebsite, ML, y);
+      doc.text(exactSourceWebsite, ML, y);
       y += 5;
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...GOLD);
-      doc.textWithLink("Read More ->", ML, y, { url: caseItem.readMoreUrl });
+      doc.textWithLink("Read More ->", ML, y, { url: exactSourceUrl });
     });
   }
 

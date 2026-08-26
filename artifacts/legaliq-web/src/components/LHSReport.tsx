@@ -775,7 +775,10 @@ export function LHSReport({
           </h2>
           <p className="type-body-sm liq-text-3 mb-5">Documented Indian legal matters selected from verified sources for your business profile and identified risks.</p>
           <div className="grid lg:grid-cols-2 gap-4">
-            {verifiedSimilarCases.map((c, i) => (
+            {verifiedSimilarCases.map((c, i) => {
+              const exactSourceUrl = c.caseStudy?.provenance?.sourceUrl || c.readMoreUrl;
+              const exactSourceWebsite = new URL(exactSourceUrl).hostname.replace(/^www\./, "");
+              return (
               <motion.div key={c.caseStudyId || c.title}
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.52 + i * 0.05 }}
@@ -799,15 +802,16 @@ export function LHSReport({
                 </div>
                 <div className="pt-3 border-t border-[#C9A84C]/12">
                   <p className="text-[10px] font-bold uppercase tracking-wider liq-text-4 mb-1">Source Website</p>
-                  <p className="text-xs liq-text-3 break-all mb-2">{c.sourceWebsite || new URL(c.readMoreUrl).hostname}</p>
-                  <a href={c.readMoreUrl} target="_blank" rel="noopener noreferrer"
+                  <p className="text-xs liq-text-3 break-all mb-2">{exactSourceWebsite}</p>
+                  <a href={exactSourceUrl} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-[#C9A84C] hover:text-[#E2C97E] transition-colors"
                     aria-label={`Read the exact source for ${c.title} in a new tab`}>
                     <ExternalLink size={12} /> Read More →
                   </a>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         </motion.div>
       )}

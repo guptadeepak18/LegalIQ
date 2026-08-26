@@ -8,7 +8,7 @@ import {
 import { deleteCertificateObject, readCertificateObject, writePrivatePdf } from "./certificates.js";
 import { resolveCaseStudies } from "../data/caseStudies.js";
 
-export const REPORT_RENDERER_VERSION = "lhs-jsPDF-v4-verified-cases-only";
+export const REPORT_RENDERER_VERSION = "lhs-jsPDF-v5-exact-case-sources";
 
 export type ReportArtifactInput = {
   lead: {

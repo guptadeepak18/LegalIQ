@@ -347,7 +347,7 @@ const CASE_STUDIES: CatalogSeed[] = [
     lhsPillars: ["Contractual Health", "Litigation Health"],
     recommendation: "Keep content-creation records and obtain written copyright assignments or licences from every employee, agency and freelancer.",
     sourceTitle: "R.G. Anand v Deluxe Films, Supreme Court of India, 18 August 1978",
-    sourceUrl: "https://indiankanoon.org/doc/39881/",
+    sourceUrl: "https://indiankanoon.org/doc/1734007/",
     industries: ["media", "entertainment", "publishing", "content", "agency", "edtech", "marketing"],
     keywords: ["copyright", "content", "film", "publishing", "creative", "license", "assignment", "infringement"],
   },
