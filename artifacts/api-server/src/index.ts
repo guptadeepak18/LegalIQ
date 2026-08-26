@@ -4,6 +4,7 @@ import { startEmailScheduler } from "./services/emailScheduler";
 import { ensureRequiredEmailTemplates } from "./services/emailTemplates";
 import { ensureDefaultBrochureTemplate } from "./services/brochureTemplates";
 import { ensureBootstrapAdmin } from "./services/adminBootstrap";
+import { runFreshStartResetIfRequested } from "./services/freshStartReset";
 
 const rawPort = process.env["PORT"];
 
@@ -27,6 +28,10 @@ async function startServer() {
   } catch (err) {
     logger.warn({ err }, "Failed to ensure required email templates");
   }
+
+  // When explicitly enabled for a publish, a failed backup/reset must stop
+  // startup rather than serving stale production data.
+  await runFreshStartResetIfRequested();
 
   app.listen(port, (err) => {
     if (err) {

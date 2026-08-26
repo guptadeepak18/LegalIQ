@@ -24,5 +24,8 @@ timeoutMs = 120000
 [userenv.shared]
 JWT_SECRET = "legaliq-jwt-secret-please-change-in-production"
 
+[userenv.production]
+FRESH_START_RESET_ON_BOOT = "true"
+
 [nix]
 channel = "stable-25_05"
