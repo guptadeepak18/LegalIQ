@@ -8,7 +8,7 @@
  *  - All report content is identical to the user view
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle, Shield, TrendingUp, FileText, CheckCircle,
@@ -47,6 +47,9 @@ interface RoadmapPhase {
   badgeCls: string;
   borderColor: string;
 }
+
+type SimilarCase = NonNullable<AssessmentResult["report"]["similarCases"]>[number];
+type CaseStudyDetails = NonNullable<SimilarCase["caseStudy"]>;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -213,6 +216,27 @@ function MiniRing({ score, color, max = 25 }: { score: number; color: string; ma
   );
 }
 
+function resolveCaseStudy(caseItem: SimilarCase, businessType: string): CaseStudyDetails {
+  if (caseItem.caseStudy) return caseItem.caseStudy;
+
+  const legacyId = caseItem.caseStudyId || caseItem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return {
+    id: legacyId,
+    slug: legacyId,
+    businessIndustry: businessType || "Indian business",
+    legalSituation: caseItem.summary,
+    disputeNature: caseItem.relevance,
+    keyLegalIssue: caseItem.title,
+    businessImpact: caseItem.summary,
+    resolution: "The linked public source contains the reported proceedings and outcome for this case reference.",
+    takeaway: caseItem.relevance,
+    lhsPillars: ["Litigation Health", "Contractual Health"],
+    recommendation: "Review the corresponding agreements, evidence and compliance records with a qualified legal advisor before a similar issue escalates.",
+    sourceTitle: caseItem.title,
+    sourceUrl: caseItem.readMoreUrl,
+  };
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 interface LHSReportProps {
@@ -253,6 +277,21 @@ export function LHSReport({
 }: LHSReportProps) {
   const [showAboutLhs, setShowAboutLhs] = useState(!adminMode);
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedCaseStudy, setSelectedCaseStudy] = useState<CaseStudyDetails | null>(null);
+
+  useEffect(() => {
+    if (!selectedCaseStudy) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedCaseStudy(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [selectedCaseStudy]);
 
   const { totalScore, riskLevel, report } = result;
   const roadmap = buildRoadmap(report, result);
@@ -743,7 +782,7 @@ export function LHSReport({
           <p className="type-body-sm liq-text-3 mb-5">Representative cases from Indian businesses with comparable legal risk profiles.</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {report.similarCases!.map((c, i) => (
-              <motion.div key={i}
+              <motion.div key={c.caseStudyId || c.title}
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.52 + i * 0.05 }}
                 className="rounded-xl border border-[rgba(201,168,76,0.15)] bg-[rgba(201,168,76,0.03)] p-4 flex flex-col gap-3">
@@ -752,12 +791,14 @@ export function LHSReport({
                 </span>
                 <h3 className="font-bold liq-text-1 text-sm leading-snug">{c.title}</h3>
                 <p className="type-body-sm liq-text-3 leading-relaxed flex-1">{c.summary}</p>
-                {c.readMoreUrl && (
-                  <a href={c.readMoreUrl} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#C9A84C] hover:text-[#E2C97E] transition-colors mt-auto pt-1 border-t border-[#C9A84C]/12">
-                    <ExternalLink size={11} /> Read More
-                  </a>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedCaseStudy(resolveCaseStudy(c, businessType))}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#C9A84C] hover:text-[#E2C97E] transition-colors mt-auto pt-2 border-t border-[#C9A84C]/12 text-left"
+                  aria-label={`Read case study: ${c.title}`}
+                >
+                  <BookOpen size={11} /> Read More
+                </button>
               </motion.div>
             ))}
           </div>
@@ -992,6 +1033,118 @@ export function LHSReport({
           </button>
         </div>
       )}
+
+      <AnimatePresence>
+        {selectedCaseStudy && (
+          <motion.div
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/65 backdrop-blur-sm p-0 sm:p-5 print:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={(event) => {
+              if (event.currentTarget === event.target) setSelectedCaseStudy(null);
+            }}
+            role="presentation"
+          >
+            <motion.section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="case-study-title"
+              initial={{ opacity: 0, y: 30, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-[#C9A84C]/25 bg-white dark:bg-[#12110F] shadow-2xl"
+            >
+              <header className="sticky top-0 z-10 flex items-start gap-4 px-5 sm:px-7 py-5 border-b border-[#C9A84C]/15 bg-white/95 dark:bg-[#12110F]/95 backdrop-blur-xl">
+                <div className="w-10 h-10 rounded-xl bg-[#C9A84C]/10 border border-[#C9A84C]/20 flex items-center justify-center flex-shrink-0">
+                  <BookOpen size={18} className="text-[#C9A84C]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="type-label text-[#C9A84C] mb-1">Verified Case Study</p>
+                  <h2 id="case-study-title" className="type-h2 liq-text-1 leading-tight">
+                    {selectedCaseStudy.sourceTitle.split(",")[0]}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCaseStudy(null)}
+                  className="w-9 h-9 rounded-full border border-[#C9A84C]/15 liq-text-3 hover:text-[#C9A84C] hover:bg-[#C9A84C]/8 transition-colors flex items-center justify-center flex-shrink-0"
+                  aria-label="Close case study"
+                >
+                  <X size={17} />
+                </button>
+              </header>
+
+              <div className="px-5 sm:px-7 py-6 space-y-4">
+                {[
+                  ["Business / Industry", selectedCaseStudy.businessIndustry],
+                  ["Real-world legal situation", selectedCaseStudy.legalSituation],
+                  ["Nature of the dispute or exposure", selectedCaseStudy.disputeNature],
+                  ["Key legal issue", selectedCaseStudy.keyLegalIssue],
+                  ["Business impact", selectedCaseStudy.businessImpact],
+                  ["How the matter was addressed", selectedCaseStudy.resolution],
+                  ["Key takeaway for similar businesses", selectedCaseStudy.takeaway],
+                ].map(([label, value], index) => (
+                  <div
+                    key={label}
+                    className={`rounded-xl border p-4 ${
+                      index === 4
+                        ? "bg-red-500/5 border-red-500/15"
+                        : index === 6
+                          ? "bg-emerald-500/5 border-emerald-500/15"
+                          : "bg-[#C9A84C]/[0.035] border-[#C9A84C]/12"
+                    }`}
+                  >
+                    <p className={`type-label mb-1.5 ${
+                      index === 4 ? "text-red-500" : index === 6 ? "text-emerald-600" : "text-[#C9A84C]"
+                    }`}>
+                      {index + 1}. {label}
+                    </p>
+                    <p className="type-body-sm liq-text-2 leading-relaxed">{value}</p>
+                  </div>
+                ))}
+
+                <div className="rounded-xl border border-[#C9A84C]/15 p-4 bg-[#C9A84C]/[0.035]">
+                  <p className="type-label text-[#C9A84C] mb-2">8. Relevant Legal Health Score pillars</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedCaseStudy.lhsPillars.map((pillar) => (
+                      <span
+                        key={pillar}
+                        className="text-[11px] font-semibold text-[#C9A84C] bg-[#C9A84C]/10 border border-[#C9A84C]/20 px-2.5 py-1 rounded-full"
+                      >
+                        {pillar}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-emerald-500/15 p-4 bg-emerald-500/5">
+                  <p className="type-label text-emerald-600 mb-1.5">9. Practical preventive recommendation</p>
+                  <p className="type-body-sm liq-text-2 leading-relaxed">{selectedCaseStudy.recommendation}</p>
+                </div>
+
+                <div className="rounded-xl border border-[#C9A84C]/25 bg-[#C9A84C]/8 p-4">
+                  <p className="type-label text-[#C9A84C] mb-1.5">10. Source / case reference</p>
+                  <p className="type-body-sm liq-text-2 leading-relaxed mb-3">{selectedCaseStudy.sourceTitle}</p>
+                  <a
+                    href={selectedCaseStudy.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#C9A84C] hover:text-[#E2C97E] transition-colors"
+                  >
+                    <ExternalLink size={13} /> View public source
+                  </a>
+                </div>
+
+                <p className="type-caption liq-text-4 leading-relaxed">
+                  This case study is educational and summarises a public legal decision. It is not legal advice and does not predict the outcome of any other matter.
+                </p>
+              </div>
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

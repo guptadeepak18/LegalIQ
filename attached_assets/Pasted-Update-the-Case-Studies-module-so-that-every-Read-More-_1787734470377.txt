@@ -1,0 +1,31 @@
+Update the Case Studies module so that every “Read More” opens a **relevant, real-world business legal case study** based on the industry, business type, and situation shown on that specific card.
+
+Do NOT use generic, fictional, repetitive, or unrelated case studies. Each case should reflect a genuine type of legal situation that businesses in that industry commonly face, using **verified public cases or well-established real-world legal scenarios** where possible. If a real case is referenced, clearly identify the case/source and do not invent facts, companies, judgments, dates, or outcomes.
+
+For example:
+
+* A retail business case should address issues relevant to retail businesses.
+* A manufacturing case should address contracts, compliance, labour, regulatory, liability, or dispute situations relevant to manufacturing.
+* A service/business case should address agreements, client disputes, payment issues, compliance, or contractual exposure relevant to that business.
+* A startup/company case should address incorporation, contracts, IP, employment, compliance, funding, or commercial disputes where relevant.
+
+When the user clicks “Read More,” dynamically open the case study corresponding to that exact card and display:
+
+1. Business / Industry
+2. Real-world legal situation
+3. Nature of the dispute or legal exposure
+4. Key legal issue
+5. Business impact
+6. How the matter was addressed/resolved
+7. Key takeaway for similar businesses
+8. Relevant LHS pillar(s)
+9. Practical preventive recommendation
+10. Source / case reference, wherever a public source is available
+
+The case study must be **contextually relevant to the business scenario represented by the card**, not simply selected by card position or a generic default.
+
+Use stable case-study IDs/slugs for the mapping. Do not hardcode the same case for multiple cards.
+
+Keep the existing LegalIQ / Rest The Case branding, typography, colors, layout, spacing, shadows, animations and responsive design unchanged. Only improve the case-study data, relevance, mapping and Read More functionality.
+
+Before implementation, inspect the existing Case Studies data structure and UI, then modify the existing system rather than creating a duplicate module.

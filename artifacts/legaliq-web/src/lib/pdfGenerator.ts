@@ -76,7 +76,28 @@ export interface ReportData {
   futureRisks?: FutureRisk[];
   actions: Action[];
   costSummary?: Array<{ issue: string; costRange: string; delayImpact: string }>;
-  similarCases?: Array<{ title: string; summary: string; relevance: string; readMoreUrl: string }>;
+  similarCases?: Array<{
+    caseStudyId?: string;
+    title: string;
+    summary: string;
+    relevance: string;
+    readMoreUrl: string;
+    caseStudy?: {
+      id: string;
+      slug: string;
+      businessIndustry: string;
+      legalSituation: string;
+      disputeNature: string;
+      keyLegalIssue: string;
+      businessImpact: string;
+      resolution: string;
+      takeaway: string;
+      lhsPillars: string[];
+      recommendation: string;
+      sourceTitle: string;
+      sourceUrl: string;
+    };
+  }>;
   vcloPitch?: string;
   answerHistory?: AnswerHistoryItem[];
   example?: CaseStudyExample;

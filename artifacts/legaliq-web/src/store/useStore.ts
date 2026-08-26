@@ -71,10 +71,26 @@ export interface AssessmentResult {
       delayImpact: string;
     }>;
     similarCases?: Array<{
+      caseStudyId?: string;
       title: string;
       summary: string;
       relevance: string;
       readMoreUrl: string;
+      caseStudy?: {
+        id: string;
+        slug: string;
+        businessIndustry: string;
+        legalSituation: string;
+        disputeNature: string;
+        keyLegalIssue: string;
+        businessImpact: string;
+        resolution: string;
+        takeaway: string;
+        lhsPillars: string[];
+        recommendation: string;
+        sourceTitle: string;
+        sourceUrl: string;
+      };
     }>;
     example: {
       businessName: string;
