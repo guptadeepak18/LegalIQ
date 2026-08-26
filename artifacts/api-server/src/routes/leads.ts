@@ -190,7 +190,12 @@ router.get("/assessments/:id/case-studies", async (req, res) => {
     row.lead.businessType,
     row.lead.category,
     Array.isArray(report.insights) ? report.insights as Array<{ title?: string; gap?: string; consequence?: string }> : [],
+    "",
+    row.lead.subCategory,
   );
+  if (JSON.stringify(report.similarCases) !== JSON.stringify(similarCases)) {
+    await db.update(reports).set({ similarCases }).where(eq(reports.id, report.id));
+  }
   res.json({ success: true, similarCases });
 });
 

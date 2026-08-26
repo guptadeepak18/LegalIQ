@@ -12,6 +12,11 @@ export interface CaseStudyDetails {
   recommendation: string;
   sourceTitle: string;
   sourceUrl: string;
+  whatHappened: string;
+  legalIssue: string;
+  outcome: string;
+  whyItMatters: string;
+  sourceWebsite: string;
   provenance: CaseProvenance;
 }
 
@@ -19,7 +24,7 @@ export interface CaseProvenance {
   courtOrAuthority: string;
   citationOrTitle: string;
   decisionDate: string;
-  sourceType: "Court judgment" | "Official authority record";
+  sourceType: "Court judgment" | "Official authority record" | "Reputable legal publication" | "Trusted news report";
   sourceUrl: string;
   verifiedDate: string;
   verificationStatus: "verified";
@@ -31,7 +36,22 @@ export interface SimilarCaseStudy {
   summary: string;
   relevance: string;
   readMoreUrl: string;
+  whatHappened: string;
+  legalIssue: string;
+  outcome: string;
+  whyItMatters: string;
+  sourceWebsite: string;
   caseStudy: CaseStudyDetails;
+}
+
+export interface CaseRiskSignal {
+  title?: string;
+  gap?: string;
+  consequence?: string;
+  description?: string;
+  reason?: string;
+  businessImpact?: string;
+  recommendation?: string;
 }
 
 interface CatalogEntry extends CaseStudyDetails {
@@ -41,7 +61,9 @@ interface CatalogEntry extends CaseStudyDetails {
   keywords: string[];
 }
 
-type CatalogSeed = Omit<CatalogEntry, "provenance">;
+type CatalogSeed = Omit<CatalogEntry,
+  "provenance" | "whatHappened" | "legalIssue" | "outcome" | "whyItMatters" | "sourceWebsite"
+>;
 
 const CASE_STUDIES: CatalogSeed[] = [
   {
@@ -211,7 +233,7 @@ const CASE_STUDIES: CatalogSeed[] = [
     lhsPillars: ["Compliance Health", "Legal Cost Efficiency"],
     recommendation: "Document Incoterms, freight responsibility and tax treatment for imports, and review material GST positions when notifications or judicial interpretations change.",
     sourceTitle: "Union of India v Mohit Minerals Pvt. Ltd., Supreme Court of India, 19 May 2022",
-    sourceUrl: "https://digiscr.sci.gov.in/view_judgment?id=MzA2OTE=",
+    sourceUrl: "https://api.sci.gov.in/supremecourt/2020/23083/23083_2020_4_1501_35969_Judgement_19-May-2022.pdf",
     industries: ["trading", "retail", "wholesale", "distribution", "manufacturing", "import", "export"],
     keywords: ["gst", "tax", "import", "freight", "filing", "return", "notice", "compliance"],
   },
@@ -335,6 +357,30 @@ function normalise(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+function sourceWebsiteFor(sourceUrl: string): string {
+  return new URL(sourceUrl).hostname.replace(/^www\./, "");
+}
+
+function sourceTypeFor(sourceUrl: string): CaseProvenance["sourceType"] {
+  const host = sourceWebsiteFor(sourceUrl);
+  if (/\.gov\.in$|\.nic\.in$|^sci\.gov\.in$|^api\.sci\.gov\.in$|^digiscr\.sci\.gov\.in$/.test(host)) {
+    return "Official authority record";
+  }
+  if (host === "indiankanoon.org") return "Court judgment";
+  if (/barandbench\.com$|livelaw\.in$/.test(host)) return "Reputable legal publication";
+  return "Trusted news report";
+}
+
+function isTrustedExactSource(sourceUrl: string): boolean {
+  try {
+    const url = new URL(sourceUrl);
+    if (url.protocol !== "https:" || /google\./i.test(url.hostname) || /\/search(?:\/|\\?|$)/i.test(url.pathname)) return false;
+    return /(?:^|\.)indiankanoon\.org$|(?:^|\.)sci\.gov\.in$|(?:^|\.)delhihighcourt\.nic\.in$|(?:^|\.)business-standard\.com$|(?:^|\.)barandbench\.com$|(?:^|\.)livelaw\.in$|(?:^|\.)thehindu\.com$|(?:^|\.)indianexpress\.com$/i.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function provenanceFor(entry: CatalogSeed): CaseProvenance {
   const decisionDate = entry.sourceTitle.match(/(\d{1,2} [A-Z][a-z]+ \d{4})/)?.[1] ?? "Date stated in linked source";
   const courtOrAuthority = entry.sourceTitle.includes("Supreme Court")
@@ -348,7 +394,7 @@ function provenanceFor(entry: CatalogSeed): CaseProvenance {
     courtOrAuthority,
     citationOrTitle: entry.sourceTitle,
     decisionDate,
-    sourceType: "Court judgment",
+    sourceType: sourceTypeFor(entry.sourceUrl),
     sourceUrl: entry.sourceUrl,
     verifiedDate: "2025-02-20",
     verificationStatus: "verified",
@@ -356,11 +402,30 @@ function provenanceFor(entry: CatalogSeed): CaseProvenance {
 }
 
 const VERIFIED_CASE_STUDIES: CatalogEntry[] = CASE_STUDIES
-  .filter((entry) => /indiankanoon\.org|sci\.gov\.in|delhihighcourt\.nic\.in/i.test(entry.sourceUrl))
+  .filter((entry) => isTrustedExactSource(entry.sourceUrl))
   .map((entry) => ({
     ...entry,
+    whatHappened: entry.cardSummary,
+    legalIssue: entry.keyLegalIssue,
+    outcome: entry.resolution,
+    whyItMatters: `${entry.businessImpact} ${entry.takeaway}`,
+    sourceWebsite: sourceWebsiteFor(entry.sourceUrl),
     provenance: provenanceFor(entry),
   }));
+
+export function listVerifiedCaseStudySources(): Array<{
+  id: string;
+  sourceTitle: string;
+  sourceUrl: string;
+  verifiedDate: string;
+}> {
+  return VERIFIED_CASE_STUDIES.map((entry) => ({
+    id: entry.id,
+    sourceTitle: entry.sourceTitle,
+    sourceUrl: entry.sourceUrl,
+    verifiedDate: entry.provenance.verifiedDate,
+  }));
+}
 
 function containsTerm(text: string, term: string): boolean {
   return new RegExp(`(?:^|\\s)${normalise(term).replace(/\s+/g, "\\s+")}(?:\\s|$)`).test(text);
@@ -387,33 +452,45 @@ function matchingTerms(terms: string[], text: string): number {
 export function selectCaseStudies(
   businessType: string,
   category: string,
-  risks: Array<{ title?: string; gap?: string; consequence?: string }> = [],
+  risks: CaseRiskSignal[] = [],
   fullAnswers = "",
+  subCategory = "",
+  pillarSignals: string[] = [],
 ): SimilarCaseStudy[] {
-  const profile = normalise(`${businessType} ${category}`);
-  const signals = risks.map((risk) => normalise(`${risk.title ?? ""} ${risk.gap ?? ""} ${risk.consequence ?? ""}`));
-  const evidence = normalise(`${signals.join(" ")} ${fullAnswers}`);
+  const profile = normalise(`${businessType} ${category} ${subCategory}`);
+  const riskText = (risk: CaseRiskSignal) =>
+    `${risk.title ?? ""} ${risk.gap ?? ""} ${risk.consequence ?? ""} ${risk.description ?? ""} ${risk.reason ?? ""} ${risk.businessImpact ?? ""} ${risk.recommendation ?? ""}`;
+  const signals = risks.map((risk) => normalise(riskText(risk)));
+  const evidence = normalise(`${signals.join(" ")} ${fullAnswers} ${pillarSignals.join(" ")}`);
 
   return VERIFIED_CASE_STUDIES
     .map((entry) => {
       const industryMatches = matchingTerms(entry.industries, profile);
       const riskMatches = matchingTerms(entry.keywords, evidence);
       const profileKeywordMatches = matchingTerms(entry.keywords, profile);
+      const pillarMatches = entry.lhsPillars.reduce((count, pillar) =>
+        count + (pillarSignals.some((signal) => normalise(signal) === normalise(pillar)) ? 1 : 0), 0);
       // A sector match alone needs at least one specific signal. A highly
       // specific sector phrase (for example, "B-school") is enough on its own.
       const strongSectorMatch = industryMatches >= 2 || entry.industries.some((term) => normalise(term).split(" ").length > 1 && containsTerm(profile, term));
       const qualifies = industryMatches > 0 || riskMatches > 0 || profileKeywordMatches > 0 || strongSectorMatch;
-      const matchedRisk = risks.find((risk) => matchingTerms(entry.keywords, normalise(`${risk.title ?? ""} ${risk.gap ?? ""} ${risk.consequence ?? ""}`)) > 0);
+      const matchedRisk = risks.find((risk) => matchingTerms(entry.keywords, normalise(riskText(risk))) > 0);
       return {
         entry,
-        score: industryMatches * 30 + riskMatches * 14 + profileKeywordMatches * 5,
+        industryMatches,
+        score: industryMatches * 30 + riskMatches * 14 + profileKeywordMatches * 5 + pillarMatches * 3,
         qualifies,
         matchedRisk,
       };
     })
-    .filter((candidate) => candidate.qualifies && candidate.score >= 3)
+    .filter((candidate, _index, candidates) => {
+      const hasIndustryCompatibleCase = candidates.some((item) => item.industryMatches > 0);
+      return candidate.qualifies
+        && candidate.score >= 3
+        && (!hasIndustryCompatibleCase || candidate.industryMatches > 0);
+    })
     .sort((a, b) => b.score - a.score || a.entry.id.localeCompare(b.entry.id))
-    .slice(0, 3)
+    .slice(0, 5)
     .map(({ entry, matchedRisk }) => {
       const riskTitle = matchedRisk?.title?.trim();
       const businessLabel = businessType.trim() || category.trim() || "business";
@@ -422,9 +499,14 @@ export function selectCaseStudies(
       title: entry.cardTitle,
       summary: entry.cardSummary,
       relevance: riskTitle
-        ? `Matched to your reported “${riskTitle}” risk and ${businessLabel} profile.`
-        : `Matched to the reported ${businessLabel} sector and assessment signals.`,
+        ? `Relevant to your reported “${riskTitle}” risk and ${businessLabel} profile.`
+        : `Relevant to the reported ${businessLabel} sector and assessment signals.`,
       readMoreUrl: entry.sourceUrl,
+      whatHappened: entry.whatHappened,
+      legalIssue: entry.legalIssue,
+      outcome: entry.outcome,
+      whyItMatters: entry.whyItMatters,
+      sourceWebsite: entry.sourceWebsite,
       caseStudy: {
         ...entry,
       },
@@ -436,14 +518,15 @@ export function resolveCaseStudies(
   stored: unknown,
   businessType: string,
   category: string,
-  risks: Array<{ title?: string; gap?: string; consequence?: string }> = [],
+  risks: CaseRiskSignal[] = [],
   fullAnswers = "",
+  subCategory = "",
+  pillarSignals: string[] = [],
 ): SimilarCaseStudy[] {
   const items = Array.isArray(stored) ? stored : [];
   const hydrated = items.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
     const record = item as Partial<SimilarCaseStudy>;
-    if (record.caseStudy?.provenance?.verificationStatus === "verified") return [record as SimilarCaseStudy];
     const entry = VERIFIED_CASE_STUDIES.find((candidate) =>
       candidate.id === record.caseStudyId ||
       candidate.sourceUrl === record.readMoreUrl ||
@@ -456,10 +539,17 @@ export function resolveCaseStudies(
       summary: record.summary || entry.cardSummary,
       relevance: record.relevance || `Matched to the reported ${businessType || category || "business"} profile.`,
       readMoreUrl: entry.sourceUrl,
+      whatHappened: entry.whatHappened,
+      legalIssue: entry.legalIssue,
+      outcome: entry.outcome,
+      whyItMatters: entry.whyItMatters,
+      sourceWebsite: entry.sourceWebsite,
       caseStudy: { ...entry },
     }];
   });
-  return hydrated.length > 0
-    ? hydrated.slice(0, 3)
-    : selectCaseStudies(businessType, category, risks, fullAnswers);
+  const selected = selectCaseStudies(businessType, category, risks, fullAnswers, subCategory, pillarSignals);
+  const merged = [...hydrated, ...selected];
+  return merged.filter((item, index) =>
+    merged.findIndex((candidate) => candidate.caseStudyId === item.caseStudyId) === index
+  ).slice(0, 5);
 }

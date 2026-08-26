@@ -82,6 +82,11 @@ export interface ReportData {
     summary: string;
     relevance: string;
     readMoreUrl: string;
+    whatHappened: string;
+    legalIssue: string;
+    outcome: string;
+    whyItMatters: string;
+    sourceWebsite: string;
     caseStudy?: {
       id: string;
       slug: string;
@@ -96,6 +101,11 @@ export interface ReportData {
       recommendation: string;
       sourceTitle: string;
       sourceUrl: string;
+      whatHappened: string;
+      legalIssue: string;
+      outcome: string;
+      whyItMatters: string;
+      sourceWebsite: string;
     };
   }>;
   vcloPitch?: string;
@@ -1135,7 +1145,7 @@ export async function renderReportPDFBytes(data: ReportData): Promise<Uint8Array
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(...INK3);
-    doc.text("For Similar Cases and clickable action links, view the full interactive report at restthecase.com/legaliq", ML, y);
+    doc.text("The Real-World Legal Cases section and clickable action links are included later in this report.", ML, y);
     y += 8;
   }
 
@@ -1367,72 +1377,6 @@ export async function renderReportPDFBytes(data: ReportData): Promise<Uint8Array
   }
 
   // ══════════════════════════════════════════════════════════════
-  // PAGE — CASE STUDY (real-world parallel)
-  // ══════════════════════════════════════════════════════════════
-  if (data.example) {
-    const ex = data.example;
-    doc.addPage();
-    page++;
-    pageHeader(doc, page);
-    pageFooter(doc);
-
-    y = 24;
-
-    doc.setFillColor(...DARK_P);
-    doc.roundedRect(ML, y, CW, 12, 2, 2, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10.5);
-    doc.setTextColor(...GOLD);
-    doc.text("CASE STUDY: A SIMILAR BUSINESS", ML + 6, y + 8.5);
-    y += 18;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(...INK1);
-    doc.text(clean(ex.businessName), ML, y);
-    y += 9;
-
-    const blocks: [string, string, [number, number, number]][] = [
-      ["WHAT HAPPENED", ex.whatHappened, INK2],
-      ["CONSEQUENCES", ex.consequences, [180, 40, 40]],
-      ["HOW A VCLO WOULD HAVE HELPED", ex.vcloWouldHave, [30, 130, 70]],
-      ["THE LESSON", ex.lesson, [176, 137, 58]],
-    ];
-
-    blocks.forEach(([label, text, color]) => {
-      if (!text) return;
-      const lines = wrap(doc, text, CW - 18);
-      const boxH = 12 + lines.length * 4.6 + 6;
-      if (y + boxH > H - 20) {
-        doc.addPage();
-        page++;
-        pageHeader(doc, page);
-        pageFooter(doc);
-        y = 24;
-      }
-      doc.setFillColor(...PANEL);
-      doc.roundedRect(ML, y, CW, boxH, 4, 4, "F");
-      doc.setDrawColor(...INK4);
-      doc.setLineWidth(0.2);
-      doc.roundedRect(ML, y, CW, boxH, 4, 4, "S");
-      doc.setFillColor(...color);
-      doc.rect(ML, y, 4, boxH, "F");
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(...color);
-      doc.text(label, ML + 9, y + 9);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(...INK2);
-      doc.text(lines, ML + 9, y + 16);
-
-      y += boxH + 6;
-    });
-  }
-
-  // ══════════════════════════════════════════════════════════════
   // PAGE — CERTIFICATE DETAILS
   // ══════════════════════════════════════════════════════════════
   {
@@ -1545,7 +1489,7 @@ export async function renderReportPDFBytes(data: ReportData): Promise<Uint8Array
   }
 
   // ══════════════════════════════════════════════════════════════
-  // PAGE — VERIFIED CASE STUDIES
+  // PAGES — REAL-WORLD LEGAL CASES
   // ══════════════════════════════════════════════════════════════
   if (data.similarCases?.length) {
     doc.addPage();
@@ -1559,49 +1503,72 @@ export async function renderReportPDFBytes(data: ReportData): Promise<Uint8Array
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10.5);
     doc.setTextColor(...GOLD);
-    doc.text("VERIFIED CASE STUDIES", ML + 6, y + 8.5);
+    doc.text("REAL-WORLD LEGAL CASES", ML + 6, y + 8.5);
     y += 19;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(...INK3);
-    doc.text(wrap(doc, "Public Indian legal decisions selected for their relevance to this assessment. Use the source link below each summary to read the full case.", CW), ML, y);
+    doc.text(wrap(doc, "Documented Indian legal matters selected from verified sources for this business profile and the legal risks identified in this assessment.", CW), ML, y);
     y += 14;
 
-    data.similarCases.slice(0, 3).forEach((caseItem, index) => {
-      const titleLines = wrap(doc, `${index + 1}. ${caseItem.title}`, CW - 12);
-      const summaryLines = wrap(doc, caseItem.summary, CW - 12);
-      const relevanceLines = wrap(doc, caseItem.relevance, CW - 12);
-      const cardH = titleLines.length * 5 + summaryLines.length * 4.4 + relevanceLines.length * 4.2 + 24;
-      if (y + cardH > H - 20) {
+    data.similarCases.slice(0, 5).forEach((caseItem, index) => {
+      if (index > 0) {
         doc.addPage();
         page++;
         pageHeader(doc, page);
         pageFooter(doc);
         y = 24;
       }
-      doc.setFillColor(...PANEL);
-      doc.setDrawColor(...GOLD);
-      doc.setLineWidth(0.25);
-      doc.roundedRect(ML, y, CW, cardH, 3, 3, "FD");
+      const titleLines = wrap(doc, `${index + 1}. ${caseItem.title}`, CW - 12);
+      const relevanceLines = wrap(doc, caseItem.relevance, CW - 12);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
+      doc.setFontSize(12);
       doc.setTextColor(...INK1);
-      doc.text(titleLines, ML + 6, y + 8);
-      let cardY = y + 8 + titleLines.length * 5;
+      doc.text(titleLines, ML, y);
+      y += titleLines.length * 5.5 + 3;
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(...INK3);
+      doc.text(relevanceLines, ML, y);
+      y += relevanceLines.length * 4.2 + 6;
+
+      const fields: Array<[string, string]> = [
+        ["WHAT HAPPENED", caseItem.whatHappened || caseItem.summary],
+        ["LEGAL ISSUE", caseItem.legalIssue],
+        ["OUTCOME / ACTION TAKEN", caseItem.outcome],
+        ["WHY IT MATTERS TO THIS BUSINESS", caseItem.whyItMatters],
+      ];
+      fields.forEach(([label, value]) => {
+        const lines = wrap(doc, value, CW - 10);
+        const blockH = 7 + lines.length * 4.3;
+        doc.setFillColor(...PANEL);
+        doc.setDrawColor(226, 216, 190);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(ML, y, CW, blockH, 2, 2, "FD");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...GOLD);
+        doc.text(label, ML + 5, y + 5);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(...INK2);
+        doc.text(lines, ML + 5, y + 10);
+        y += blockH + 4;
+      });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...INK3);
+      doc.text("SOURCE WEBSITE", ML, y);
+      y += 4.5;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
-      doc.setTextColor(...INK2);
-      doc.text(summaryLines, ML + 6, cardY);
-      cardY += summaryLines.length * 4.4 + 4;
-      doc.setFont("helvetica", "italic");
-      doc.setTextColor(...INK3);
-      doc.text(relevanceLines, ML + 6, cardY);
-      cardY += relevanceLines.length * 4.2 + 5;
+      doc.text(caseItem.sourceWebsite, ML, y);
+      y += 5;
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...GOLD);
-      doc.textWithLink("Read full public case study", ML + 6, cardY, { url: caseItem.readMoreUrl });
-      y += cardH + 7;
+      doc.textWithLink("Read More ->", ML, y, { url: caseItem.readMoreUrl });
     });
   }
 

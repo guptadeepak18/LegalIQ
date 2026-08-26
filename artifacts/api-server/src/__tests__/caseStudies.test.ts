@@ -7,13 +7,18 @@ const education = selectCaseStudies(
   [{ title: "Student fee refund and grievance exposure", gap: "No written admissions refund policy" }],
   JSON.stringify({ answers: ["AICTE affiliation records need renewal", "Student admission complaints are handled informally"] }),
 );
-assert.ok(education.length >= 1 && education.length <= 3, "education signals should select a small relevant set");
+assert.ok(education.length >= 3 && education.length <= 5, "education signals should select three to five relevant cases when catalog coverage exists");
 assert.ok(education.every((item) => /student|admission|programme|education/i.test(`${item.title} ${item.summary}`)));
 assert.equal(new Set(education.map((item) => item.caseStudyId)).size, education.length, "selected cases must be unique");
 assert.ok(education.every((item) =>
   item.caseStudy.provenance.verificationStatus === "verified"
   && item.caseStudy.provenance.sourceUrl === item.readMoreUrl
-  && /^https:\/\//.test(item.readMoreUrl),
+  && /^https:\/\//.test(item.readMoreUrl)
+  && item.whatHappened.length > 20
+  && item.legalIssue.length > 20
+  && item.outcome.length > 20
+  && item.whyItMatters.length > 20
+  && item.sourceWebsite.length > 3,
 ), "every displayed case must preserve its exact verified source");
 
 const logistics = selectCaseStudies(
@@ -42,6 +47,7 @@ const contractRisk = selectCaseStudies(
   [{ title: "Contract and agreement exposure", gap: "Client contract terms are incomplete" }],
 );
 assert.ok(contractRisk.length > 0, "common contract risks must still produce relevant sourced cases");
+assert.ok(contractRisk.length <= 5, "case selection must never exceed five records");
 
 const hydratedLegacy = resolveCaseStudies(
   [{ caseStudyId: logistics[0]?.caseStudyId, title: logistics[0]?.title, summary: logistics[0]?.summary, relevance: logistics[0]?.relevance, readMoreUrl: logistics[0]?.readMoreUrl }],
@@ -49,5 +55,7 @@ const hydratedLegacy = resolveCaseStudies(
   "Supply chain",
 );
 assert.equal(hydratedLegacy[0]?.caseStudy.provenance.verificationStatus, "verified", "legacy report cards must regain full Read More details");
+assert.ok(hydratedLegacy[0]?.whatHappened, "legacy records must regain explicit report facts");
+assert.equal(hydratedLegacy[0]?.readMoreUrl, hydratedLegacy[0]?.caseStudy.provenance.sourceUrl);
 
 console.log("caseStudies tests passed");

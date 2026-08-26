@@ -74,6 +74,7 @@ router.post("/submit", async (req, res) => {
     company: lead.company,
     businessType: lead.businessType,
     category: lead.category,
+    subCategory: lead.subCategory,
     city: lead.city,
     total: scoring.totalScore,
     risk: scoring.riskLevel,

@@ -6,6 +6,7 @@ import { ensureCanonicalReportArtifact } from "./reportArtifact.js";
 type ReportNotificationInput = {
   lead: {
     id: string; email: string; name: string; company: string; city: string; businessType?: string | null;
+    category?: string | null; subCategory?: string | null;
   };
   assessment: {
     id: string; totalScore: number | null; grade: string | null;

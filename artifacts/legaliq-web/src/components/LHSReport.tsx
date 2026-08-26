@@ -767,39 +767,45 @@ export function LHSReport({
         </motion.div>
       )}
 
-      {/* ── SIMILAR CASES ────────────────────────────────────────────────── */}
+      {/* ── REAL-WORLD LEGAL CASES ───────────────────────────────────────── */}
       {verifiedSimilarCases.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card rounded-2xl p-6">
           <h2 className="type-h2 liq-text-1 mb-2 flex items-center gap-2">
-            <Briefcase size={18} className="text-[#C9A84C]" /> Similar Cases
+            <Briefcase size={18} className="text-[#C9A84C]" /> Real-World Legal Cases
           </h2>
-          <p className="type-body-sm liq-text-3 mb-5">Representative cases from Indian businesses with comparable legal risk profiles.</p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <p className="type-body-sm liq-text-3 mb-5">Documented Indian legal matters selected from verified sources for your business profile and identified risks.</p>
+          <div className="grid lg:grid-cols-2 gap-4">
             {verifiedSimilarCases.map((c, i) => (
               <motion.div key={c.caseStudyId || c.title}
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.52 + i * 0.05 }}
-                className="rounded-xl border border-[rgba(201,168,76,0.15)] bg-[rgba(201,168,76,0.03)] p-4 flex flex-col gap-3">
+                className="rounded-xl border border-[rgba(201,168,76,0.15)] bg-[rgba(201,168,76,0.03)] p-5 flex flex-col gap-4">
                 <span className="self-start text-[10px] font-bold uppercase tracking-widest text-[#C9A84C] bg-[#C9A84C]/10 border border-[#C9A84C]/20 px-2 py-0.5 rounded">
                   {c.relevance}
                 </span>
-                <h3 className="font-bold liq-text-1 text-sm leading-snug">{c.title}</h3>
-                <p className="type-body-sm liq-text-3 leading-relaxed flex-1">{c.summary}</p>
-                {c.caseStudy ? (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCaseStudy(c.caseStudy as CaseStudyDetails)}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#C9A84C] hover:text-[#E2C97E] transition-colors mt-auto pt-2 border-t border-[#C9A84C]/12 text-left"
-                    aria-label={`Read case study: ${c.title}`}
-                  >
-                    <BookOpen size={11} /> Read More
-                  </button>
-                ) : (
+                <h3 className="font-serif font-bold liq-text-1 text-lg leading-snug">{c.title}</h3>
+                <div className="space-y-3 flex-1">
+                  {[
+                    ["What Happened", c.whatHappened || c.summary],
+                    ["Legal Issue", c.legalIssue || c.caseStudy?.keyLegalIssue],
+                    ["Outcome / Action Taken", c.outcome || c.caseStudy?.resolution],
+                    ["Why It Matters to This Business", c.whyItMatters || c.relevance],
+                  ].map(([label, value]) => value && (
+                    <div key={label}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#C9A84C] mb-1">{label}</p>
+                      <p className="type-body-sm liq-text-2 leading-relaxed">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-3 border-t border-[#C9A84C]/12">
+                  <p className="text-[10px] font-bold uppercase tracking-wider liq-text-4 mb-1">Source Website</p>
+                  <p className="text-xs liq-text-3 break-all mb-2">{c.sourceWebsite || new URL(c.readMoreUrl).hostname}</p>
                   <a href={c.readMoreUrl} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#C9A84C] hover:text-[#E2C97E] transition-colors mt-auto pt-2 border-t border-[#C9A84C]/12">
-                    <ExternalLink size={11} /> Read More
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#C9A84C] hover:text-[#E2C97E] transition-colors"
+                    aria-label={`Read the exact source for ${c.title} in a new tab`}>
+                    <ExternalLink size={12} /> Read More →
                   </a>
-                )}
+                </div>
               </motion.div>
             ))}
           </div>

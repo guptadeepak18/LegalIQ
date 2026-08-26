@@ -76,6 +76,11 @@ export interface AssessmentResult {
       summary: string;
       relevance: string;
       readMoreUrl: string;
+      whatHappened: string;
+      legalIssue: string;
+      outcome: string;
+      whyItMatters: string;
+      sourceWebsite: string;
       caseStudy?: {
         id: string;
         slug: string;
@@ -90,6 +95,20 @@ export interface AssessmentResult {
         recommendation: string;
         sourceTitle: string;
         sourceUrl: string;
+        whatHappened: string;
+        legalIssue: string;
+        outcome: string;
+        whyItMatters: string;
+        sourceWebsite: string;
+        provenance?: {
+          courtOrAuthority: string;
+          citationOrTitle: string;
+          decisionDate: string;
+          sourceType: string;
+          sourceUrl: string;
+          verifiedDate: string;
+          verificationStatus: string;
+        };
       };
     }>;
     example: {

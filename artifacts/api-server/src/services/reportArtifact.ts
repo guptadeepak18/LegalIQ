@@ -8,7 +8,7 @@ import {
 import { deleteCertificateObject, readCertificateObject, writePrivatePdf } from "./certificates.js";
 import { resolveCaseStudies } from "../data/caseStudies.js";
 
-export const REPORT_RENDERER_VERSION = "lhs-jsPDF-v2-case-studies";
+export const REPORT_RENDERER_VERSION = "lhs-jsPDF-v4-verified-cases-only";
 
 export type ReportArtifactInput = {
   lead: {
@@ -17,6 +17,7 @@ export type ReportArtifactInput = {
     city: string;
     businessType?: string | null;
     category?: string | null;
+    subCategory?: string | null;
   };
   assessment: {
     id: string;
@@ -57,6 +58,8 @@ export async function buildCanonicalReportData(input: ReportArtifactInput): Prom
         input.lead.businessType ?? snapshot.businessType,
         input.lead.category ?? "",
         list<{ title?: string; gap?: string; consequence?: string }>(input.report.insights),
+        "",
+        input.lead.subCategory ?? "",
       ),
     };
   }
@@ -79,7 +82,14 @@ export async function buildCanonicalReportData(input: ReportArtifactInput): Prom
     futureRisks: list<NonNullable<ReportData["futureRisks"]>[number]>(input.report.futureRisks),
     actions: list<ReportData["actions"][number]>(input.report.actions),
     costSummary: list<NonNullable<ReportData["costSummary"]>[number]>(input.report.costSummary),
-    similarCases: list<NonNullable<ReportData["similarCases"]>[number]>(input.report.similarCases),
+    similarCases: resolveCaseStudies(
+      input.report.similarCases,
+      input.lead.businessType ?? "",
+      input.lead.category ?? "",
+      list<{ title?: string; gap?: string; consequence?: string }>(input.report.insights),
+      "",
+      input.lead.subCategory ?? "",
+    ),
     vcloPitch: input.report.vcloPitch ?? undefined,
     example: input.report.example && typeof input.report.example === "object"
       ? input.report.example as ReportData["example"]

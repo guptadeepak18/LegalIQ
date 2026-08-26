@@ -216,6 +216,7 @@ router.post("/session/answer", async (req, res) => {
       company: lead?.company ?? "Your Business",
       businessType: session.businessType ?? "Small Business",
       category: session.industry ?? "General",
+      subCategory: lead?.subCategory ?? undefined,
       city: session.state ?? "India",
       total: scoring.totalScore,
       risk: scoring.riskLevel,

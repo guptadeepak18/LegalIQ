@@ -25,6 +25,7 @@ import {
 } from "../services/emailTemplates.js";
 import { getAdminNotificationEmail, getEmailSettings, updateEmailSetting } from "../services/gmail.js";
 import { isBrochureTemplateConfig } from "../services/brochureTemplates.js";
+import { resolveCaseStudies } from "../data/caseStudies.js";
 
 const router = Router();
 
@@ -632,6 +633,18 @@ router.get("/admin/leads/:id", requireAuth, requirePermission("leads:view"), asy
     answersList = await db.select().from(answersTable).where(eq(answersTable.assessmentId, assessment.id));
   }
 
+  const normalizedCases = report ? resolveCaseStudies(
+    report.similarCases,
+    lead.businessType,
+    lead.category,
+    Array.isArray(report.insights) ? report.insights as Array<{ title?: string; gap?: string; consequence?: string }> : [],
+    "",
+    lead.subCategory ?? "",
+  ) : [];
+  if (report && JSON.stringify(report.similarCases) !== JSON.stringify(normalizedCases)) {
+    await db.update(reports).set({ similarCases: normalizedCases }).where(eq(reports.id, report.id));
+  }
+
   res.json({
     success: true,
     lead: {
@@ -653,7 +666,7 @@ router.get("/admin/leads/:id", requireAuth, requirePermission("leads:view"), asy
       } : null,
       assessment: assessment ? {
         ...assessment,
-        report: report ? { summary: report.summary, pillarAssessments: report.pillarAssessments, insights: report.insights, futureRisks: report.futureRisks, actions: report.actions, costSummary: report.costSummary, similarCases: report.similarCases, example: report.example, vcloPitch: report.vcloPitch, brochureTemplateId: report.brochureTemplateId, brochureTemplateVersion: report.brochureTemplateVersion, brochureTemplateSnapshot: report.brochureTemplateSnapshot } : null,
+        report: report ? { summary: report.summary, pillarAssessments: report.pillarAssessments, insights: report.insights, futureRisks: report.futureRisks, actions: report.actions, costSummary: report.costSummary, similarCases: normalizedCases, example: report.example, vcloPitch: report.vcloPitch, brochureTemplateId: report.brochureTemplateId, brochureTemplateVersion: report.brochureTemplateVersion, brochureTemplateSnapshot: report.brochureTemplateSnapshot } : null,
         answers: answersList.map((a) => ({ question: a.question, pillar: a.pillar, answer: a.answer, score: a.score })),
       } : null,
     },

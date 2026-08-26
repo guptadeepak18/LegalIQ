@@ -74,7 +74,11 @@ interface LeadDetail {
         delayImpact?: string; link?: { url: string; label: string } | null;
       }>;
       costSummary?: Array<{ issue: string; costRange: string; delayImpact: string }>;
-      similarCases?: Array<{ title: string; summary: string; relevance: string; readMoreUrl: string }>;
+      similarCases?: Array<{
+        title: string; summary: string; relevance: string; readMoreUrl: string;
+        whatHappened: string; legalIssue: string; outcome: string;
+        whyItMatters: string; sourceWebsite: string;
+      }>;
       example?: {
         businessName: string; whatHappened: string; consequences: string;
         vcloWouldHave: string; lesson: string;
