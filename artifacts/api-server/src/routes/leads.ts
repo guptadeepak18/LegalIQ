@@ -3,12 +3,13 @@ import { randomBytes } from "crypto";
 import { getAuth, clerkClient } from "@clerk/express";
 import { db } from "@workspace/db";
 import { leads, assessments, reports } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { generateSeedQuestionsForAssessment } from "../services/gemini.js";
 import { sendTemplateEmail } from "../services/emailTemplates.js";
 import { getAdminNotificationEmail } from "../services/gmail.js";
 import { logger } from "../lib/logger.js";
+import { sendReportNotifications } from "../services/reportNotifications.js";
 
 const router = Router();
 
@@ -81,13 +82,13 @@ router.post("/leads", async (req, res) => {
   sendTemplateEmail("welcome", email, {
     name, company, city,
     assessUrl: `${appUrl}/assess?leadId=${lead.id}`,
-  }, { leadId: lead.id }).catch((err) => logger.warn({ err }, "Welcome email failed"));
+  }, { leadId: lead.id, idempotencyKey: `welcome:${lead.id}` }).catch((err) => logger.warn({ err }, "Welcome email failed"));
 
   // Admin new-lead alert
   sendTemplateEmail("admin_new_lead", adminEmail, {
     leadName: name, company, city, score: "—", grade: "—", riskLevel: "Pending",
     adminUrl: `${appUrl}/admin/leads/${lead.id}`,
-  }, { leadId: lead.id }).catch(
+  }, { leadId: lead.id, idempotencyKey: `admin-new-lead:${lead.id}` }).catch(
     (err) => logger.error({ err, eventKey: "admin_new_lead", leadId: lead.id }, "Admin new-lead email failed")
   );
 
@@ -135,8 +136,34 @@ router.get("/assessments/:id/brochure-template", async (req, res) => {
 });
 
 router.post("/leads/:id/resend-report", requireAuth, requirePermission("leads:update"), async (req, res) => {
-  // TODO: implement resend report
-  res.json({ success: true, message: "Report resend queued" });
+  const leadId = String(req.params.id);
+  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
+  if (!lead) {
+    res.status(404).json({ success: false, message: "Lead not found" });
+    return;
+  }
+  const [assessment] = await db.select().from(assessments)
+    .where(eq(assessments.leadId, leadId)).orderBy(desc(assessments.completedAt));
+  if (!assessment) {
+    res.status(409).json({ success: false, message: "This lead has no completed assessment" });
+    return;
+  }
+  const [report] = await db.select().from(reports).where(eq(reports.assessmentId, assessment.id));
+  if (!report) {
+    res.status(409).json({ success: false, message: "This assessment has no generated report" });
+    return;
+  }
+  try {
+    await sendReportNotifications({ lead, assessment, report }, {
+      sendAdmin: false,
+      userIdempotencyKey: `report-resend:${report.id}:${Date.now()}`,
+      throwOnUserFailure: true,
+    });
+    res.json({ success: true, message: `Report sent to ${lead.email}` });
+  } catch (error) {
+    logger.error({ error, leadId, reportId: report.id }, "Manual report resend failed");
+    res.status(502).json({ success: false, message: "Report could not be delivered. The failure was logged." });
+  }
 });
 
 export default router;

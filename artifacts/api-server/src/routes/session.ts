@@ -6,11 +6,10 @@ import { eq } from "drizzle-orm";
 import { generateSeedQuestionsForAssessment, generateReport, STATIC_SEED_PILLARS } from "../services/gemini.js";
 import { getNextAction, type StoredAnswer } from "../services/quizEngine.js";
 import { calculatePillarScores, calculateAnswerScore } from "../services/scoring.js";
-import { sendTemplateEmail } from "../services/emailTemplates.js";
-import { getAdminNotificationEmail } from "../services/gmail.js";
 import { logger } from "../lib/logger.js";
 import type { AssessmentPillar, AssessmentQuestion } from "../services/gemini.js";
 import { assignDefaultBrochureTemplate } from "../services/brochureTemplates.js";
+import { sendReportNotifications } from "../services/reportNotifications.js";
 
 // How long to wait for AI seed generation before falling back to static questions.
 // A warm (per-lead) cache resolves in <50ms. A cold call to Gemini typically
@@ -265,6 +264,8 @@ router.post("/session/answer", async (req, res) => {
         insights: aiReport.insights,
         futureRisks: aiReport.futureRisks,
         actions: aiReport.actions,
+        costSummary: aiReport.costSummary,
+        similarCases: aiReport.similarCases,
         example: aiReport.example,
         vcloPitch: aiReport.vcloPitch,
       })
@@ -300,33 +301,10 @@ router.post("/session/answer", async (req, res) => {
       "Session complete: assessment + report saved"
     );
 
-    // Fire-and-forget template notifications.
+    // Delivery is non-blocking for the user flow, but the shared service retries,
+    // de-duplicates, attaches the PDF, and records final delivery state.
     if (lead) {
-      const appUrl = process.env.APP_URL ?? "";
-      const adminEmail = await getAdminNotificationEmail();
-
-      sendTemplateEmail("report_ready", lead.email, {
-        name: lead.name,
-        company: lead.company,
-        score: String(scoring.totalScore),
-        grade: scoring.grade,
-        riskLevel: scoring.riskLevel,
-        resultsUrl: `${appUrl}/results?leadId=${lead.id}`,
-      }, { leadId: lead.id }).catch(
-        (err) => logger.error({ err, eventKey: "report_ready", leadId: lead.id }, "Report-ready email failed")
-      );
-
-      sendTemplateEmail("admin_assessment_complete", adminEmail, {
-        leadName: lead.name,
-        company: lead.company,
-        city: lead.city,
-        score: String(scoring.totalScore),
-        grade: scoring.grade,
-        riskLevel: scoring.riskLevel,
-        adminUrl: `${appUrl}/admin/leads/${lead.id}`,
-      }, { leadId: lead.id }).catch(
-        (err) => logger.error({ err, eventKey: "admin_assessment_complete", leadId: lead.id }, "Admin assessment email failed")
-      );
+      void sendReportNotifications({ lead, assessment, report });
     }
 
     const detailedAnswers = updatedAnswers.map((a) => {

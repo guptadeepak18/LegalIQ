@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   jsonb,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -224,9 +225,12 @@ export const emailLogs = pgTable("email_logs", {
   subject: text("subject"),
   status: text("status").default("sent"),
   error: text("error"),
+  idempotencyKey: text("idempotency_key"),
   metadata: jsonb("metadata").default({}),
   sentAt: timestamp("sent_at").defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("email_logs_idempotency_key_unique").on(table.idempotencyKey),
+]);
 
 export type InsertLead = typeof leads.$inferInsert;
 export type Lead = typeof leads.$inferSelect;

@@ -8,7 +8,7 @@
 
 import { db } from "@workspace/db";
 import { consultations, assessments, leads } from "@workspace/db";
-import { eq, and, gte, lt, isNull, isNotNull, inArray } from "drizzle-orm";
+import { eq, and, gte, lt, isNotNull, inArray } from "drizzle-orm";
 import { sendTemplateEmail } from "./emailTemplates.js";
 import { logger } from "../lib/logger.js";
 
@@ -42,7 +42,11 @@ async function sendConsultationReminders(): Promise<void> {
         company: l.company,
         date:    c.confirmedDate ?? c.date ?? "",
         time:    c.confirmedTime ?? c.time ?? "",
-      }, { leadId: l.id }).catch((err) =>
+      }, {
+        leadId: l.id,
+        idempotencyKey: `consult-reminder:${c.id}:${c.scheduledAt?.toISOString().slice(0, 13)}`,
+        metadata: { consultationId: c.id, scheduledAt: c.scheduledAt?.toISOString() },
+      }).catch((err) =>
         logger.warn({ err, leadId: l.id }, "Reminder email failed")
       );
     }
@@ -96,7 +100,11 @@ async function sendActionPlanNudges(): Promise<void> {
         grade,
         consultUrl: `${APP_URL}/consult?leadId=${l.id}`,
         topAction,
-      }, { leadId: l.id }).catch((err) =>
+      }, {
+        leadId: l.id,
+        idempotencyKey: `action-plan-nudge:${a.id}`,
+        metadata: { assessmentId: a.id },
+      }).catch((err) =>
         logger.warn({ err, leadId: l.id }, "Nudge email failed")
       );
     }

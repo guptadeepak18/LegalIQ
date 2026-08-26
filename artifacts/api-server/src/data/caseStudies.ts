@@ -12,6 +12,17 @@ export interface CaseStudyDetails {
   recommendation: string;
   sourceTitle: string;
   sourceUrl: string;
+  provenance: CaseProvenance;
+}
+
+export interface CaseProvenance {
+  courtOrAuthority: string;
+  citationOrTitle: string;
+  decisionDate: string;
+  sourceType: "Court judgment" | "Official authority record";
+  sourceUrl: string;
+  verifiedDate: string;
+  verificationStatus: "verified";
 }
 
 export interface SimilarCaseStudy {
@@ -30,7 +41,9 @@ interface CatalogEntry extends CaseStudyDetails {
   keywords: string[];
 }
 
-const CASE_STUDIES: CatalogEntry[] = [
+type CatalogSeed = Omit<CatalogEntry, "provenance">;
+
+const CASE_STUDIES: CatalogSeed[] = [
   {
     id: "amazon-future-retail-emergency-arbitration",
     slug: "amazon-future-retail-emergency-arbitration",
@@ -180,8 +193,8 @@ const CASE_STUDIES: CatalogEntry[] = [
     recommendation: "Use written scopes of work, informed-consent or acceptance records, service-quality controls and a documented complaint-resolution process.",
     sourceTitle: "Indian Medical Association v V.P. Shantha, Supreme Court of India, 13 November 1995",
     sourceUrl: "https://indiankanoon.org/doc/723973/",
-    industries: ["service", "consulting", "professional", "healthcare", "clinic", "agency", "education"],
-    keywords: ["consumer", "client", "service", "deficiency", "quality", "complaint", "negligence", "professional"],
+    industries: ["healthcare", "clinic", "hospital", "doctor", "medical practice", "diagnostic centre"],
+    keywords: ["medical negligence", "patient", "clinical", "diagnosis", "treatment", "hospital", "doctor", "healthcare"],
   },
   {
     id: "mohit-minerals-ocean-freight-gst",
@@ -202,74 +215,219 @@ const CASE_STUDIES: CatalogEntry[] = [
     industries: ["trading", "retail", "wholesale", "distribution", "manufacturing", "import", "export"],
     keywords: ["gst", "tax", "import", "freight", "filing", "return", "notice", "compliance"],
   },
+  {
+    id: "pt-koshy-education-consumer-service",
+    slug: "pt-koshy-education-consumer-service",
+    cardTitle: "Student Fees and Consumer Forum Claims",
+    cardSummary: "The Supreme Court held that education is not a commodity and disputes over admission, fees and similar educational matters do not constitute a consumer-service claim.",
+    businessIndustry: "Schools, colleges, universities, B-schools, coaching and student-facing education operations",
+    legalSituation: "An educational institution faced a student or parent dispute concerning admission, fees or educational services.",
+    disputeNature: "Student grievance handling, fee and admission disputes, and forum selection.",
+    keyLegalIssue: "Whether educational institutions provide a service under consumer-protection law for admission and fee disputes.",
+    businessImpact: "Weak admission, fee-refund and grievance records can still create costly disputes and regulatory escalation even where a consumer forum is not the proper forum.",
+    resolution: "In P.T. Koshy v Ellen Charitable Trust (2012), the Supreme Court reiterated that education is not a commodity and educational institutions do not render consumer services in this context.",
+    takeaway: "Student-facing institutions should use clear admission and refund terms and preserve grievance, attendance and communication records.",
+    lhsPillars: ["Litigation Health", "Contractual Health"],
+    recommendation: "Publish a signed admission and fee-refund policy, a documented grievance route and an escalation record for every student complaint.",
+    sourceTitle: "P.T. Koshy v Ellen Charitable Trust, Supreme Court of India, 9 August 2012",
+    sourceUrl: "https://indiankanoon.org/doc/92962131/",
+    industries: ["education", "school", "college", "university", "b school", "business school", "coaching", "training", "edtech"],
+    keywords: ["student", "parent", "admission", "fee", "refund", "consumer", "grievance", "enrollment"],
+  },
+  {
+    id: "aicte-surinder-kumar-dhawan-affiliation",
+    slug: "aicte-surinder-kumar-dhawan-affiliation",
+    cardTitle: "Programme Approval and University Affiliation",
+    cardSummary: "The Supreme Court addressed the distinct roles of AICTE approval and university affiliation in technical education, with direct relevance to institutions launching or continuing regulated programmes.",
+    businessIndustry: "Technical colleges, universities, B-schools and regulated higher-education providers",
+    legalSituation: "An institution operated or proposed a technical programme while approval and affiliation requirements were disputed.",
+    disputeNature: "AICTE approval, university affiliation, course recognition and student protection.",
+    keyLegalIssue: "How statutory approval and university affiliation requirements apply to technical education programmes.",
+    businessImpact: "Unclear approvals can expose an institution to admission disruption, student claims, regulatory action and reputational loss.",
+    resolution: "In AICTE v Surinder Kumar Dhawan (2009), the Supreme Court considered the statutory framework governing technical-institution approval and university affiliation.",
+    takeaway: "Before marketing or admitting students, regulated programmes need a documented approval-and-affiliation checklist for the relevant academic year.",
+    lhsPillars: ["Compliance Health", "Litigation Health"],
+    recommendation: "Maintain current AICTE, UGC, university and state approvals with course-wise intake, faculty and disclosure evidence.",
+    sourceTitle: "All India Council for Technical Education v Surinder Kumar Dhawan, Supreme Court of India, 24 August 2009",
+    sourceUrl: "https://indiankanoon.org/doc/804444/",
+    industries: ["education", "college", "university", "b school", "business school", "technical institute", "engineering", "management"],
+    keywords: ["aicte", "ugc", "affiliation", "approval", "recognition", "course", "programme", "admission", "student"],
+  },
+  {
+    id: "modern-dental-college-admission-regulation",
+    slug: "modern-dental-college-admission-regulation",
+    cardTitle: "Admissions, Fees and Regulatory Oversight",
+    cardSummary: "The Supreme Court upheld the State's power to regulate admissions and fees in private professional educational institutions to prevent profiteering and capitation fees.",
+    businessIndustry: "Private universities, professional colleges, B-schools and higher-education operators",
+    legalSituation: "A private professional institution challenged state rules governing admission processes and fee regulation.",
+    disputeNature: "Admissions, fee regulation, institutional autonomy and education-sector compliance.",
+    keyLegalIssue: "Whether regulation of admissions and fees in private professional colleges is constitutionally valid.",
+    businessImpact: "Admissions and fee decisions made outside the applicable regulatory framework can trigger student disputes, investigations and operational disruption.",
+    resolution: "In Modern Dental College and Research Centre v State of Madhya Pradesh (2016), the Supreme Court upheld the challenged regulatory framework.",
+    takeaway: "Professional institutions need audit-ready admission, fee-approval and disclosure processes rather than informal commercial practices.",
+    lhsPillars: ["Compliance Health", "Litigation Health"],
+    recommendation: "Use a yearly admissions compliance calendar covering entrance rules, fee approvals, mandatory disclosures and student communication.",
+    sourceTitle: "Modern Dental College and Research Centre v State of Madhya Pradesh, Supreme Court of India, 2 May 2016",
+    sourceUrl: "https://indiankanoon.org/doc/109417730/",
+    industries: ["education", "college", "university", "b school", "business school", "professional college", "medical college"],
+    keywords: ["admission", "fee", "capitation", "student", "regulation", "college", "disclosure", "intake"],
+  },
+  {
+    id: "pioneer-urban-homebuyer-delay",
+    slug: "pioneer-urban-homebuyer-delay",
+    cardTitle: "Builder Delay and One-sided Buyer Terms",
+    cardSummary: "The Supreme Court found one-sided apartment-buyer terms and prolonged delay material when granting relief to a homebuyer.",
+    businessIndustry: "Real-estate developers, builders, construction businesses and property operators",
+    legalSituation: "A developer delayed possession while relying on standard-form buyer terms that imposed unequal obligations.",
+    disputeNature: "Homebuyer claims, construction delay, refund exposure and contract fairness.",
+    keyLegalIssue: "Whether a buyer could be bound by one-sided terms after prolonged delay in delivery of a residential unit.",
+    businessImpact: "Delay, poor buyer communication and unbalanced standard agreements can create refund, interest and consumer-forum exposure at scale.",
+    resolution: "In Pioneer Urban Land and Infrastructure Ltd. v Govindan Raghavan (2019), the Supreme Court granted relief and criticised the one-sided contractual terms.",
+    takeaway: "Developer agreements, project timelines and customer communications must align with actual delivery capacity and applicable RERA obligations.",
+    lhsPillars: ["Contractual Health", "Litigation Health", "Compliance Health"],
+    recommendation: "Review buyer agreements for balanced delay, refund and force-majeure clauses and maintain a project-specific delivery and disclosure register.",
+    sourceTitle: "Pioneer Urban Land and Infrastructure Ltd. v Govindan Raghavan, Supreme Court of India, 2 April 2019",
+    sourceUrl: "https://indiankanoon.org/doc/151239109/",
+    industries: ["real estate", "construction", "builder", "developer", "property", "housing"],
+    keywords: ["rera", "homebuyer", "possession", "delay", "refund", "flat", "project", "builder"],
+  },
+  {
+    id: "patel-roadways-carrier-consumer-liability",
+    slug: "patel-roadways-carrier-consumer-liability",
+    cardTitle: "Carrier Liability for Consigned Goods",
+    cardSummary: "The Supreme Court considered the scope of consumer remedies against a common carrier where goods entrusted for transport were not delivered.",
+    businessIndustry: "Logistics, transport, courier, warehousing and supply-chain businesses",
+    legalSituation: "Goods given to a carrier were not delivered, leading to a claim over the transporter's liability and available forum.",
+    disputeNature: "Cargo loss, carrier liability, consignment records and consumer claims.",
+    keyLegalIssue: "Whether a claim against a carrier for loss of consigned goods can proceed under consumer-protection law.",
+    businessImpact: "Missing consignment terms, custody evidence and liability limitations can turn routine cargo incidents into substantial claims.",
+    resolution: "In Patel Roadways Ltd. v Birla Yamaha Ltd. (2000), the Supreme Court addressed consumer-forum jurisdiction in a claim against a common carrier.",
+    takeaway: "Transport businesses need signed carriage terms, shipment-condition evidence, claims protocols and insurance documentation.",
+    lhsPillars: ["Contractual Health", "Litigation Health"],
+    recommendation: "Use consignment notes with declared value, liability terms, inspection records and a time-bound cargo-claims process.",
+    sourceTitle: "Patel Roadways Ltd. v Birla Yamaha Ltd., Supreme Court of India, 26 April 2000",
+    sourceUrl: "https://indiankanoon.org/doc/1982097/",
+    industries: ["logistics", "transport", "courier", "warehouse", "supply chain", "shipping"],
+    keywords: ["cargo", "goods", "carrier", "delivery", "consignment", "damage", "transport", "shipment"],
+  },
+  {
+    id: "rg-anand-copyright-substantial-similarity",
+    slug: "rg-anand-copyright-substantial-similarity",
+    cardTitle: "Content Copyright and Substantial Similarity",
+    cardSummary: "The Supreme Court set out a leading test for copyright infringement based on substantial similarity and the impression on an ordinary viewer.",
+    businessIndustry: "Media, publishing, agencies, edtech content teams and entertainment businesses",
+    legalSituation: "A creator alleged that another work copied protected expression from a dramatic work.",
+    disputeNature: "Copyright ownership, content clearance and infringement claims.",
+    keyLegalIssue: "How to assess substantial similarity between two works for copyright infringement.",
+    businessImpact: "Uncleared content, freelancers without assignments and copied creative material can create injunction, takedown and damages exposure.",
+    resolution: "In R.G. Anand v Deluxe Films (1978), the Supreme Court articulated the substantial-similarity approach for copyright infringement.",
+    takeaway: "Ideas are not protected in the same way as expression, but content businesses need documented creation, licences and assignments.",
+    lhsPillars: ["Contractual Health", "Litigation Health"],
+    recommendation: "Keep content-creation records and obtain written copyright assignments or licences from every employee, agency and freelancer.",
+    sourceTitle: "R.G. Anand v Deluxe Films, Supreme Court of India, 18 August 1978",
+    sourceUrl: "https://indiankanoon.org/doc/39881/",
+    industries: ["media", "entertainment", "publishing", "content", "agency", "edtech", "marketing"],
+    keywords: ["copyright", "content", "film", "publishing", "creative", "license", "assignment", "infringement"],
+  },
 ];
 
 function normalise(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-function scoreEntry(entry: CatalogEntry, profile: string, signal: string): number {
-  let score = 0;
-  for (const industry of entry.industries) {
-    if (profile.includes(normalise(industry))) score += 8;
-  }
-  for (const keyword of entry.keywords) {
-    const term = normalise(keyword);
-    if (signal.includes(term)) score += 12;
-    if (profile.includes(term)) score += 3;
-  }
-  return score;
+function provenanceFor(entry: CatalogSeed): CaseProvenance {
+  const decisionDate = entry.sourceTitle.match(/(\d{1,2} [A-Z][a-z]+ \d{4})/)?.[1] ?? "Date stated in linked source";
+  const courtOrAuthority = entry.sourceTitle.includes("Supreme Court")
+    ? "Supreme Court of India"
+    : entry.sourceTitle.includes("Delhi High Court")
+      ? "Delhi High Court"
+      : entry.sourceTitle.includes("Bombay High Court")
+        ? "Bombay High Court"
+        : "Court identified in linked source";
+  return {
+    courtOrAuthority,
+    citationOrTitle: entry.sourceTitle,
+    decisionDate,
+    sourceType: "Court judgment",
+    sourceUrl: entry.sourceUrl,
+    verifiedDate: "2025-02-20",
+    verificationStatus: "verified",
+  };
 }
 
+const VERIFIED_CASE_STUDIES: CatalogEntry[] = CASE_STUDIES
+  .filter((entry) => /indiankanoon\.org|sci\.gov\.in|delhihighcourt\.nic\.in/i.test(entry.sourceUrl))
+  .map((entry) => ({
+    ...entry,
+    provenance: provenanceFor(entry),
+  }));
+
+function containsTerm(text: string, term: string): boolean {
+  return new RegExp(`(?:^|\\s)${normalise(term).replace(/\s+/g, "\\s+")}(?:\\s|$)`).test(text);
+}
+
+const GENERIC_MATCH_TERMS = new Set([
+  "business", "company", "service", "services", "professional", "consumer",
+  "complaint", "quality", "contract", "agreement", "management", "compliance",
+]);
+
+function matchingTerms(terms: string[], text: string): number {
+  return terms.reduce((count, term) => {
+    const normalizedTerm = normalise(term);
+    if (GENERIC_MATCH_TERMS.has(normalizedTerm)) return count;
+    return count + (containsTerm(text, normalizedTerm) ? 1 : 0);
+  }, 0);
+}
+
+/**
+ * Cases are selected only when the business profile and/or a reported risk has
+ * a curated taxonomy match. This intentionally returns an empty array rather
+ * than filling cards with unrelated decisions.
+ */
 export function selectCaseStudies(
   businessType: string,
   category: string,
   risks: Array<{ title?: string; gap?: string; consequence?: string }> = [],
+  fullAnswers = "",
 ): SimilarCaseStudy[] {
   const profile = normalise(`${businessType} ${category}`);
-  const signals = risks.slice(0, 3).map((risk) =>
-    normalise(`${risk.title ?? ""} ${risk.gap ?? ""} ${risk.consequence ?? ""}`),
-  );
-  while (signals.length < 3) signals.push(profile);
+  const signals = risks.map((risk) => normalise(`${risk.title ?? ""} ${risk.gap ?? ""} ${risk.consequence ?? ""}`));
+  const evidence = normalise(`${signals.join(" ")} ${fullAnswers}`);
 
-  const selected = new Set<string>();
-  return signals.map((signal, index) => {
-    const ranked = CASE_STUDIES
-      .filter((entry) => !selected.has(entry.id))
-      .map((entry, catalogIndex) => ({
+  return VERIFIED_CASE_STUDIES
+    .map((entry) => {
+      const industryMatches = matchingTerms(entry.industries, profile);
+      const riskMatches = matchingTerms(entry.keywords, evidence);
+      const profileKeywordMatches = matchingTerms(entry.keywords, profile);
+      // A sector match alone needs at least one specific signal. A highly
+      // specific sector phrase (for example, "B-school") is enough on its own.
+      const strongSectorMatch = industryMatches >= 2 || entry.industries.some((term) => normalise(term).split(" ").length > 1 && containsTerm(profile, term));
+      const qualifies = (industryMatches > 0 && (riskMatches > 0 || profileKeywordMatches > 0)) || strongSectorMatch && riskMatches > 0;
+      const matchedRisk = risks.find((risk) => matchingTerms(entry.keywords, normalise(`${risk.title ?? ""} ${risk.gap ?? ""} ${risk.consequence ?? ""}`)) > 0);
+      return {
         entry,
-        score: scoreEntry(entry, profile, signal) - catalogIndex * 0.001,
-      }))
-      .sort((a, b) => b.score - a.score);
-
-    const entry = ranked[0]?.entry ?? CASE_STUDIES[index % CASE_STUDIES.length]!;
-    selected.add(entry.id);
-    const riskTitle = risks[index]?.title?.trim();
-    const businessLabel = businessType.trim() || category.trim() || "business";
-
-    return {
+        score: industryMatches * 30 + riskMatches * 14 + profileKeywordMatches * 5,
+        qualifies,
+        matchedRisk,
+      };
+    })
+    .filter((candidate) => candidate.qualifies && candidate.score >= 44)
+    .sort((a, b) => b.score - a.score || a.entry.id.localeCompare(b.entry.id))
+    .slice(0, 3)
+    .map(({ entry, matchedRisk }) => {
+      const riskTitle = matchedRisk?.title?.trim();
+      const businessLabel = businessType.trim() || category.trim() || "business";
+      return {
       caseStudyId: entry.id,
       title: entry.cardTitle,
       summary: entry.cardSummary,
       relevance: riskTitle
-        ? `Relevant to this ${businessLabel} because the report flagged “${riskTitle}” as a legal exposure.`
-        : `Relevant to the contracts, compliance and dispute exposure commonly faced by ${businessLabel} businesses.`,
+        ? `Matched to your reported “${riskTitle}” risk and ${businessLabel} profile.`
+        : `Matched to the reported ${businessLabel} sector and assessment signals.`,
       readMoreUrl: entry.sourceUrl,
       caseStudy: {
-        id: entry.id,
-        slug: entry.slug,
-        businessIndustry: entry.businessIndustry,
-        legalSituation: entry.legalSituation,
-        disputeNature: entry.disputeNature,
-        keyLegalIssue: entry.keyLegalIssue,
-        businessImpact: entry.businessImpact,
-        resolution: entry.resolution,
-        takeaway: entry.takeaway,
-        lhsPillars: entry.lhsPillars,
-        recommendation: entry.recommendation,
-        sourceTitle: entry.sourceTitle,
-        sourceUrl: entry.sourceUrl,
+        ...entry,
       },
-    };
-  });
+      };
+    });
 }

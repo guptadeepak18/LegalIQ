@@ -49,7 +49,17 @@ interface RoadmapPhase {
 }
 
 type SimilarCase = NonNullable<AssessmentResult["report"]["similarCases"]>[number];
-type CaseStudyDetails = NonNullable<SimilarCase["caseStudy"]>;
+type CaseStudyDetails = NonNullable<SimilarCase["caseStudy"]> & {
+  provenance?: {
+    courtOrAuthority: string;
+    citationOrTitle: string;
+    decisionDate: string;
+    sourceType: string;
+    sourceUrl: string;
+    verifiedDate: string;
+    verificationStatus: string;
+  };
+};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -216,27 +226,6 @@ function MiniRing({ score, color, max = 25 }: { score: number; color: string; ma
   );
 }
 
-function resolveCaseStudy(caseItem: SimilarCase, businessType: string): CaseStudyDetails {
-  if (caseItem.caseStudy) return caseItem.caseStudy;
-
-  const legacyId = caseItem.caseStudyId || caseItem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return {
-    id: legacyId,
-    slug: legacyId,
-    businessIndustry: businessType || "Indian business",
-    legalSituation: caseItem.summary,
-    disputeNature: caseItem.relevance,
-    keyLegalIssue: caseItem.title,
-    businessImpact: caseItem.summary,
-    resolution: "The linked public source contains the reported proceedings and outcome for this case reference.",
-    takeaway: caseItem.relevance,
-    lhsPillars: ["Litigation Health", "Contractual Health"],
-    recommendation: "Review the corresponding agreements, evidence and compliance records with a qualified legal advisor before a similar issue escalates.",
-    sourceTitle: caseItem.title,
-    sourceUrl: caseItem.readMoreUrl,
-  };
-}
-
 // ── Main Component ────────────────────────────────────────────────────────────
 
 interface LHSReportProps {
@@ -301,6 +290,11 @@ export function LHSReport({
   const riskBg     = grade === "D" ? "rgba(239,68,68,0.08)" : grade === "C" ? "rgba(249,115,22,0.08)" : grade === "B" ? "rgba(245,158,11,0.08)" : "rgba(34,197,94,0.08)";
   const riskBorder = grade === "D" ? "rgba(239,68,68,0.25)" : grade === "C" ? "rgba(249,115,22,0.25)" : grade === "B" ? "rgba(245,158,11,0.25)" : "rgba(34,197,94,0.25)";
   const riskEmoji  = grade === "D" ? "🚨" : grade === "C" ? "⚠️" : grade === "B" ? "⚠️" : "✅";
+  // Do not render legacy free-form examples: only catalog records containing
+  // the selected, sourced case-study payload can be opened.
+  const verifiedSimilarCases = (report.similarCases ?? []).filter(
+    (caseItem): caseItem is SimilarCase & { caseStudy: CaseStudyDetails } => Boolean(caseItem.caseStudy),
+  );
   const riskMessage = grade === "D"
     ? "Immediate legal intervention required. Multiple high-risk gaps detected."
     : grade === "C"
@@ -774,14 +768,14 @@ export function LHSReport({
       )}
 
       {/* ── SIMILAR CASES ────────────────────────────────────────────────── */}
-      {(report.similarCases?.length ?? 0) > 0 && (
+      {verifiedSimilarCases.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card rounded-2xl p-6">
           <h2 className="type-h2 liq-text-1 mb-2 flex items-center gap-2">
             <Briefcase size={18} className="text-[#C9A84C]" /> Similar Cases
           </h2>
           <p className="type-body-sm liq-text-3 mb-5">Representative cases from Indian businesses with comparable legal risk profiles.</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {report.similarCases!.map((c, i) => (
+            {verifiedSimilarCases.map((c, i) => (
               <motion.div key={c.caseStudyId || c.title}
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.52 + i * 0.05 }}
@@ -793,7 +787,7 @@ export function LHSReport({
                 <p className="type-body-sm liq-text-3 leading-relaxed flex-1">{c.summary}</p>
                 <button
                   type="button"
-                  onClick={() => setSelectedCaseStudy(resolveCaseStudy(c, businessType))}
+                  onClick={() => setSelectedCaseStudy(c.caseStudy)}
                   className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#C9A84C] hover:text-[#E2C97E] transition-colors mt-auto pt-2 border-t border-[#C9A84C]/12 text-left"
                   aria-label={`Read case study: ${c.title}`}
                 >
@@ -801,35 +795,6 @@ export function LHSReport({
                 </button>
               </motion.div>
             ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* ── CASE STUDY ───────────────────────────────────────────────────── */}
-      {report.example && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-          className="rounded-2xl p-6 border backdrop-blur-sm relative overflow-hidden"
-          style={{ borderColor: "rgba(245,158,11,0.22)", background: "rgba(245,158,11,0.05)" }}>
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
-          <h2 className="type-h3 text-amber-600 mb-4 flex items-center gap-2 relative z-10 tracking-tight">
-            <BookOpen size={18} /> Case Study: {report.example.businessName}
-          </h2>
-          <div className="space-y-3 relative z-10">
-            <div className="p-3 rounded-lg bg-[#C9A84C]/5 border border-[#C9A84C]/10">
-              <p className="type-label liq-text-3 mb-1">What happened</p>
-              <p className="type-body-sm liq-text-2">{report.example.whatHappened}</p>
-            </div>
-            <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/15">
-              <p className="type-label text-red-500 mb-1">Consequence</p>
-              <p className="type-body-sm text-red-600">{report.example.consequences}</p>
-            </div>
-            <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/15">
-              <p className="type-label text-emerald-600 mb-1">How a VCLO would have helped</p>
-              <p className="type-body-sm text-emerald-700">{report.example.vcloWouldHave}</p>
-            </div>
-            <div className="p-4 rounded-xl bg-[#C9A84C]/10 border border-[#C9A84C]/25">
-              <p className="type-body-sm text-[#C9A84C] font-semibold">💡 Key Lesson: {report.example.lesson}</p>
-            </div>
           </div>
         </motion.div>
       )}
@@ -1127,8 +1092,15 @@ export function LHSReport({
                 <div className="rounded-xl border border-[#C9A84C]/25 bg-[#C9A84C]/8 p-4">
                   <p className="type-label text-[#C9A84C] mb-1.5">10. Source / case reference</p>
                   <p className="type-body-sm liq-text-2 leading-relaxed mb-3">{selectedCaseStudy.sourceTitle}</p>
+                  {selectedCaseStudy.provenance && (
+                    <div className="mb-3 grid gap-1.5 text-xs liq-text-3">
+                      <p><span className="font-semibold liq-text-2">Court / authority:</span> {selectedCaseStudy.provenance.courtOrAuthority}</p>
+                      <p><span className="font-semibold liq-text-2">Decision date:</span> {selectedCaseStudy.provenance.decisionDate}</p>
+                      <p><span className="font-semibold liq-text-2">Source type:</span> {selectedCaseStudy.provenance.sourceType} · verified {selectedCaseStudy.provenance.verifiedDate}</p>
+                    </div>
+                  )}
                   <a
-                    href={selectedCaseStudy.sourceUrl}
+                    href={selectedCaseStudy.provenance?.sourceUrl ?? selectedCaseStudy.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-[#C9A84C] hover:text-[#E2C97E] transition-colors"

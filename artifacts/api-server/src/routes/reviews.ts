@@ -59,7 +59,7 @@ router.post("/reviews", async (req, res) => {
     }
   }
 
-  await db.insert(reviews).values({
+  const [review] = await db.insert(reviews).values({
     leadId,
     reviewerName,
     company,
@@ -72,7 +72,7 @@ router.post("/reviews", async (req, res) => {
     riskLevel,
     verifiedUser,
     status: "PENDING",
-  });
+  }).returning();
 
   // #10 Admin review alert
   const adminEmail = await getAdminNotificationEmail();
@@ -83,7 +83,8 @@ router.post("/reviews", async (req, res) => {
     rating: String(rating),
     headline,
     adminUrl: `${appUrl}/admin/reviews`,
-  }).catch((err) => logger.warn({ err }, "Admin review alert failed"));
+  }, { leadId, idempotencyKey: `admin-review:${review.id}`, metadata: { reviewId: review.id } })
+    .catch((err) => logger.warn({ err }, "Admin review alert failed"));
 
   res.json({ success: true, message: "Review submitted for moderation. Thank you!" });
 });

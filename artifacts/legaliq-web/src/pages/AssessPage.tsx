@@ -235,6 +235,7 @@ export default function AssessPage() {
   const [allAnswers, setAllAnswers] = useState<RecordedAnswer[]>([]);
   const [previousAnswerLabel, setPreviousAnswerLabel] = useState<string | null>(null);
   const [backLoading, setBackLoading] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   type Phase = "loading" | "asking" | "checking" | "pillar-done" | "submitting";
   const [phase, setPhase] = useState<Phase>("loading");
@@ -245,6 +246,7 @@ export default function AssessPage() {
     if (!store.leadId) return;
     async function startSession() {
       setPhase("loading");
+      setIsGeneratingReport(false);
       try {
         const res = await apiFetch<{ success: boolean; sessionId: string; type: "QUESTION"; question: AQuestion; pillarIndex: number; pillarName: string; pillarIcon: string; }>("/session/start", { method: "POST", body: JSON.stringify({ leadId: store.leadId }) });
         setSessionId(res.sessionId); setCurrentQuestion(res.question);
@@ -257,7 +259,12 @@ export default function AssessPage() {
 
   const handleAnswer = useCallback(async (option: AnswerOption) => {
     if (!currentQuestion || !sessionId || phase !== "asking") return;
+    // The assessment has four pillars with five fixed questions each. Before this
+    // request, four answers in the final pillar means this answer triggers report generation.
+    const isFinalAnswer = pillarIndex === PILLAR_COLORS.length - 1
+      && allAnswers.filter((answer) => answer.pillar === currentQuestion.pillar).length === 4;
     setPhase("checking");
+    setIsGeneratingReport(isFinalAnswer);
     setPreviousAnswerLabel(null);
     setAllAnswers((prev) => [...prev, { pillar: currentQuestion.pillar, label: option.label, score: option.score }]);
     try {
@@ -268,13 +275,15 @@ export default function AssessPage() {
         navigate("/results"); return;
       }
       if (res.type === "PILLAR_TRANSITION") {
+        setIsGeneratingReport(false);
         setPendingTransition({ question: res.question, pillarIndex: res.pillarIndex, pillarName: res.pillarName, pillarIcon: res.pillarIcon, completedName: res.completedPillarName, completedIcon: res.completedPillarIcon, completedIndex: res.completedPillarIndex });
         setPhase("pillar-done"); return;
       }
+      setIsGeneratingReport(false);
       setCurrentQuestion(res.question); setPillarIndex(res.pillarIndex); setPillarName(res.pillarName); setPillarIcon(res.pillarIcon);
       setPhase("asking");
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Something went wrong."); setPhase("asking"); }
-  }, [currentQuestion, sessionId, phase, pillarIcon, store, navigate]);
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Something went wrong."); setIsGeneratingReport(false); setPhase("asking"); }
+  }, [currentQuestion, sessionId, phase, pillarIcon, pillarIndex, allAnswers, store, navigate]);
 
   const handleBack = useCallback(async () => {
     if (!sessionId || allAnswers.length === 0 || backLoading || phase !== "asking") return;
@@ -384,28 +393,28 @@ export default function AssessPage() {
         <LogoWatermark />
         <div className="glow-orb w-72 h-72" style={{ background: pillarColor(pillarIndex, 22), top: "50%", left: "50%", transform: "translate(-50%,-50%)" }} />
         <PillarDots current={pillarIndex} colors={PILLAR_COLORS} />
-        <div className="relative w-24 h-24 flex items-center justify-center">
-          <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="42" fill="none" stroke={pillarColor(pillarIndex, 12)} strokeWidth="6" />
+        <div className="grid w-24 h-24 place-items-center">
+          <svg className="col-start-1 row-start-1 w-full h-full -rotate-90" viewBox="0 0 96 96">
+            <circle cx="48" cy="48" r="40" fill="none" stroke={pillarColor(pillarIndex, 12)} strokeWidth="6" />
             <motion.circle
-              cx="50" cy="50" r="42" fill="none" stroke={color} strokeWidth="6"
-              strokeLinecap="round" strokeDasharray="50 264"
+              cx="48" cy="48" r="40" fill="none" stroke={color} strokeWidth="6"
+              strokeLinecap="round" strokeDasharray="50 252"
               animate={{ rotate: 360 }}
-              style={{ originX: "50px", originY: "50px" }}
+              style={{ originX: "48px", originY: "48px" }}
               transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
             />
           </svg>
           <motion.div
             animate={{ scale: [1, 1.12, 1] }}
             transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
-            className="flex items-center justify-center"
+            className="col-start-1 row-start-1 flex items-center justify-center"
           >
             <img src="/rtc-logo-transparent.png" alt="Rest The Case" className="w-12 h-12 object-contain dark:brightness-0 dark:invert" />
           </motion.div>
         </div>
         <div className="text-center">
           <h3 className="liq-text-1 font-bold text-lg mb-1.5 flex items-center justify-center gap-1">
-            Analysing your answer
+            {isGeneratingReport ? "Generating your Legal Health Report" : "Analysing your answer"}
             <motion.span className="inline-flex gap-0.5 ml-0.5">
               {[0, 1, 2].map((dot) => (
                 <motion.span
@@ -418,7 +427,11 @@ export default function AssessPage() {
               ))}
             </motion.span>
           </h3>
-          <p className="liq-text-3 text-sm">Tailoring your next question to {store.businessType || "your business"}</p>
+          <p className="liq-text-3 text-sm">
+            {isGeneratingReport
+              ? `Preparing your LHS Report for ${store.company || store.businessType || "your business"}`
+              : `Tailoring your next question to ${store.businessType || "your business"}`}
+          </p>
         </div>
       </div>
     );

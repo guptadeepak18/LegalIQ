@@ -5,10 +5,9 @@ import { leads, assessments, answers as answersTable, reports } from "@workspace
 import { eq } from "drizzle-orm";
 import { calculatePillarScores } from "../services/scoring.js";
 import { generateReport } from "../services/gemini.js";
-import { sendTemplateEmail } from "../services/emailTemplates.js";
-import { getAdminNotificationEmail } from "../services/gmail.js";
 import { logger } from "../lib/logger.js";
 import { assignDefaultBrochureTemplate } from "../services/brochureTemplates.js";
+import { sendReportNotifications } from "../services/reportNotifications.js";
 
 const router = Router();
 
@@ -106,31 +105,7 @@ router.post("/submit", async (req, res) => {
   const reviewToken = randomBytes(32).toString("hex");
   await db.update(leads).set({ reviewToken }).where(eq(leads.id, leadId));
 
-  const appUrl = process.env.APP_URL ?? "";
-  const adminEmail = await getAdminNotificationEmail();
-
-  // Report ready — to user (with template)
-  sendTemplateEmail("report_ready", lead.email, {
-    name: lead.name,
-    company: lead.company,
-    score: String(scoring.totalScore),
-    grade: scoring.grade,
-    riskLevel: scoring.riskLevel,
-    resultsUrl: `${appUrl}/results?leadId=${lead.id}`,
-  }, { leadId: lead.id }).catch((err) => logger.error({ err }, "Report ready email failed"));
-
-  // Admin assessment-complete alert.
-  sendTemplateEmail("admin_assessment_complete", adminEmail, {
-    leadName: lead.name,
-    company: lead.company,
-    city: lead.city,
-    score: String(scoring.totalScore),
-    grade: scoring.grade,
-    riskLevel: scoring.riskLevel,
-    adminUrl: `${appUrl}/admin/leads/${lead.id}`,
-  }, { leadId: lead.id }).catch(
-    (err) => logger.error({ err, eventKey: "admin_assessment_complete", leadId: lead.id }, "Admin assessment email failed")
-  );
+  void sendReportNotifications({ lead, assessment, report });
 
   logger.info(
     { assessmentId: assessment.id, reportId: report.id, score: scoring.totalScore },

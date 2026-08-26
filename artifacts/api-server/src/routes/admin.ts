@@ -20,8 +20,9 @@ import {
   createTemplate,
   listEmailLogs,
   sendTemplateEmail,
+  type EmailEventKey,
 } from "../services/emailTemplates.js";
-import { getEmailSettings, updateEmailSetting } from "../services/gmail.js";
+import { getAdminNotificationEmail, getEmailSettings, updateEmailSetting } from "../services/gmail.js";
 import { isBrochureTemplateConfig } from "../services/brochureTemplates.js";
 
 const router = Router();
@@ -816,18 +817,44 @@ router.patch("/admin/leads/:id/consultation", requireAuth, requirePermission("le
   leadInsightsCache.delete(id);
 
   if (status === "Confirmed" && (existing.status !== "Confirmed" || scheduleChanged)) {
-    await sendTemplateEmail("consultation_schedule_confirmed", lead.email, {
+    const scheduleStatus = existing.scheduledAt && scheduleChanged ? "Rescheduled" : "Confirmed";
+    const adminEmail = await getAdminNotificationEmail();
+    const scheduleKey = `${updated.id}:${nextScheduledAt?.toISOString() ?? `${scheduleDate}:${scheduleTime}`}:${nextAdvocate ?? ""}`;
+    const results = await Promise.allSettled([
+      sendTemplateEmail("consultation_schedule_confirmed", lead.email, {
       name: lead.name,
       company: lead.company,
-      status: "Confirmed",
+      status: scheduleStatus,
       confirmedDate: scheduleDate ?? "",
       confirmedDay: scheduleDay ?? "",
       confirmedTime: scheduleTime ?? "",
       advocate: nextAdvocate || "Rest The Case legal team",
       notes: existing.notes || "Your consultation will cover the legal concerns identified in your LegalIQ report.",
-    }, { leadId: lead.id }).catch((err) =>
-      logger.error({ err, eventKey: "consultation_schedule_confirmed", leadId: lead.id }, "Consultation confirmation email failed")
-    );
+      }, {
+        leadId: lead.id,
+        idempotencyKey: `consultation-final:${scheduleKey}`,
+        metadata: { consultationId: updated.id, status: scheduleStatus, scheduledAt: nextScheduledAt?.toISOString() },
+      }),
+      sendTemplateEmail("admin_consult_schedule_updated", adminEmail, {
+        leadName: lead.name, company: lead.company, status: scheduleStatus,
+        confirmedDate: scheduleDate ?? "", confirmedDay: scheduleDay ?? "",
+        confirmedTime: scheduleTime ?? "", advocate: nextAdvocate || "Rest The Case legal team",
+        adminUrl: `${process.env.APP_URL ?? ""}/admin/leads/${lead.id}`,
+      }, {
+        leadId: lead.id,
+        idempotencyKey: `admin-consultation-final:${scheduleKey}`,
+        metadata: { consultationId: updated.id, status: scheduleStatus, scheduledAt: nextScheduledAt?.toISOString() },
+      }),
+    ]);
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        logger.error({
+          err: result.reason,
+          eventKey: index === 0 ? "consultation_schedule_confirmed" : "admin_consult_schedule_updated",
+          leadId: lead.id,
+        }, "Consultation schedule email failed");
+      }
+    });
   }
 
   res.json({ success: true, consultation: updated });
@@ -930,7 +957,7 @@ router.post("/admin/email-templates/:id/test", requireAuth, requirePermission("e
     topAction: "Complete your GST registration and file pending compliance documents.",
   };
   try {
-    await sendTemplateEmail(template.eventKey, toEmail, vars);
+    await sendTemplateEmail(template.eventKey as EmailEventKey, toEmail, vars);
     res.json({ success: true, message: `Test email sent to ${toEmail}` });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to send test email" });

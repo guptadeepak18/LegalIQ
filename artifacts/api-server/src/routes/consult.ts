@@ -72,9 +72,10 @@ router.post("/consult", async (req, res) => {
   // schedule remains intact until an admin reviews the new request.
   const [existing] = await db.select().from(consultations).where(eq(consultations.leadId, leadId));
   let consultation: typeof consultations.$inferSelect;
+  let requestType: "booking_requested" | "reschedule_requested" | "details_updated";
   if (existing) {
     const previousHistory = (existing.history ?? []) as ConsultationHistoryEntry[];
-    const requestType = existing.scheduledAt ? "reschedule_requested" : "details_updated";
+    requestType = existing.scheduledAt ? "reschedule_requested" : "details_updated";
     const [updated] = await db
       .update(consultations)
       .set({ date, time, notes, status: "Requested", updatedAt: new Date() })
@@ -88,6 +89,7 @@ router.post("/consult", async (req, res) => {
       .returning();
     consultation = withHistory;
   } else {
+    requestType = "booking_requested";
     const [inserted] = await db
       .insert(consultations)
       .values({
@@ -122,18 +124,35 @@ router.post("/consult", async (req, res) => {
   const appUrl = process.env.APP_URL ?? "";
   const adminEmail = await getAdminNotificationEmail();
 
-  // User notifications are intentionally deferred until an admin confirms the
-  // final schedule. Booking only notifies the internal admin inbox.
-  sendTemplateEmail("admin_consult_booked", adminEmail, {
+  const isReschedule = requestType === "reschedule_requested";
+  const eventSuffix = `${consultation.id}:${date}:${time}`;
+  const adminEvent = isReschedule ? "admin_consult_reschedule_requested" : "admin_consult_booked";
+  const userEvent = isReschedule ? "consultation_reschedule_received" : "consultation_request_received";
+  void Promise.allSettled([
+    sendTemplateEmail(userEvent, lead.email, {
+      name: lead.name, company: lead.company, date, time,
+    }, {
+      leadId: lead.id,
+      idempotencyKey: `${userEvent}:${eventSuffix}`,
+      metadata: { consultationId: consultation.id, requestType },
+    }),
+    sendTemplateEmail(adminEvent, adminEmail, {
     leadName: lead.name,
     company: lead.company,
     date,
     time,
     score: assessment ? String(assessment.totalScore) : "—",
     adminUrl: `${appUrl}/admin/leads/${lead.id}`,
-  }, { leadId: lead.id }).catch(
-    (err) => logger.error({ err, eventKey: "admin_consult_booked", leadId: lead.id }, "Admin consultation email failed")
-  );
+    }, {
+      leadId: lead.id,
+      idempotencyKey: `${adminEvent}:${eventSuffix}`,
+      metadata: { consultationId: consultation.id, requestType },
+    }),
+  ]).then((results) => results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      logger.error({ err: result.reason, eventKey: index === 0 ? userEvent : adminEvent, leadId }, "Consultation request email failed");
+    }
+  }));
 
   res.json({ success: true, consultationId: consultation.id, status: consultation.status, consultation: consultationResponse(consultation) });
 });
@@ -184,6 +203,35 @@ router.patch("/consult/:leadId", async (req, res) => {
     .set({ history: [...previousHistory, historyEntry(type, updated)] })
     .where(eq(consultations.id, existing.id))
     .returning();
+
+  const adminEmail = await getAdminNotificationEmail();
+  const appUrl = process.env.APP_URL ?? "";
+  const eventSuffix = `${withHistory.id}:${date}:${time}`;
+  void Promise.allSettled([
+    sendTemplateEmail("consultation_reschedule_received", lead.email, {
+      name: lead.name, company: lead.company, date, time,
+    }, {
+      leadId,
+      idempotencyKey: `consultation-reschedule:${eventSuffix}`,
+      metadata: { consultationId: withHistory.id, requestType: type },
+    }),
+    sendTemplateEmail("admin_consult_reschedule_requested", adminEmail, {
+      leadName: lead.name, company: lead.company, date, time,
+      adminUrl: `${appUrl}/admin/leads/${lead.id}`,
+    }, {
+      leadId,
+      idempotencyKey: `admin-consultation-reschedule:${eventSuffix}`,
+      metadata: { consultationId: withHistory.id, requestType: type },
+    }),
+  ]).then((results) => results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      logger.error({
+        err: result.reason,
+        eventKey: index === 0 ? "consultation_reschedule_received" : "admin_consult_reschedule_requested",
+        leadId,
+      }, "Consultation reschedule email failed");
+    }
+  }));
 
   res.json({ success: true, consultation: consultationResponse(withHistory) });
 });

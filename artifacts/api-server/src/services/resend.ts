@@ -1,5 +1,6 @@
 import { logger } from "../lib/logger.js";
 import { sendGmail } from "./gmail.js";
+import { sendTemplateEmail } from "./emailTemplates.js";
 
 interface SendEmailOptions {
   to: string;
@@ -17,22 +18,9 @@ export async function sendEmail(opts: SendEmailOptions): Promise<void> {
 }
 
 export async function sendOtpEmail(email: string, otp: string): Promise<void> {
-  await sendEmail({
-    to: email,
-    subject: "Your LegalIQ Verification Code",
-    html: `
-      <div style="font-family: Inter, sans-serif; max-width: 480px; margin: 0 auto; background: #0A0A0A; padding: 32px; border-radius: 16px; border: 1px solid rgba(201,168,76,0.3);">
-        <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #C9A84C; font-size: 28px; margin: 0;">LegalIQ</h1>
-          <p style="color: #9B8E82; margin: 8px 0 0;">Legal Health Score Platform</p>
-        </div>
-        <p style="color: #F0EDE8; font-size: 16px;">Your verification code is:</p>
-        <div style="background: rgba(201,168,76,0.1); border: 2px solid #C9A84C; border-radius: 12px; padding: 24px; text-align: center; margin: 16px 0;">
-          <span style="font-size: 40px; font-weight: 900; color: #C9A84C; letter-spacing: 8px;">${otp}</span>
-        </div>
-        <p style="color: #9B8E82; font-size: 14px;">This code expires in 10 minutes. Do not share it with anyone.</p>
-      </div>
-    `,
+  await sendTemplateEmail("otp_verification", email, { otp }, {
+    idempotencyKey: `otp:${email.toLowerCase()}:${otp}`,
+    metadata: { purpose: "email_verification" },
   });
 }
 

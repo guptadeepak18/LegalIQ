@@ -76,7 +76,7 @@ function buildRawMessage(opts: {
   replyTo: string;
   subject: string;
   html: string;
-  attachments?: Array<{ filename: string; content: Buffer | string }>;
+  attachments?: Array<{ filename: string; content: Buffer | string; contentType?: string }>;
 }): string {
   const boundary = `liq_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
@@ -109,7 +109,7 @@ function buildRawMessage(opts: {
           : att.content.toString("base64");
       lines.push(
         `--${boundary}`,
-        `Content-Type: application/octet-stream`,
+        `Content-Type: ${att.contentType ?? "application/octet-stream"}; name="${att.filename}"`,
         `Content-Transfer-Encoding: base64`,
         `Content-Disposition: attachment; filename="${att.filename}"`,
         ``,
@@ -130,7 +130,7 @@ export interface GmailSendOptions {
   to: string;
   subject: string;
   html: string;
-  attachments?: Array<{ filename: string; content: Buffer | string }>;
+  attachments?: Array<{ filename: string; content: Buffer | string; contentType?: string }>;
 }
 
 export async function sendGmail(opts: GmailSendOptions): Promise<void> {

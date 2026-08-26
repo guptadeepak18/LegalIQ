@@ -152,6 +152,21 @@ export interface GeneratedReport {
   vcloPitch: string;
 }
 
+/** Preserve the complete assessment response as matching evidence. The case
+ * catalog does its own deterministic taxonomy/threshold matching; no AI text
+ * is used to invent or broaden a case-study match. */
+function caseMatchingAnswers(answersJSON?: string): string {
+  if (!answersJSON) return "";
+  try {
+    const parsed: unknown = JSON.parse(answersJSON);
+    return JSON.stringify(parsed);
+  } catch {
+    // Older callers may send a non-JSON answer summary. It remains useful
+    // evidence, but cannot change the deterministic catalog or add a fallback.
+    return answersJSON;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Core caller — tries each model in order, falls through on 429
 // ─────────────────────────────────────────────────────────────────────────────
@@ -933,7 +948,7 @@ export async function generateReport(payload: ReportPayload): Promise<GeneratedR
       { issue: "Statutory filing non-compliance",      costRange: "₹2,000 – ₹15,000", delayImpact: "Late fees and penalties compound monthly; may trigger regulatory notices." },
       { issue: "Intellectual property registration",  costRange: "₹5,000 – ₹20,000", delayImpact: "Unregistered IP is unprotected; loss of exclusive rights if a competitor files first." },
     ],
-    similarCases: selectCaseStudies(payload.businessType, payload.category, fallbackRisks),
+    similarCases: selectCaseStudies(payload.businessType, payload.category, fallbackRisks, caseMatchingAnswers(payload.answersJSON)),
     example: {
       businessName: "Sunrise Enterprises",
       whatHappened: `A ${payload.businessType} in ${payload.city} faced a ₹12 Lakh demand from a vendor after a verbal agreement dispute. Without written contracts, they had no legal basis to defend their position and the case dragged on for 8 months.`,
@@ -1043,7 +1058,7 @@ export async function generateReport(payload: ReportPayload): Promise<GeneratedR
         costRange:   c.cost_range,
         delayImpact: c.delay_impact,
       })),
-      similarCases: selectCaseStudies(payload.businessType, payload.category, raw.risk_flags ?? fallbackRisks),
+      similarCases: selectCaseStudies(payload.businessType, payload.category, raw.risk_flags ?? fallbackRisks, caseMatchingAnswers(payload.answersJSON)),
       example: raw.example ?? fallback.example,
       vcloPitch: raw.vcloPitch ?? raw.consultation_note ?? fallback.vcloPitch,
     };
