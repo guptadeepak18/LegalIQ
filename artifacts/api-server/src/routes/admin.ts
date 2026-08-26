@@ -181,111 +181,199 @@ router.get("/admin/stats", requireAuth, requirePermission("dashboard"), async (r
 
 // ── GET /admin/analytics ─────────────────────────────────────────────────────
 router.get("/admin/analytics", requireAuth, requirePermission("analytics"), async (_req, res) => {
-  const [byTypeRows, [pillarRow], [totalAssessmentsResult], [totalConsultationsResult]] = await Promise.all([
-    db.select({ businessType: leads.businessType, avgScore: avg(assessments.totalScore), count: count() })
-      .from(assessments).innerJoin(leads, eq(assessments.leadId, leads.id)).groupBy(leads.businessType),
-    db.select({ litigation: avg(assessments.litigationScore), contractual: avg(assessments.contractualScore), compliance: avg(assessments.complianceScore), cost: avg(assessments.costScore), future: avg(assessments.futureScore) }).from(assessments),
-    db.select({ count: count() }).from(assessments),
-    db.select({ count: count() }).from(consultations),
+  const [assessmentRows, consultationRows, [leadCount]] = await Promise.all([
+    db.select({
+      id: assessments.id, totalScore: assessments.totalScore, riskLevel: assessments.riskLevel,
+      completedAt: assessments.completedAt, litigation: assessments.litigationScore,
+      contractual: assessments.contractualScore, compliance: assessments.complianceScore,
+      cost: assessments.costScore, future: assessments.futureScore,
+      businessType: leads.businessType, company: leads.company, leadId: leads.id,
+    }).from(assessments).innerJoin(leads, eq(assessments.leadId, leads.id))
+      .where(lte(assessments.completedAt, new Date())),
+    db.select({ leadId: consultations.leadId, status: consultations.status, createdAt: consultations.createdAt }).from(consultations),
+    db.select({ count: count() }).from(leads),
   ]);
 
-  const avgByBusinessType = byTypeRows.map((r) => ({ businessType: r.businessType, avgScore: Math.round(Number(r.avgScore ?? 0)), count: r.count })).sort((a, b) => b.count - a.count);
-  const pillarAverages = { litigation: Math.round(Number(pillarRow?.litigation ?? 0)), contractual: Math.round(Number(pillarRow?.contractual ?? 0)), compliance: Math.round(Number(pillarRow?.compliance ?? 0)), cost: Math.round(Number(pillarRow?.cost ?? 0)), future: Math.round(Number(pillarRow?.future ?? 0)) };
-  const conversionRate = totalAssessmentsResult.count > 0 ? Math.round((totalConsultationsResult.count / totalAssessmentsResult.count) * 100) : 0;
+  const scoredRows = assessmentRows.map((row) => ({
+    ...row,
+    totalScore: Number(row.totalScore ?? 0),
+    riskLevel: row.riskLevel ?? "UNKNOWN",
+    litigation: Number(row.litigation ?? 0),
+    contractual: Number(row.contractual ?? 0),
+    compliance: Number(row.compliance ?? 0),
+    cost: Number(row.cost ?? 0),
+    future: Number(row.future ?? 0),
+  }));
+  const totalAssessments = scoredRows.length;
+  const averageScore = totalAssessments ? Math.round(scoredRows.reduce((sum, row) => sum + row.totalScore, 0) / totalAssessments) : 0;
+  const highRiskCount = scoredRows.filter((row) => row.totalScore < 60).length;
+  const scoreDistribution = [
+    { key: "critical", label: "Critical", min: 0, max: 39, count: 0, color: "#EF4444" },
+    { key: "moderate", label: "Moderate", min: 40, max: 59, count: 0, color: "#F59E0B" },
+    { key: "healthy", label: "Healthy", min: 60, max: 79, count: 0, color: "#3B82F6" },
+    { key: "excellent", label: "Excellent", min: 80, max: 100, count: 0, color: "#22C55E" },
+  ];
+  for (const row of scoredRows) {
+    const bucket = scoreDistribution.find((item) => row.totalScore >= item.min && row.totalScore <= item.max);
+    if (bucket) bucket.count += 1;
+  }
+  const riskBreakdown: Record<string, number> = {};
+  for (const row of scoredRows) riskBreakdown[row.riskLevel] = (riskBreakdown[row.riskLevel] ?? 0) + 1;
+  const pillarDefinitions = [
+    { key: "litigation", label: "Litigation", field: "litigation" as const },
+    { key: "contractual", label: "Contractual", field: "contractual" as const },
+    { key: "compliance", label: "Compliance", field: "compliance" as const },
+    { key: "cost", label: "Cost efficiency", field: "cost" as const },
+  ];
+  const pillarPerformance = pillarDefinitions.map((pillar) => ({
+    key: pillar.key,
+    label: pillar.label,
+    average: totalAssessments ? Math.round(scoredRows.reduce((sum, row) => sum + row[pillar.field], 0) / totalAssessments) : 0,
+    max: 25,
+  }));
 
-  res.json({ success: true, avgByBusinessType, pillarAverages, conversionRate, totalAssessments: totalAssessmentsResult.count, totalConsultations: totalConsultationsResult.count });
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const trend = Array.from({ length: 30 }, (_, index) => {
+    const date = new Date(today); date.setDate(today.getDate() - (29 - index));
+    const key = date.toISOString().slice(0, 10);
+    const dayRows = scoredRows.filter((row) => row.completedAt?.toISOString().slice(0, 10) === key);
+    return {
+      date: key,
+      label: date.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+      assessments: dayRows.length,
+      averageScore: dayRows.length ? Math.round(dayRows.reduce((sum, row) => sum + row.totalScore, 0) / dayRows.length) : null,
+    };
+  });
+  const segmentMap = new Map<string, { count: number; scoreTotal: number }>();
+  for (const row of scoredRows) {
+    const key = row.businessType || "Unspecified";
+    const current = segmentMap.get(key) ?? { count: 0, scoreTotal: 0 };
+    current.count += 1; current.scoreTotal += row.totalScore; segmentMap.set(key, current);
+  }
+  const segments = [...segmentMap.entries()].map(([businessType, value]) => ({
+    businessType, count: value.count, averageScore: Math.round(value.scoreTotal / value.count),
+  })).sort((a, b) => b.count - a.count).slice(0, 8);
+  const consultationStatus: Record<string, number> = {};
+  for (const row of consultationRows) {
+    const status = row.status ?? "Unknown";
+    consultationStatus[status] = (consultationStatus[status] ?? 0) + 1;
+  }
+  const atRiskLeads = [...scoredRows].filter((row) => row.totalScore < 60)
+    .sort((a, b) => a.totalScore - b.totalScore).slice(0, 8)
+    .map((row) => ({ leadId: row.leadId, company: row.company, businessType: row.businessType, score: row.totalScore, riskLevel: row.riskLevel }));
+
+  const assessedLeadIds = new Set(scoredRows.map((row) => row.leadId));
+  const assessedLeadsWithConsultations = new Set<string>();
+  for (const row of consultationRows) {
+    if (row.leadId && assessedLeadIds.has(row.leadId)) assessedLeadsWithConsultations.add(row.leadId);
+  }
+  const distinctAssessedLeads = assessedLeadIds.size;
+
+  res.json({
+    success: true,
+    kpis: {
+      totalLeads: leadCount.count, totalAssessments, averageScore, highRiskCount,
+      highRiskShare: totalAssessments ? Math.round((highRiskCount / totalAssessments) * 100) : 0,
+      totalConsultations: consultationRows.length,
+      conversionRate: distinctAssessedLeads ? Math.round((assessedLeadsWithConsultations.size / distinctAssessedLeads) * 100) : 0,
+    },
+    trend, scoreDistribution, riskBreakdown, pillarPerformance, consultationStatus, segments, atRiskLeads,
+  });
 });
 
+type StoredAdminInsight = {
+  title: string; description: string; severity: string; financialRisk: string;
+  reason?: string; businessImpact?: string; futureProblem?: string; recommendation?: string;
+};
+
+function mapAdminFinding(insight: StoredAdminInsight) {
+  return {
+    title: insight.title,
+    detail: insight.description,
+    impact: insight.severity.toLowerCase(),
+    financialRisk: insight.financialRisk,
+    reason: insight.reason ?? "",
+    businessImpact: insight.businessImpact ?? "",
+    futureProblem: insight.futureProblem ?? "",
+    action: insight.recommendation ?? "",
+  };
+}
+
 // ── GET /admin/ai-insights ────────────────────────────────────────────────────
-router.get("/admin/ai-insights", requireAuth, requirePermission("ai"), async (_req, res) => {
-  const [[totalLeads], [totalAssessments], [avgResult], [d0], [d40], [d60], [d80], [pillarRow], byType, allFlags, [totalConsultations]] = await Promise.all([
-    db.select({ count: count() }).from(leads),
-    db.select({ count: count() }).from(assessments),
-    db.select({ avg: avg(assessments.totalScore) }).from(assessments),
-    db.select({ count: count() }).from(assessments).where(lt(assessments.totalScore, 40)),
-    db.select({ count: count() }).from(assessments).where(and(gte(assessments.totalScore, 40), lt(assessments.totalScore, 60))),
-    db.select({ count: count() }).from(assessments).where(and(gte(assessments.totalScore, 60), lt(assessments.totalScore, 80))),
-    db.select({ count: count() }).from(assessments).where(gte(assessments.totalScore, 80)),
-    db.select({ litigation: avg(assessments.litigationScore), contractual: avg(assessments.contractualScore), compliance: avg(assessments.complianceScore), cost: avg(assessments.costScore), future: avg(assessments.futureScore) }).from(assessments),
-    db.select({ businessType: leads.businessType, avgScore: avg(assessments.totalScore), count: count() }).from(assessments).innerJoin(leads, eq(assessments.leadId, leads.id)).groupBy(leads.businessType),
-    db.select({ insights: reports.insights }).from(reports),
-    db.select({ count: count() }).from(consultations),
-  ]);
-
-  const flagCounts: Record<string, number> = {};
-  for (const r of allFlags) {
-    const ins = (r.insights as Array<{ title: string }> | null) ?? [];
-    for (const i of ins) { if (i.title) flagCounts[i.title] = (flagCounts[i.title] ?? 0) + 1; }
-  }
-  const topFlags = Object.entries(flagCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([title, c]) => ({ title, count: c }));
-  const topTypes = byType.sort((a, b) => b.count - a.count).slice(0, 5);
-  const total = totalAssessments.count || 1;
-  const avgScore = Math.round(Number(avgResult?.avg ?? 0));
-  const conversionRate = total > 0 ? Math.round((totalConsultations.count / total) * 100) : 0;
-  const pillars = { litigation: Math.round(Number(pillarRow?.litigation ?? 0)), contractual: Math.round(Number(pillarRow?.contractual ?? 0)), compliance: Math.round(Number(pillarRow?.compliance ?? 0)), cost: Math.round(Number(pillarRow?.cost ?? 0)), future: Math.round(Number(pillarRow?.future ?? 0)) };
-
-  const prompt = `You are a senior legal business intelligence analyst at Rest The Case, India's leading VCLO (Virtual Chief Legal Officer) firm.
-
-Analyse this LegalIQ assessment portfolio and return strategic intelligence:
-
-PORTFOLIO METRICS:
-- Total leads: ${totalLeads.count}
-- Total assessments completed: ${total}
-- Average Legal Health Score: ${avgScore}/100
-- Conversion rate (assessment → consultation booked): ${conversionRate}%
-
-SCORE DISTRIBUTION:
-- Critical risk (0-40): ${d0.count} leads (${Math.round(d0.count/total*100)}%)
-- Moderate risk (40-60): ${d40.count} leads (${Math.round(d40.count/total*100)}%)
-- Healthy (60-80): ${d60.count} leads (${Math.round(d60.count/total*100)}%)
-- Excellent (80-100): ${d80.count} leads (${Math.round(d80.count/total*100)}%)
-
-PILLAR AVERAGES (each out of 25):
-- Litigation: ${pillars.litigation}/25
-- Contractual: ${pillars.contractual}/25
-- Compliance: ${pillars.compliance}/25
-- Cost Efficiency: ${pillars.cost}/25
-
-TOP BUSINESS TYPES:
-${topTypes.map((b) => `- ${b.businessType}: ${b.count} leads, avg score ${Math.round(Number(b.avgScore ?? 0))}`).join("\n")}
-
-MOST COMMON RISK FLAGS:
-${topFlags.map((f, i) => `${i + 1}. ${f.title} (${f.count} occurrences)`).join("\n")}
-
-Return ONLY valid JSON in this exact format:
-{
-  "executiveSummary": "2-3 sentences: current portfolio health, biggest opportunity, one urgent action",
-  "findings": [
-    { "title": "...", "detail": "...", "impact": "high", "action": "specific actionable recommendation" },
-    { "title": "...", "detail": "...", "impact": "medium", "action": "specific actionable recommendation" },
-    { "title": "...", "detail": "...", "impact": "low", "action": "specific actionable recommendation" }
-  ],
-  "prioritySegment": {
-    "description": "which specific business type + score range to focus outreach on right now",
-    "reason": "why this segment has highest conversion potential based on the data",
-    "estimatedLeads": <number of leads in this segment>
-  },
-  "contrarian": "one non-obvious insight that most people would miss from this data",
-  "weeklyFocus": "one specific action to take this week to improve conversion rate"
-}`;
-
-  try {
-    const raw = await callGeminiAdmin(prompt, 1500);
-    const parsed = extractJSON(raw);
-    if (!parsed.executiveSummary) {
-      res.json({ success: false, rateLimited: false, error: "Invalid AI response" });
+router.get("/admin/ai-insights", requireAuth, requirePermission("ai"), async (req, res) => {
+  const leadId = typeof req.query.leadId === "string" ? req.query.leadId : undefined;
+  if (leadId) {
+    const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
+    const [assessment] = await db.select().from(assessments).where(eq(assessments.leadId, leadId)).orderBy(desc(assessments.completedAt));
+    const [report] = assessment ? await db.select().from(reports).where(eq(reports.assessmentId, assessment.id)) : [];
+    if (!lead || !assessment || !report) {
+      res.status(404).json({ success: false, message: "No completed report is available for this lead" });
       return;
     }
-    res.json({ success: true, ...parsed });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message === "RATE_LIMITED") {
-      res.json({ success: true, rateLimited: true });
-    } else {
-      logger.error({ err }, "AI insights generation failed");
-      res.status(500).json({ success: false, message: "AI analysis failed" });
+    const findings = ((report.insights as StoredAdminInsight[] | null) ?? []).map(mapAdminFinding);
+    const actions = (report.actions as Array<{ action: string; description: string; timeline: string; priority?: string }> | null) ?? [];
+    const futureRisks = (report.futureRisks as Array<{ title: string; level: string; impact: string; action: string }> | null) ?? [];
+    res.json({
+      success: true, mode: "lead",
+      lead: { id: lead.id, name: lead.name, company: lead.company, businessType: lead.businessType, city: lead.city },
+      assessment: {
+        id: assessment.id, score: assessment.totalScore, riskLevel: assessment.riskLevel,
+        grade: assessment.grade, pillars: {
+          litigation: assessment.litigationScore, contractual: assessment.contractualScore,
+          compliance: assessment.complianceScore, cost: assessment.costScore,
+        },
+      },
+      executiveSummary: report.summary,
+      findings,
+      priorityActions: actions,
+      futureRisks,
+      consultationGuidance: Number(assessment.totalScore ?? 0) < 60
+        ? "Prioritise a consultation: this report contains material legal-health gaps that warrant a tailored review."
+        : "Offer a consultation to turn the identified actions into a practical legal protection plan.",
+      nextSteps: actions.slice(0, 3).map((action) => action.action),
+      source: "persisted_lhs_report",
+    });
+    return;
+  }
+
+  const rows = await db.select({
+    leadId: leads.id, company: leads.company, name: leads.name, businessType: leads.businessType,
+    assessmentId: assessments.id, score: assessments.totalScore, riskLevel: assessments.riskLevel,
+    summary: reports.summary, insights: reports.insights, actions: reports.actions,
+  }).from(assessments).innerJoin(leads, eq(assessments.leadId, leads.id))
+    .innerJoin(reports, eq(reports.assessmentId, assessments.id))
+    .orderBy(desc(assessments.completedAt));
+  if (!rows.length) {
+    res.json({ success: false, message: "Complete a Legal Health Assessment to generate grounded insights", hasData: false });
+    return;
+  }
+  const insightIndex = new Map<string, { insight: StoredAdminInsight; count: number; companies: string[] }>();
+  for (const row of rows) {
+    for (const insight of ((row.insights as StoredAdminInsight[] | null) ?? [])) {
+      if (!insight.title) continue;
+      const current = insightIndex.get(insight.title) ?? { insight, count: 0, companies: [] };
+      current.count += 1; if (row.company && current.companies.length < 3) current.companies.push(row.company);
+      insightIndex.set(insight.title, current);
     }
   }
+  const findings = [...insightIndex.values()].sort((a, b) => b.count - a.count).slice(0, 6).map((item) => ({
+    ...mapAdminFinding(item.insight), occurrenceCount: item.count, affectedCompanies: item.companies,
+  }));
+  const reportRows = rows.map((row) => ({ ...row, score: Number(row.score ?? 0), riskLevel: row.riskLevel ?? "UNKNOWN" }));
+  const averageScore = Math.round(reportRows.reduce((sum, row) => sum + row.score, 0) / reportRows.length);
+  const highRisk = reportRows.filter((row) => row.score < 60).length;
+  const priorityRow = [...reportRows].sort((a, b) => a.score - b.score)[0];
+  const priorityActions = reportRows.flatMap((row) => ((row.actions as Array<{ action: string; description: string; timeline: string; priority?: string }> | null) ?? [])
+    .filter((action) => action.priority === "Immediate").map((action) => ({ ...action, company: row.company }))).slice(0, 8);
+  res.json({
+    success: true, mode: "portfolio", source: "persisted_lhs_reports",
+    executiveSummary: `${reportRows.length} completed reports have an average Legal Health Score of ${averageScore}/100. ${highRisk} report${highRisk === 1 ? "" : "s"} currently sit below 60 and should receive focused follow-up.`,
+    findings,
+    prioritySegment: priorityRow ? { description: `${priorityRow.company || priorityRow.name} is the most urgent reviewed lead`, reason: `Its persisted assessment score is ${priorityRow.score}/100 (${priorityRow.riskLevel}).`, estimatedLeads: 1 } : null,
+    priorityActions,
+    nextSteps: priorityActions.slice(0, 3).map((action) => action.action),
+    leadOptions: reportRows.map((row) => ({ id: row.leadId, company: row.company, name: row.name, score: row.score, riskLevel: row.riskLevel })),
+  });
 });
 
 // ── POST /admin/leads/:id/draft-email ─────────────────────────────────────────
