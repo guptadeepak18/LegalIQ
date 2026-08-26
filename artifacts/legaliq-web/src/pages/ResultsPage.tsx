@@ -6,8 +6,9 @@ import { useUser } from "@clerk/react";
 import { useStore } from "@/store/useStore";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { generateReportPDF, generateCertificatePDF, generateVCLOBrochurePDF, type BrochureTemplateSelection } from "@/lib/pdfGenerator";
+import { generateVCLOBrochurePDF, type BrochureTemplateSelection } from "@/lib/pdfGenerator";
 import { basePath } from "@/lib/clerk";
+import { toast } from "sonner";
 import { LHSReport, gradeFromScore, PILLAR_META } from "@/components/LHSReport";
 import type { HistoryEntry, Benchmark } from "@/components/LHSReport";
 
@@ -95,17 +96,30 @@ export default function ResultsPage() {
   const linkedinLink = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(RTC_URL)}`;
 
   async function handleDownloadCertificate() {
-    if (!result) return;
+    if (!result?.assessmentId) {
+      toast.error("Your assessment certificate is not available yet.");
+      return;
+    }
     setCertGenerating(true);
     try {
-      await generateCertificatePDF({
-        company: store.company || "Your Business",
-        name: store.name || "Business Owner",
-        businessType: store.businessType || "",
-        city: store.city || "India",
-        totalScore,
-      });
-    } catch (e) { console.error("Certificate generation failed", e); }
+      const response = await fetch(`/api/assessments/${result.assessmentId}/certificate`);
+      if (!response.ok) {
+        let message = "Could not download your certificate. Please try again.";
+        try { message = (await response.json()).message ?? message; } catch {}
+        throw new Error(message);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "LegalIQ-Certificate.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not download your certificate. Please try again.");
+    }
     finally { setCertGenerating(false); }
   }
 
@@ -124,53 +138,21 @@ export default function ResultsPage() {
     if (!result) return;
     setDownloading(true);
     try {
-      await generateReportPDF({
-        company: store.company || "Your Business",
-        name: store.name || "Business Owner",
-        businessType: store.businessType || "",
-        city: store.city || "India",
-        totalScore,
-        riskLevel,
-        summary: report.summary || "",
-        pillars: PILLAR_META.map(({ label, key }) => ({
-          label,
-          score: result[key] as number,
-        })),
-        insights: (report.insights || []).map((ins) => ({
-          title: ins.title, description: ins.description, severity: ins.severity,
-          financialRisk: ins.financialRisk, reason: ins.reason,
-          businessImpact: ins.businessImpact, futureProblem: ins.futureProblem,
-          recommendation: ins.recommendation,
-        })),
-        futureRisks: (report.futureRisks || []).map((fr) => ({
-          title: fr.title, level: fr.level, impact: fr.impact,
-          reason: fr.reason, action: fr.action,
-        })),
-        actions: (report.actions || []).map((act) => ({
-          action: act.action, description: act.description,
-          timeline: act.timeline, priority: act.priority,
-          costMin: act.costMin, costMax: act.costMax,
-          delayImpact: act.delayImpact,
-        })),
-        costSummary: report.costSummary,
-        similarCases: report.similarCases,
-        vcloPitch: report.vcloPitch,
-        answerHistory: (result.answers || []).map((a) => ({
-          question: a.question, pillar: a.pillar, answer: a.answer,
-          score: a.score, maxScore: a.maxScore, weight: a.weight,
-          isSeed: a.isSeed, info: a.info, impact: a.impact,
-          suggestion: a.suggestion, recommendation: a.recommendation,
-        })),
-        example: report.example ? {
-          businessName: report.example.businessName,
-          whatHappened: report.example.whatHappened,
-          consequences: report.example.consequences,
-          vcloWouldHave: report.example.vcloWouldHave,
-          lesson: report.example.lesson,
-        } : undefined,
-        benchmark: benchmark ?? undefined,
-      });
-    } catch (e) { console.error("PDF generation failed", e); }
+      const response = await fetch(`/api/assessments/${result.assessmentId}/report-pdf`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => null) as { message?: string } | null;
+        throw new Error(body?.message || "Could not download your report PDF.");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `LegalIQ-LHS-Report-${(store.company || "Business").replace(/[^a-z0-9_-]+/gi, "-")}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("PDF download failed", e);
+      try { (await import("sonner")).toast.error(e instanceof Error ? e.message : "Could not download your report PDF."); } catch {}
+    }
     finally { setDownloading(false); }
   }
 

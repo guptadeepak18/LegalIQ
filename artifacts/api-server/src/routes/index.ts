@@ -10,6 +10,7 @@ import reviewsRouter from "./reviews.js";
 import authRouter from "./auth.js";
 import adminRouter from "./admin.js";
 import statsRouter from "./stats.js";
+import certificatesRouter from "./certificates.js";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(reviewsRouter);
 router.use(authRouter);
 router.use(adminRouter);
 router.use(statsRouter);
+router.use(certificatesRouter);
 
 export default router;

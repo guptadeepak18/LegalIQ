@@ -111,6 +111,13 @@ export const reports = pgTable("reports", {
   brochureTemplateVersion: integer("brochure_template_version"),
   brochureTemplateSnapshot: jsonb("brochure_template_snapshot").$type<BrochureTemplateConfig | null>(),
   brochureTemplateSelectedAt: timestamp("brochure_template_selected_at"),
+  pdfObjectPath: text("pdf_object_path"),
+  pdfChecksum: text("pdf_checksum"),
+  pdfSizeBytes: integer("pdf_size_bytes"),
+  pdfRendererVersion: text("pdf_renderer_version"),
+  pdfGeneratedAt: timestamp("pdf_generated_at"),
+  pdfGenerationError: text("pdf_generation_error"),
+  pdfRenderSnapshot: jsonb("pdf_render_snapshot"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -137,6 +144,58 @@ export const brochureTemplates = pgTable("brochure_templates", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export type CertificateTemplateConfig = {
+  title?: string;
+  subtitle?: string;
+  issuerName?: string;
+  issuerTitle?: string;
+  accentColor?: string;
+  recipientLabel?: string;
+};
+
+export const certificateTemplates = pgTable("certificate_templates", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  version: integer("version").notNull().default(1),
+  isActive: boolean("is_active").notNull().default(false),
+  assetObjectPath: text("asset_object_path").notNull(),
+  assetOriginalFilename: text("asset_original_filename"),
+  assetContentType: text("asset_content_type").notNull(),
+  assetSizeBytes: integer("asset_size_bytes").notNull(),
+  assetChecksum: text("asset_checksum"),
+  config: jsonb("config").$type<CertificateTemplateConfig>().notNull().default({}),
+  createdByAdminId: uuid("created_by_admin_id").references(() => adminUsers.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("certificate_templates_single_active_idx")
+    .on(table.isActive)
+    .where(sql`${table.isActive} = true`),
+]);
+
+export const generatedCertificates = pgTable("generated_certificates", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  assessmentId: uuid("assessment_id").references(() => assessments.id, { onDelete: "cascade" }).notNull(),
+  leadId: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+  certificateTemplateId: uuid("certificate_template_id").references(() => certificateTemplates.id, { onDelete: "set null" }),
+  certificateTemplateVersion: integer("certificate_template_version").notNull(),
+  certificateTemplateSnapshot: jsonb("certificate_template_snapshot").$type<{
+    name: string;
+    assetObjectPath: string;
+    assetOriginalFilename?: string | null;
+    assetContentType: string;
+    assetChecksum?: string | null;
+    config: CertificateTemplateConfig;
+  }>().notNull(),
+  objectPath: text("object_path").notNull().unique(),
+  generatedByAdminId: uuid("generated_by_admin_id").references(() => adminUsers.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("generated_certificates_assessment_template_version_idx")
+    .on(table.assessmentId, table.certificateTemplateId, table.certificateTemplateVersion),
+]);
 
 export const consultations = pgTable("consultations", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -245,3 +304,5 @@ export type OtpVerification = typeof otpVerifications.$inferSelect;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type EmailLog = typeof emailLogs.$inferSelect;
 export type AppSetting = typeof appSettings.$inferSelect;
+export type CertificateTemplate = typeof certificateTemplates.$inferSelect;
+export type GeneratedCertificate = typeof generatedCertificates.$inferSelect;

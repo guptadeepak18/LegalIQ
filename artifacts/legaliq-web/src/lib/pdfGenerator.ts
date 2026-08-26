@@ -242,7 +242,7 @@ function pillarDot(doc: jsPDF, x: number, y: number, color: [number,number,numbe
 
 // ─── Main export ───────────────────────────────────────────────────────────────
 
-export async function generateReportPDF(data: ReportData): Promise<void> {
+export async function renderReportPDFBytes(data: ReportData): Promise<Uint8Array> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const W   = doc.internal.pageSize.getWidth();   // 210
   const H   = doc.internal.pageSize.getHeight();  // 297
@@ -1825,9 +1825,18 @@ export async function generateReportPDF(data: ReportData): Promise<void> {
     totalScore: data.totalScore,
   });
 
-  // ── Save ────────────────────────────────────────────────────
+  return new Uint8Array(doc.output("arraybuffer"));
+}
+
+export async function generateReportPDF(data: ReportData): Promise<void> {
+  const bytes = await renderReportPDFBytes(data);
   const fname = `LegalIQ-Report-${clean(data.company).replace(/[^a-zA-Z0-9]/g, "-")}-${data.totalScore}.pdf`;
-  doc.save(fname);
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fname;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 // ═════════════════════════════════════════════════════════════════════════

@@ -255,6 +255,47 @@ router.post("/session/answer", async (req, res) => {
       }))
     );
 
+    const detailedAnswers = updatedAnswers.map((a) => {
+      const insight = a.fullQuestion?.insight;
+      return {
+        question: a.question,
+        pillar: a.pillar,
+        answer: a.answer,
+        score: a.score,
+        maxScore: 4,
+        weight: a.weight,
+        isSeed: a.isSeed,
+        info: insight?.info ?? "",
+        impact: insight?.impact ?? "",
+        suggestion: insight?.suggestion ?? "",
+        recommendation: insight?.recommendation ?? "",
+      };
+    });
+
+    const pdfRenderSnapshot = {
+      company: lead?.company ?? "Your Business",
+      name: lead?.name ?? "Business Owner",
+      businessType: lead?.businessType ?? session.businessType ?? "",
+      city: lead?.city ?? session.state ?? "India",
+      totalScore: scoring.totalScore,
+      riskLevel: scoring.riskLevel,
+      summary: aiReport.summary,
+      pillars: [
+        { label: "Litigation Health", score: scoring.litigationScore },
+        { label: "Contractual Health", score: scoring.contractualScore },
+        { label: "Compliance Health", score: scoring.complianceScore },
+        { label: "Legal Cost Efficiency", score: scoring.costScore },
+      ],
+      insights: aiReport.insights,
+      futureRisks: aiReport.futureRisks,
+      actions: aiReport.actions,
+      costSummary: aiReport.costSummary,
+      similarCases: aiReport.similarCases,
+      vcloPitch: aiReport.vcloPitch,
+      answerHistory: detailedAnswers,
+      example: aiReport.example,
+    };
+
     const [report] = await db
       .insert(reports)
       .values({
@@ -268,6 +309,7 @@ router.post("/session/answer", async (req, res) => {
         similarCases: aiReport.similarCases,
         example: aiReport.example,
         vcloPitch: aiReport.vcloPitch,
+        pdfRenderSnapshot,
       })
       .returning();
     await assignDefaultBrochureTemplate(report.id);
@@ -306,23 +348,6 @@ router.post("/session/answer", async (req, res) => {
     if (lead) {
       void sendReportNotifications({ lead, assessment, report });
     }
-
-    const detailedAnswers = updatedAnswers.map((a) => {
-      const insight = a.fullQuestion?.insight;
-      return {
-        question: a.question,
-        pillar: a.pillar,
-        answer: a.answer,
-        score: a.score,
-        maxScore: 4,
-        weight: a.weight,
-        isSeed: a.isSeed,
-        info: insight?.info ?? "",
-        impact: insight?.impact ?? "",
-        suggestion: insight?.suggestion ?? "",
-        recommendation: insight?.recommendation ?? "",
-      };
-    });
 
     return res.json({
       success: true,

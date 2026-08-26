@@ -13,8 +13,7 @@ import { riskBadgeClass } from "@/lib/risk";
 import { toast } from "sonner";
 import { LHSReport } from "@/components/LHSReport";
 import type { AssessmentResult } from "@/store/useStore";
-import { generateReportPDF, generateCertificatePDF, generateVCLOBrochurePDF, type BrochureTemplateConfig } from "@/lib/pdfGenerator";
-import { PILLAR_META } from "@/components/LHSReport";
+import { generateVCLOBrochurePDF, type BrochureTemplateConfig } from "@/lib/pdfGenerator";
 import {
   hasAdminPermission,
   loadAdminProfile,
@@ -402,47 +401,14 @@ export default function LeadDetailPage() {
     const r = a.report;
     setPdfDownloading(true);
     try {
-      await generateReportPDF({
-        company: lead.company || "Business",
-        name: lead.name || "",
-        businessType: lead.businessType || "",
-        city: lead.city || "India",
-        totalScore: a.totalScore,
-        riskLevel: a.riskLevel,
-        summary: r?.summary ?? "",
-        pillars: PILLAR_META.map(({ label, key }) => ({
-          label,
-          score: a[key as keyof typeof a] as number ?? 0,
-        })),
-        insights: (r?.insights ?? []).map(ins => ({
-          title: ins.title, description: ins.description,
-          severity: ins.severity as "HIGH" | "MEDIUM" | "LOW",
-          financialRisk: ins.financialRisk ?? "",
-          reason: ins.reason ?? "", businessImpact: ins.businessImpact ?? "",
-          futureProblem: ins.futureProblem ?? "", recommendation: ins.recommendation ?? "",
-        })),
-        futureRisks: (r?.futureRisks ?? []).map(fr => ({
-          title: fr.title, level: fr.level as "HIGH" | "MEDIUM" | "LOW",
-          impact: fr.impact, reason: fr.reason, action: fr.action,
-        })),
-        actions: (r?.actions ?? []).map(act => ({
-          action: act.action, description: act.description ?? "",
-          timeline: (act.timeline ?? "90 DAYS") as "THIS WEEK" | "THIS MONTH" | "90 DAYS",
-          priority: (act.priority ?? "Long-Term") as "Immediate" | "Short-Term" | "Long-Term",
-          costMin: act.costMin ?? "", costMax: act.costMax ?? "",
-          delayImpact: act.delayImpact ?? "",
-        })),
-        costSummary: r?.costSummary,
-        similarCases: r?.similarCases,
-        vcloPitch: r?.vcloPitch,
-        answerHistory: (a.answers ?? []).map(ans => ({
-          question: ans.question, pillar: ans.pillar,
-          answer: ans.answer, score: ans.score,
-          maxScore: 10, weight: 1, isSeed: false,
-          info: "", impact: "", suggestion: "", recommendation: "",
-        })),
-        example: r?.example,
-      });
+      const response = await fetch(`/api/admin/assessments/${a.id}/report-pdf`, { headers: authHeaders() });
+      if (!response.ok) throw new Error("Canonical report PDF is unavailable");
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `LegalIQ-LHS-Report-${(lead.company || "Business").replace(/[^a-z0-9_-]+/gi, "-")}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
     } catch (e) { console.error("PDF failed", e); toast.error("PDF generation failed"); }
     finally { setPdfDownloading(false); }
   }
@@ -451,13 +417,24 @@ export default function LeadDetailPage() {
     if (!lead?.assessment) return;
     setCertGenerating(true);
     try {
-      await generateCertificatePDF({
-        company: lead.company || "Business",
-        name: lead.name || "",
-        businessType: lead.businessType || "",
-        city: lead.city || "India",
-        totalScore: lead.assessment.totalScore,
+      const response = await fetch("/api/admin/certificates/generate", {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ assessmentId: lead.assessment.id }),
       });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null) as { message?: string } | null;
+        throw new Error(body?.message || "Certificate generation failed");
+      }
+      const body = await response.json() as { previewUrl: string };
+      const file = await fetch(body.previewUrl, { headers: authHeaders() });
+      if (!file.ok) throw new Error("Certificate file is unavailable");
+      const url = URL.createObjectURL(await file.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `LegalIQ-Certificate-${(lead.company || "Business").replace(/[^a-z0-9_-]+/gi, "-")}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
     } catch (e) { console.error("Certificate failed", e); }
     finally { setCertGenerating(false); }
   }

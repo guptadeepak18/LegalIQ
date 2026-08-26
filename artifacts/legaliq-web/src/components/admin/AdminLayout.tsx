@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, Sparkles, BarChart2,
   Star, Settings, Menu, X, LogOut,
-  ChevronRight, Mail, PanelsTopLeft,
+  ChevronRight, Mail, PanelsTopLeft, FileBadge,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -25,6 +25,7 @@ const NAV_ITEMS = [
   { to: "/admin/reviews",         label: "Reviews",         icon: Star,            section: "main", permission: "reviews" as AdminPermission },
   { to: "/admin/email-templates", label: "Email Templates", icon: Mail,            section: "config", permission: "email" as AdminPermission },
   { to: "/admin/brochure-templates", label: "Brochure Templates", icon: PanelsTopLeft, section: "config", permission: "brochures" as AdminPermission },
+  { to: "/admin/certificate-templates", label: "Certificate Templates", icon: FileBadge, section: "config", permission: "brochures" as AdminPermission },
   { to: "/admin/settings",        label: "Settings",        icon: Settings,        section: "config" },
 ];
 
@@ -241,8 +242,10 @@ export function AdminLayout({ active, children, title, actions }: AdminLayoutPro
           ? "analytics"
           : active === "/admin/reviews"
             ? "reviews"
-            : active === "/admin/email-templates"
+              : active === "/admin/email-templates"
               ? "email"
+                : active === "/admin/brochure-templates" || active === "/admin/certificate-templates"
+                  ? "brochures"
               : undefined;
   const permitted = !requiredPermission || hasAdminPermission(profile, requiredPermission as AdminPermission);
   const protectedContent = permitted ? children : (

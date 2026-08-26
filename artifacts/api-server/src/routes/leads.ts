@@ -10,6 +10,7 @@ import { sendTemplateEmail } from "../services/emailTemplates.js";
 import { getAdminNotificationEmail } from "../services/gmail.js";
 import { logger } from "../lib/logger.js";
 import { sendReportNotifications } from "../services/reportNotifications.js";
+import { ensureCanonicalReportArtifact } from "../services/reportArtifact.js";
 
 const router = Router();
 
@@ -133,6 +134,63 @@ router.get("/assessments/:id/brochure-template", async (req, res) => {
     config: reports.brochureTemplateSnapshot,
   }).from(reports).where(eq(reports.assessmentId, assessmentId));
   res.json({ success: true, selection: report?.templateId ? report : null });
+});
+
+router.get("/assessments/:id/report-pdf", async (req, res) => {
+  const auth = getAuth(req);
+  if (!auth?.userId) {
+    res.status(401).json({ success: false, message: "Please sign in to continue" });
+    return;
+  }
+  const assessmentId = String(req.params.id);
+  const [row] = await db.select({ assessment: assessments, lead: leads })
+    .from(assessments)
+    .innerJoin(leads, eq(assessments.leadId, leads.id))
+    .where(eq(assessments.id, assessmentId));
+  if (!row || row.lead.clerkUserId !== auth.userId) {
+    res.status(404).json({ success: false, message: "Assessment not found" });
+    return;
+  }
+  const [report] = await db.select().from(reports).where(eq(reports.assessmentId, assessmentId));
+  if (!report) {
+    res.status(409).json({ success: false, message: "Report is not ready" });
+    return;
+  }
+  try {
+    const artifact = await ensureCanonicalReportArtifact({ lead: row.lead, assessment: row.assessment, report });
+    const safeCompany = row.lead.company.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") || "Business";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="LegalIQ-LHS-Report-${safeCompany}.pdf"`);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-SHA256", artifact.checksum);
+    res.send(artifact.bytes);
+  } catch (error) {
+    logger.error({ error, assessmentId, reportId: report.id }, "Canonical report PDF unavailable");
+    res.status(503).json({ success: false, message: "Your report PDF could not be generated. Please try again shortly." });
+  }
+});
+
+router.get("/admin/assessments/:id/report-pdf", requireAuth, requirePermission("leads:view"), async (req, res) => {
+  const assessmentId = String(req.params.id);
+  const [row] = await db.select({ assessment: assessments, lead: leads })
+    .from(assessments)
+    .innerJoin(leads, eq(assessments.leadId, leads.id))
+    .where(eq(assessments.id, assessmentId));
+  if (!row) { res.status(404).json({ success: false, message: "Assessment not found" }); return; }
+  const [report] = await db.select().from(reports).where(eq(reports.assessmentId, assessmentId));
+  if (!report) { res.status(409).json({ success: false, message: "Report is not ready" }); return; }
+  try {
+    const artifact = await ensureCanonicalReportArtifact({ lead: row.lead, assessment: row.assessment, report });
+    const safeCompany = row.lead.company.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") || "Business";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="LegalIQ-LHS-Report-${safeCompany}.pdf"`);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-SHA256", artifact.checksum);
+    res.send(artifact.bytes);
+  } catch (error) {
+    logger.error({ error, assessmentId, reportId: report.id }, "Admin canonical report PDF unavailable");
+    res.status(503).json({ success: false, message: "The canonical report PDF is unavailable." });
+  }
 });
 
 router.post("/leads/:id/resend-report", requireAuth, requirePermission("leads:update"), async (req, res) => {

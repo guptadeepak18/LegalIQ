@@ -98,6 +98,33 @@ router.post("/submit", async (req, res) => {
       similarCases: aiReport.similarCases,
       example: aiReport.example,
       vcloPitch: aiReport.vcloPitch,
+      pdfRenderSnapshot: {
+        company: lead.company,
+        name: lead.name,
+        businessType: lead.businessType,
+        city: lead.city,
+        totalScore: scoring.totalScore,
+        riskLevel: scoring.riskLevel,
+        summary: aiReport.summary,
+        pillars: [
+          { label: "Litigation Health", score: scoring.litigationScore },
+          { label: "Contractual Health", score: scoring.contractualScore },
+          { label: "Compliance Health", score: scoring.complianceScore },
+          { label: "Legal Cost Efficiency", score: scoring.costScore },
+        ],
+        insights: aiReport.insights,
+        futureRisks: aiReport.futureRisks,
+        actions: aiReport.actions,
+        costSummary: aiReport.costSummary,
+        similarCases: aiReport.similarCases,
+        vcloPitch: aiReport.vcloPitch,
+        answerHistory: scoring.answersWithScores.map((answer) => ({
+          question: answer.question, pillar: answer.pillar, answer: answer.answer,
+          score: answer.score, maxScore: 4, weight: 1, isSeed: answer.isSeed,
+          info: "", impact: "", suggestion: "", recommendation: "",
+        })),
+        example: aiReport.example,
+      },
     })
     .returning();
   await assignDefaultBrochureTemplate(report.id);

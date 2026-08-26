@@ -1,11 +1,11 @@
 import { logger } from "../lib/logger.js";
 import { getAdminNotificationEmail } from "./gmail.js";
 import { sendTemplateEmail } from "./emailTemplates.js";
-import { generateLhsReportPdf } from "./reportPdf.js";
+import { ensureCanonicalReportArtifact } from "./reportArtifact.js";
 
 type ReportNotificationInput = {
   lead: {
-    id: string; email: string; name: string; company: string; city: string;
+    id: string; email: string; name: string; company: string; city: string; businessType?: string | null;
   };
   assessment: {
     id: string; totalScore: number | null; grade: string | null;
@@ -13,7 +13,9 @@ type ReportNotificationInput = {
     contractualScore: number | null; complianceScore: number | null; costScore: number | null;
   };
   report: {
-    id: string; summary: string | null; insights: unknown; actions: unknown; similarCases: unknown;
+    id: string; summary: string | null; insights: unknown; futureRisks?: unknown; actions: unknown;
+    costSummary?: unknown; similarCases: unknown; example?: unknown; vcloPitch?: string | null;
+    pdfObjectPath?: string | null; pdfChecksum?: string | null; pdfRenderSnapshot?: unknown;
   };
 };
 
@@ -32,23 +34,7 @@ export async function sendReportNotifications(
   const score = Number(assessment.totalScore ?? 0);
   const grade = assessment.grade ?? "—";
   const riskLevel = assessment.riskLevel ?? "—";
-  const pdf = generateLhsReportPdf({
-    company: lead.company,
-    ownerName: lead.name,
-    score,
-    grade,
-    riskLevel,
-    summary: report.summary ?? "",
-    pillars: [
-      { label: "Litigation Health", score: Number(assessment.litigationScore ?? 0) },
-      { label: "Contractual Health", score: Number(assessment.contractualScore ?? 0) },
-      { label: "Compliance Health", score: Number(assessment.complianceScore ?? 0) },
-      { label: "Legal Cost Efficiency", score: Number(assessment.costScore ?? 0) },
-    ],
-    insights: (report.insights as Array<{ title?: string; description?: string }> | null) ?? [],
-    actions: (report.actions as Array<{ action?: string; timeline?: string }> | null) ?? [],
-    cases: (report.similarCases as Array<{ title?: string; caseStudy?: { sourceTitle?: string; sourceUrl?: string } }> | null) ?? [],
-  });
+  const artifact = await ensureCanonicalReportArtifact(input);
   const safeCompany = lead.company.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") || "Business";
   const adminEmail = await getAdminNotificationEmail();
   const deliveries: Array<Promise<unknown>> = [
@@ -61,7 +47,7 @@ export async function sendReportNotifications(
       metadata: { reportId: report.id, assessmentId: assessment.id },
       attachments: [{
         filename: `LegalIQ-LHS-Report-${safeCompany}.pdf`,
-        content: pdf,
+        content: artifact.bytes,
         contentType: "application/pdf",
       }],
     }),
@@ -73,7 +59,7 @@ export async function sendReportNotifications(
     }, {
       leadId: lead.id,
       idempotencyKey: `admin-assessment:${report.id}`,
-      metadata: { reportId: report.id, assessmentId: assessment.id },
+      metadata: { reportId: report.id, assessmentId: assessment.id, pdfChecksum: artifact.checksum },
     }));
   }
   const sends = await Promise.allSettled(deliveries);
