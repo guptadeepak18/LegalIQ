@@ -678,8 +678,8 @@ router.get("/admin/leads/:id", requireAuth, requirePermission("leads:view"), asy
 
 router.post("/admin/reassessment-grants", requireAuth, requirePermission("leads:update"), async (req: AuthRequest, res) => {
   const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
-  if (!email.endsWith("@gmail.com") || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    res.status(400).json({ success: false, message: "Enter the user's verified Gmail address" });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(400).json({ success: false, message: "Enter the user's verified email address" });
     return;
   }
   if (!req.adminId) {
@@ -693,11 +693,11 @@ router.post("/admin/reassessment-grants", requireAuth, requirePermission("leads:
   }).from(leads).where(sql`lower(${leads.email}) = ${email}`);
   const accountIds = [...new Set(matchingLeads.map((lead) => lead.clerkUserId).filter((id): id is string => Boolean(id)))];
   if (accountIds.length === 0) {
-    res.status(404).json({ success: false, message: "No LegalIQ account was found for that Gmail address" });
+    res.status(404).json({ success: false, message: "No LegalIQ account was found for that email address" });
     return;
   }
   if (accountIds.length > 1) {
-    res.status(409).json({ success: false, message: "That Gmail address is linked to more than one account; contact support before granting access" });
+    res.status(409).json({ success: false, message: "That email address is linked to more than one account; contact support before granting access" });
     return;
   }
 
@@ -709,7 +709,7 @@ router.post("/admin/reassessment-grants", requireAuth, requirePermission("leads:
   if (!matchingVerifiedEmail) {
     res.status(409).json({
       success: false,
-      message: "That Gmail address is not currently verified on the linked LegalIQ account",
+      message: "That email address is not currently verified on the linked LegalIQ account",
     });
     return;
   }

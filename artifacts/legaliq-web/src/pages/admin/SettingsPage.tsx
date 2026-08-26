@@ -272,8 +272,8 @@ export default function SettingsPage() {
 
   async function handleGrantReassessment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!grantEmail.trim().toLowerCase().endsWith("@gmail.com")) {
-      toast.error("Enter the user's verified Gmail address");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(grantEmail.trim())) {
+      toast.error("Enter the user's verified email address");
       return;
     }
     setGrantingAccess(true);
@@ -458,13 +458,13 @@ export default function SettingsPage() {
             </p>
             <form onSubmit={handleGrantReassessment} className="flex flex-col sm:flex-row gap-3 max-w-2xl">
               <label className="flex-1">
-                <span className="type-caption liq-text-2 mb-1.5 block">User's verified Gmail address</span>
+                <span className="type-caption liq-text-2 mb-1.5 block">User's verified email address</span>
                 <input
                   className="liq-input w-full"
                   type="email"
                   value={grantEmail}
                   onChange={(event) => setGrantEmail(event.target.value)}
-                  placeholder="user@gmail.com"
+                  placeholder="user@example.com"
                   autoComplete="off"
                 />
               </label>
