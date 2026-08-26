@@ -32,6 +32,28 @@ const REQUIRED_TEMPLATES = [
     `,
     variables: "{{leadName}}, {{company}}, {{score}}, {{grade}}, {{riskLevel}}, {{adminUrl}}",
   },
+  {
+    eventKey: "consultation_schedule_confirmed",
+    name: "Consultation — Schedule Confirmed",
+    description: "Sent to the registered user after an admin confirms or changes the consultation schedule.",
+    subject: "Consultation {{status}} — {{confirmedDate}} at {{confirmedTime}}",
+    htmlBody: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#0A0A0A;color:#F0EDE8;border-radius:16px;">
+        <h1 style="margin:0 0 20px;color:#C9A84C;font-size:24px;">Consultation Schedule Confirmed</h1>
+        <p style="line-height:1.6;">Hi {{name}}, your LegalIQ consultation request has been reviewed by the Rest The Case team.</p>
+        <table style="width:100%;margin:24px 0;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#9B8E82;">Status</td><td style="padding:8px 0;font-weight:700;">{{status}}</td></tr>
+          <tr><td style="padding:8px 0;color:#9B8E82;">Confirmed date</td><td style="padding:8px 0;font-weight:700;">{{confirmedDate}}</td></tr>
+          <tr><td style="padding:8px 0;color:#9B8E82;">Day</td><td style="padding:8px 0;font-weight:700;">{{confirmedDay}}</td></tr>
+          <tr><td style="padding:8px 0;color:#9B8E82;">Time</td><td style="padding:8px 0;font-weight:700;">{{confirmedTime}}</td></tr>
+          <tr><td style="padding:8px 0;color:#9B8E82;">Advocate</td><td style="padding:8px 0;font-weight:700;">{{advocate}}</td></tr>
+        </table>
+        <p style="line-height:1.6;"><strong>Consultation details:</strong><br />{{notes}}</p>
+        <p style="line-height:1.6;color:#B8AEA4;">Our attorney will call you at your registered number. If you need to request a change, return to your LegalIQ report and choose Reschedule Consultation.</p>
+      </div>
+    `,
+    variables: "{{name}}, {{company}}, {{status}}, {{confirmedDate}}, {{confirmedDay}}, {{confirmedTime}}, {{advocate}}, {{notes}}",
+  },
 ] as const;
 
 export async function ensureRequiredEmailTemplates(): Promise<void> {

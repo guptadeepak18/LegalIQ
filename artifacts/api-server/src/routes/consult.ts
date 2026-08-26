@@ -8,6 +8,46 @@ import { logger } from "../lib/logger.js";
 
 const router = Router();
 
+type ConsultationHistoryEntry = {
+  type: string;
+  status: string;
+  requestedDate?: string | null;
+  requestedTime?: string | null;
+  confirmedDate?: string | null;
+  confirmedDay?: string | null;
+  confirmedTime?: string | null;
+  advocate?: string | null;
+  notes?: string | null;
+  createdAt: string;
+};
+
+function historyEntry(
+  type: string,
+  consultation: typeof consultations.$inferSelect,
+  overrides: Partial<ConsultationHistoryEntry> = {},
+): ConsultationHistoryEntry {
+  return {
+    type,
+    status: consultation.status ?? "Requested",
+    requestedDate: consultation.date,
+    requestedTime: consultation.time,
+    confirmedDate: consultation.confirmedDate,
+    confirmedDay: consultation.confirmedDay,
+    confirmedTime: consultation.confirmedTime,
+    advocate: consultation.advocate,
+    notes: consultation.notes,
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function consultationResponse(consultation: typeof consultations.$inferSelect) {
+  return {
+    ...consultation,
+    history: (consultation.history ?? []) as ConsultationHistoryEntry[],
+  };
+}
+
 router.post("/consult", async (req, res) => {
   const { leadId, date, time, notes } = req.body as {
     leadId: string;
@@ -27,20 +67,44 @@ router.post("/consult", async (req, res) => {
     return;
   }
 
-  // Prevent duplicate records: if this lead already has a consultation, update it
+  // Prevent duplicate records: if this lead already has a consultation, treat this
+  // booking as a new request on the same consultation record. A prior confirmed
+  // schedule remains intact until an admin reviews the new request.
   const [existing] = await db.select().from(consultations).where(eq(consultations.leadId, leadId));
   let consultation: typeof consultations.$inferSelect;
   if (existing) {
+    const previousHistory = (existing.history ?? []) as ConsultationHistoryEntry[];
+    const requestType = existing.scheduledAt ? "reschedule_requested" : "details_updated";
     const [updated] = await db
       .update(consultations)
       .set({ date, time, notes, status: "Requested", updatedAt: new Date() })
       .where(eq(consultations.leadId, leadId))
       .returning();
-    consultation = updated;
+    const history = [...previousHistory, historyEntry(requestType, updated)];
+    const [withHistory] = await db
+      .update(consultations)
+      .set({ history })
+      .where(eq(consultations.id, updated.id))
+      .returning();
+    consultation = withHistory;
   } else {
     const [inserted] = await db
       .insert(consultations)
-      .values({ leadId, date, time, notes, status: "Requested" })
+      .values({
+        leadId,
+        date,
+        time,
+        notes,
+        status: "Requested",
+        history: [{
+          type: "booking_requested",
+          status: "Requested",
+          requestedDate: date,
+          requestedTime: time,
+          notes: notes ?? null,
+          createdAt: new Date().toISOString(),
+        }],
+      })
       .returning();
     consultation = inserted;
   }
@@ -58,16 +122,8 @@ router.post("/consult", async (req, res) => {
   const appUrl = process.env.APP_URL ?? "";
   const adminEmail = await getAdminNotificationEmail();
 
-  // Non-blocking template notifications
-  sendTemplateEmail("consult_confirmed", lead.email, {
-    name: lead.name,
-    company: lead.company,
-    date,
-    time,
-    notes: notes ?? "",
-  }, { leadId: lead.id }).catch(
-    (err) => logger.error({ err, eventKey: "consult_confirmed", leadId: lead.id }, "Consultation confirmation email failed")
-  );
+  // User notifications are intentionally deferred until an admin confirms the
+  // final schedule. Booking only notifies the internal admin inbox.
   sendTemplateEmail("admin_consult_booked", adminEmail, {
     leadName: lead.name,
     company: lead.company,
@@ -79,7 +135,57 @@ router.post("/consult", async (req, res) => {
     (err) => logger.error({ err, eventKey: "admin_consult_booked", leadId: lead.id }, "Admin consultation email failed")
   );
 
-  res.json({ success: true, consultationId: consultation.id, status: consultation.status });
+  res.json({ success: true, consultationId: consultation.id, status: consultation.status, consultation: consultationResponse(consultation) });
+});
+
+router.get("/consult/:leadId", async (req, res) => {
+  const leadId = String(req.params.leadId ?? "");
+  if (!leadId) {
+    res.status(400).json({ success: false, message: "leadId is required" });
+    return;
+  }
+  const [lead] = await db.select({ id: leads.id }).from(leads).where(eq(leads.id, leadId));
+  if (!lead) {
+    res.status(404).json({ success: false, message: "Lead not found" });
+    return;
+  }
+  const [consultation] = await db.select().from(consultations).where(eq(consultations.leadId, leadId));
+  res.json({ success: true, consultation: consultation ? consultationResponse(consultation) : null });
+});
+
+router.patch("/consult/:leadId", async (req, res) => {
+  const leadId = String(req.params.leadId ?? "");
+  const { date, time, notes } = req.body as { date?: string; time?: string; notes?: string };
+  if (!leadId || !date || !time) {
+    res.status(400).json({ success: false, message: "leadId, date, and time are required" });
+    return;
+  }
+
+  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
+  if (!lead) {
+    res.status(404).json({ success: false, message: "Lead not found" });
+    return;
+  }
+  const [existing] = await db.select().from(consultations).where(eq(consultations.leadId, leadId));
+  if (!existing) {
+    res.status(404).json({ success: false, message: "No consultation found for this lead" });
+    return;
+  }
+
+  const previousHistory = (existing.history ?? []) as ConsultationHistoryEntry[];
+  const type = existing.scheduledAt ? "reschedule_requested" : "details_updated";
+  const [updated] = await db
+    .update(consultations)
+    .set({ date, time, notes: notes ?? "", status: "Requested", updatedAt: new Date() })
+    .where(eq(consultations.id, existing.id))
+    .returning();
+  const [withHistory] = await db
+    .update(consultations)
+    .set({ history: [...previousHistory, historyEntry(type, updated)] })
+    .where(eq(consultations.id, existing.id))
+    .returning();
+
+  res.json({ success: true, consultation: consultationResponse(withHistory) });
 });
 
 export default router;

@@ -493,13 +493,11 @@ router.get("/admin/leads", requireAuth, requirePermission("leads:view"), async (
   const dateFrom = req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined;
   const hasConsultation = req.query.hasConsultation === "true";
   const consultationStatus = req.query.consultationStatus as string | undefined;
-  const offset = (page - 1) * limit;
-
   const allLeads = await db.select({
     id: leads.id, name: leads.name, company: leads.company, businessType: leads.businessType,
     city: leads.city, email: leads.email, phone: leads.phone, createdAt: leads.createdAt,
     totalScore: assessments.totalScore, riskLevel: assessments.riskLevel, status: assessments.status,
-  }).from(leads).leftJoin(assessments, eq(leads.id, assessments.leadId)).orderBy(desc(leads.createdAt)).limit(limit).offset(offset);
+  }).from(leads).leftJoin(assessments, eq(leads.id, assessments.leadId)).orderBy(desc(leads.createdAt));
 
   let filtered = allLeads;
   if (search) { const s = search.toLowerCase(); filtered = filtered.filter((l) => l.name.toLowerCase().includes(s) || l.company.toLowerCase().includes(s) || l.email?.toLowerCase().includes(s)); }
@@ -518,10 +516,11 @@ router.get("/admin/leads", requireAuth, requirePermission("leads:view"), async (
     filtered = filtered.filter((l) => ids.has(l.id));
   }
 
-  const [totalResult] = await db.select({ count: count() }).from(leads);
+  const total = filtered.length;
+  const paginated = filtered.slice((page - 1) * limit, page * limit);
   const businessTypes = await db.selectDistinct({ businessType: leads.businessType }).from(leads).orderBy(leads.businessType);
 
-  res.json({ success: true, leads: filtered, total: totalResult.count, page, totalPages: Math.ceil(totalResult.count / limit), businessTypes: businessTypes.map((b) => b.businessType) });
+  res.json({ success: true, leads: paginated, total, page, totalPages: Math.ceil(total / limit), businessTypes: businessTypes.map((b) => b.businessType) });
 });
 
 // ── GET /admin/leads/:id ─────────────────────────────────────────────────────
@@ -552,6 +551,11 @@ router.get("/admin/leads/:id", requireAuth, requirePermission("leads:view"), asy
         time: consultation.time,
         notes: consultation.notes,
         scheduledAt: consultation.scheduledAt,
+        confirmedDate: consultation.confirmedDate,
+        confirmedDay: consultation.confirmedDay,
+        confirmedTime: consultation.confirmedTime,
+        advocate: consultation.advocate,
+        history: consultation.history ?? [],
         createdAt: consultation.createdAt,
         updatedAt: consultation.updatedAt,
       } : null,
@@ -569,29 +573,83 @@ router.patch("/admin/leads/:id/consultation", requireAuth, requirePermission("le
   const rawId = req.params.id;
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
   if (!id) { res.status(400).json({ success: false, message: "Lead id is required" }); return; }
-  const body = (req.body ?? {}) as { status?: string; scheduledAt?: string | null };
-  const { status, scheduledAt } = body;
+  const body = (req.body ?? {}) as { status?: string; scheduledAt?: string | null; advocate?: string | null };
+  const { status, scheduledAt, advocate } = body;
 
   if (!status) { res.status(400).json({ success: false, message: "status is required" }); return; }
 
-  const VALID_STATUSES = ["Requested", "Scheduled", "Completed", "Cancelled", "No Show"];
+  const VALID_STATUSES = ["Requested", "Scheduled", "Confirmed", "Completed", "Cancelled", "No Show"];
   if (!VALID_STATUSES.includes(status)) {
     res.status(400).json({ success: false, message: `status must be one of: ${VALID_STATUSES.join(", ")}` }); return;
   }
 
-  const updateData: { status: string; scheduledAt?: Date | null; updatedAt: Date } = {
-    status, updatedAt: new Date(),
-  };
-  if (scheduledAt !== undefined) {
-    updateData.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;
+  const [existing] = await db.select().from(consultations).where(eq(consultations.leadId, String(id)));
+  const [lead] = await db.select().from(leads).where(eq(leads.id, String(id)));
+  if (!existing || !lead) {
+    res.status(404).json({ success: false, message: "Consultation not found" }); return;
+  }
+  if (status === "Confirmed" && !scheduledAt && !existing.scheduledAt) {
+    res.status(400).json({ success: false, message: "A confirmed date and time are required" }); return;
   }
 
-  await db.update(consultations).set(updateData).where(eq(consultations.leadId, String(id)));
+  const nextScheduledAt = scheduledAt ? new Date(scheduledAt) : existing.scheduledAt;
+  const scheduleDate = nextScheduledAt
+    ? nextScheduledAt.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" })
+    : existing.confirmedDate;
+  const scheduleDay = nextScheduledAt
+    ? nextScheduledAt.toLocaleDateString("en-IN", { weekday: "long", timeZone: "Asia/Kolkata" })
+    : existing.confirmedDay;
+  const scheduleTime = nextScheduledAt
+    ? nextScheduledAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+    : existing.confirmedTime;
+  const nextAdvocate = advocate !== undefined ? advocate : existing.advocate;
+  const history: NonNullable<typeof existing.history> = [
+    ...(existing.history ?? []),
+    {
+      type: status === "Confirmed" ? "schedule_confirmed" : "status_updated",
+      status,
+      requestedDate: existing.date,
+      requestedTime: existing.time,
+      confirmedDate: scheduleDate,
+      confirmedDay: scheduleDay,
+      confirmedTime: scheduleTime,
+      advocate: nextAdvocate,
+      notes: existing.notes,
+      createdAt: new Date().toISOString(),
+    },
+  ];
+  const scheduleChanged = !!nextScheduledAt &&
+    (!existing.scheduledAt || existing.scheduledAt.getTime() !== nextScheduledAt.getTime() || existing.advocate !== nextAdvocate);
+  const [updated] = await db.update(consultations).set({
+    status,
+    scheduledAt: nextScheduledAt,
+    confirmedDate: scheduleDate,
+    confirmedDay: scheduleDay,
+    confirmedTime: scheduleTime,
+    advocate: nextAdvocate,
+    history,
+    updatedAt: new Date(),
+  }).where(eq(consultations.leadId, String(id))).returning();
 
   // Invalidate per-lead AI insights cache so next generation picks up new status
   leadInsightsCache.delete(id);
 
-  res.json({ success: true });
+  if (status === "Confirmed" && (existing.status !== "Confirmed" || scheduleChanged)) {
+    await sendTemplateEmail("consultation_schedule_confirmed", lead.email, {
+      name: lead.name,
+      company: lead.company,
+      status: "Confirmed",
+      confirmedDate: scheduleDate ?? "",
+      confirmedDay: scheduleDay ?? "",
+      confirmedTime: scheduleTime ?? "",
+      advocate: nextAdvocate || "Rest The Case legal team",
+      notes: existing.notes || "Your consultation will cover the legal concerns identified in your LegalIQ report.",
+    }, { leadId: lead.id }).catch((err) =>
+      logger.error({ err, eventKey: "consultation_schedule_confirmed", leadId: lead.id }, "Consultation confirmation email failed")
+    );
+  }
+
+  res.json({ success: true, consultation: updated });
 });
 
 // ── PATCH /admin/leads/:id/status ────────────────────────────────────────────

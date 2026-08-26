@@ -25,11 +25,20 @@ import {
 
 interface ConsultationRecord {
   id: string;
-  status: string;               // Requested | Scheduled | Completed | Cancelled | No Show
+  status: string;
   date: string | null;          // user-selected date text
   time: string | null;          // user-selected time text
   notes: string | null;
   scheduledAt: string | null;   // admin-confirmed ISO timestamp
+  confirmedDate: string | null;
+  confirmedDay: string | null;
+  confirmedTime: string | null;
+  advocate: string | null;
+  history: Array<{
+    type: string; status: string; requestedDate?: string | null; requestedTime?: string | null;
+    confirmedDate?: string | null; confirmedDay?: string | null; confirmedTime?: string | null;
+    advocate?: string | null; notes?: string | null; createdAt: string;
+  }>;
   createdAt: string;
   updatedAt: string | null;
 }
@@ -84,12 +93,13 @@ interface AIInsights {
 
 // ── Consultation status config ─────────────────────────────────────────────────
 
-const CONSULT_STATUSES = ["Requested", "Scheduled", "Completed", "Cancelled", "No Show"] as const;
+const CONSULT_STATUSES = ["Requested", "Scheduled", "Confirmed", "Completed", "Cancelled", "No Show"] as const;
 type ConsultStatus = typeof CONSULT_STATUSES[number];
 
 const CONSULT_STATUS_META: Record<ConsultStatus, { color: string; bg: string; border: string; label: string }> = {
   Requested:  { color: "#F59E0B", bg: "rgba(245,158,11,0.10)",  border: "rgba(245,158,11,0.30)",  label: "Requested" },
   Scheduled:  { color: "#3B82F6", bg: "rgba(59,130,246,0.10)",  border: "rgba(59,130,246,0.30)",  label: "Scheduled" },
+  Confirmed:  { color: "#22C55E", bg: "rgba(34,197,94,0.10)",  border: "rgba(34,197,94,0.30)",  label: "Confirmed" },
   Completed:  { color: "#22C55E", bg: "rgba(34,197,94,0.10)",   border: "rgba(34,197,94,0.30)",   label: "Completed" },
   Cancelled:  { color: "#EF4444", bg: "rgba(239,68,68,0.10)",   border: "rgba(239,68,68,0.30)",   label: "Cancelled" },
   "No Show":  { color: "#8B5CF6", bg: "rgba(139,92,246,0.10)",  border: "rgba(139,92,246,0.30)",  label: "No Show" },
@@ -207,6 +217,7 @@ export default function LeadDetailPage() {
   // Consultation management state
   const [updatingConsultation, setUpdatingConsultation] = useState(false);
   const [scheduledAtInput, setScheduledAtInput] = useState("");
+  const [advocateInput, setAdvocateInput] = useState("");
   const canUpdateLeads = hasAdminPermission(profile, "leads:update");
   const canUseAi = hasAdminPermission(profile, "ai");
 
@@ -225,6 +236,7 @@ export default function LeadDetailPage() {
           const d = new Date(res.lead.consultation.scheduledAt);
           setScheduledAtInput(d.toISOString().slice(0, 16));
         }
+        setAdvocateInput(res.lead.consultation?.advocate ?? "");
       })
       .catch(() => { toast.error("Lead not found"); navigate("/admin/leads"); })
       .finally(() => setLoading(false));
@@ -245,11 +257,18 @@ export default function LeadDetailPage() {
     if (!lead?.id || !canUpdateLeads) return;
     setUpdatingConsultation(true);
     try {
-      const body: { status: string; scheduledAt?: string | null } = { status };
-      if (status === "Scheduled") body.scheduledAt = scheduledAtInput || null;
-      else body.scheduledAt = null; // clear scheduled time for non-scheduled statuses
+      if (status === "Confirmed" && !scheduledAtInput) {
+        toast.error("Set the final consultation date and time before confirming");
+        setUpdatingConsultation(false);
+        return;
+      }
+      const body: { status: string; scheduledAt?: string | null; advocate?: string } = {
+        status,
+        advocate: advocateInput.trim(),
+      };
+      if (status === "Scheduled" || status === "Confirmed") body.scheduledAt = scheduledAtInput || null;
 
-      await apiFetch(`/admin/leads/${lead.id}/consultation`, {
+      const result = await apiFetch<{ success: boolean; consultation: ConsultationRecord }>(`/admin/leads/${lead.id}/consultation`, {
         method: "PATCH",
         headers: authHeaders(),
         body: JSON.stringify(body),
@@ -259,18 +278,10 @@ export default function LeadDetailPage() {
         if (!prev) return prev;
         return {
           ...prev,
-          consultation: prev.consultation
-            ? {
-                ...prev.consultation,
-                status,
-                scheduledAt: status === "Scheduled" && scheduledAtInput ? scheduledAtInput : null,
-                updatedAt: new Date().toISOString(),
-              }
-            : prev.consultation,
+          consultation: result.consultation,
         };
       });
       toast.success(`Consultation → ${status}`);
-      if (status !== "Scheduled") setScheduledAtInput("");
     } catch {
       toast.error("Failed to update consultation status");
     } finally {
@@ -640,6 +651,16 @@ export default function LeadDetailPage() {
                 </div>
               )}
 
+              {lead.consultation.confirmedDate && (
+                <div className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+                  <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-1">Final Confirmed Schedule</p>
+                  <p className="text-sm font-semibold liq-text-1">
+                    {lead.consultation.confirmedDay}, {lead.consultation.confirmedDate} · {lead.consultation.confirmedTime}
+                  </p>
+                  <p className="text-xs liq-text-3 mt-1">Advocate: {lead.consultation.advocate || "Rest The Case legal team"}</p>
+                </div>
+              )}
+
               {/* User notes */}
               {lead.consultation.notes && (
                 <div className="p-3 rounded-xl border" style={{ borderColor: "rgba(201,168,76,0.12)", background: "rgba(201,168,76,0.04)" }}>
@@ -682,16 +703,43 @@ export default function LeadDetailPage() {
                       onChange={(e) => setScheduledAtInput(e.target.value)}
                       className="liq-input text-xs py-1.5 w-full" />
                   </div>
-                  {scheduledAtInput && lead.consultation?.status !== "Scheduled" && (
-                    <button onClick={() => updateConsultationStatus("Scheduled")}
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold liq-text-3 uppercase tracking-wider mb-1.5 block">Advocate / Team</label>
+                    <input value={advocateInput} onChange={(e) => setAdvocateInput(e.target.value)}
+                      placeholder="Rest The Case legal team" className="liq-input text-xs py-1.5 w-full" />
+                  </div>
+                  {scheduledAtInput && lead.consultation?.status !== "Confirmed" && (
+                    <button onClick={() => updateConsultationStatus("Confirmed")}
                       disabled={updatingConsultation}
                       className="flex-shrink-0 text-xs font-bold px-4 py-1.5 rounded-xl disabled:opacity-40 transition-all"
-                      style={{ background: "#3B82F6", color: "#fff" }}>
-                      {updatingConsultation ? "Saving…" : "Mark Scheduled"}
+                      style={{ background: "#22C55E", color: "#fff" }}>
+                      {updatingConsultation ? "Confirming…" : "Confirm & Email User"}
                     </button>
                   )}
                 </div>
               </div>
+              )}
+
+              {lead.consultation.history?.length > 0 && (
+                <div className="border-t pt-4" style={{ borderColor: "var(--nav-border)" }}>
+                  <p className="text-[10px] font-bold liq-text-3 uppercase tracking-wider mb-2.5">Consultation History</p>
+                  <div className="space-y-2 max-h-56 overflow-y-auto">
+                    {[...lead.consultation.history].reverse().map((entry, index) => (
+                      <div key={`${entry.createdAt}-${index}`} className="p-2.5 rounded-lg border text-xs"
+                        style={{ borderColor: "var(--nav-border)", background: "var(--card-glass-bg)" }}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold liq-text-1">{entry.type.replace(/_/g, " ")}</span>
+                          <span className="liq-text-4">{new Date(entry.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+                        </div>
+                        <p className="liq-text-3 mt-1">
+                          Status: {entry.status}
+                          {entry.requestedDate ? ` · Requested ${entry.requestedDate} at ${entry.requestedTime ?? ""}` : ""}
+                          {entry.confirmedDate ? ` · Confirmed ${entry.confirmedDate} at ${entry.confirmedTime ?? ""}` : ""}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           ) : (

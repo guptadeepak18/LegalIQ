@@ -115,10 +115,26 @@ export const consultations = pgTable("consultations", {
   date: text("date"),
   time: text("time"),
   notes: text("notes"),
-  // Status: Requested | Scheduled | Completed | Cancelled | No Show
+  // Status: Requested | Scheduled | Confirmed | Completed | Cancelled | No Show
   status: text("status").default("Requested"),
   // Admin-set confirmed scheduled date/time
   scheduledAt: timestamp("scheduled_at"),
+  confirmedDate: text("confirmed_date"),
+  confirmedDay: text("confirmed_day"),
+  confirmedTime: text("confirmed_time"),
+  advocate: text("advocate"),
+  history: jsonb("history").$type<Array<{
+    type: string;
+    status: string;
+    requestedDate?: string | null;
+    requestedTime?: string | null;
+    confirmedDate?: string | null;
+    confirmedDay?: string | null;
+    confirmedTime?: string | null;
+    advocate?: string | null;
+    notes?: string | null;
+    createdAt: string;
+  }>>().default([]),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

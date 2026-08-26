@@ -123,7 +123,7 @@ interface FilterState {
   scoreMin: string;
   scoreMax: string;
   consultationsOnly: boolean;
-  consultationStatus: string;  // Requested | Scheduled | Completed | Cancelled | No Show | ""
+  consultationStatus: string;  // Requested | Scheduled | Confirmed | Completed | Cancelled | No Show | ""
 }
 
 function SmartFilter({
@@ -305,11 +305,12 @@ function SmartFilter({
               <div>
                 <label className="text-[10px] font-bold liq-text-3 uppercase tracking-widest mb-1.5 block">Consultation Status</label>
                 <div className="flex flex-wrap gap-1.5">
-                  {(["", "Requested", "Scheduled", "Completed", "Cancelled", "No Show"] as const).map((v) => {
+                  {(["", "Requested", "Scheduled", "Confirmed", "Completed", "Cancelled", "No Show"] as const).map((v) => {
                     const isActive = filters.consultationStatus === v;
                     const colorMap: Record<string, { text: string; bg: string; border: string }> = {
                       Requested: { text: "#F59E0B", bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.30)" },
                       Scheduled: { text: "#3B82F6", bg: "rgba(59,130,246,0.10)", border: "rgba(59,130,246,0.30)" },
+                      Confirmed: { text: "#22C55E", bg: "rgba(34,197,94,0.10)", border: "rgba(34,197,94,0.30)" },
                       Completed: { text: "#22C55E", bg: "rgba(34,197,94,0.10)", border: "rgba(34,197,94,0.30)" },
                       Cancelled: { text: "#EF4444", bg: "rgba(239,68,68,0.10)", border: "rgba(239,68,68,0.30)" },
                       "No Show": { text: "#8B5CF6", bg: "rgba(139,92,246,0.10)", border: "rgba(139,92,246,0.30)" },
@@ -639,6 +640,7 @@ export default function LeadsPage() {
                   color={
                     filters.consultationStatus === "Requested" ? "#F59E0B" :
                     filters.consultationStatus === "Scheduled" ? "#3B82F6" :
+                    filters.consultationStatus === "Confirmed" ? "#22C55E" :
                     filters.consultationStatus === "Completed" ? "#22C55E" :
                     filters.consultationStatus === "Cancelled" ? "#EF4444" : "#8B5CF6"
                   }

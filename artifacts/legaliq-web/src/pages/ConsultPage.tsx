@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Calendar, Clock, CheckCircle, Loader2, ArrowLeft, Download, FileText } from "lucide-react";
+import { Calendar, Clock, CheckCircle, Loader2, ArrowLeft, Download, FileText, RefreshCw } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
@@ -30,6 +30,19 @@ function getAvailableDates(): { label: string; value: string }[] {
   return dates;
 }
 
+interface ConsultationRecord {
+  id: string;
+  status: string;
+  date: string | null;
+  time: string | null;
+  notes: string | null;
+  scheduledAt: string | null;
+  confirmedDate: string | null;
+  confirmedDay: string | null;
+  confirmedTime: string | null;
+  advocate: string | null;
+}
+
 export default function ConsultPage() {
   const [, navigate] = useLocation();
   const store = useStore();
@@ -38,8 +51,30 @@ export default function ConsultPage() {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [consultation, setConsultation] = useState<ConsultationRecord | null>(null);
+  const [consultationLoading, setConsultationLoading] = useState(true);
+  const [editKind, setEditKind] = useState<"update" | "reschedule" | null>(null);
   const [brochureDownloading, setBrochureDownloading] = useState(false);
   const dates = getAvailableDates();
+
+  useEffect(() => {
+    if (!store.leadId) {
+      setConsultationLoading(false);
+      return;
+    }
+    apiFetch<{ success: boolean; consultation: ConsultationRecord | null }>(`/consult/${store.leadId}`)
+      .then((res) => {
+        setConsultation(res.consultation);
+        if (res.consultation) {
+          setSelectedDate(res.consultation.date ?? "");
+          setSelectedTime(res.consultation.time ?? "");
+          setNotes(res.consultation.notes ?? "");
+          setDone(true);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => setConsultationLoading(false));
+  }, [store.leadId]);
 
   async function handleDownloadBrochure() {
     setBrochureDownloading(true);
@@ -65,11 +100,14 @@ export default function ConsultPage() {
     }
     setLoading(true);
     try {
-      await apiFetch("/consult", {
-        method: "POST",
+      const res = await apiFetch<{ consultation: ConsultationRecord }>(consultation ? `/consult/${store.leadId}` : "/consult", {
+        method: consultation ? "PATCH" : "POST",
         body: JSON.stringify({ leadId: store.leadId, date: selectedDate, time: selectedTime, notes }),
       });
+      setConsultation(res.consultation);
       setDone(true);
+      setEditKind(null);
+      toast.success(consultation ? "Your consultation request was updated" : "Your consultation request was submitted");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Booking failed");
     } finally {
@@ -77,7 +115,12 @@ export default function ConsultPage() {
     }
   }
 
-  if (done) {
+  if (consultationLoading) {
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 size={28} className="animate-spin text-[#C9A84C]" /></div>;
+  }
+
+  if (done && consultation) {
+    const isConfirmed = consultation.status === "Confirmed";
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
         <LogoWatermark />
@@ -87,16 +130,28 @@ export default function ConsultPage() {
           animate={{ scale: 1, opacity: 1 }}
           className="glass-card rounded-2xl p-10 max-w-md w-full"
         >
-          <CheckCircle size={56} className="text-emerald-400 mx-auto mb-4" />
-          <h2 className="type-h2 liq-text-1 mb-2">Consultation Confirmed!</h2>
+          <CheckCircle size={56} className={isConfirmed ? "text-emerald-400 mx-auto mb-4" : "text-[#C9A84C] mx-auto mb-4"} />
+          <h2 className="type-h2 liq-text-1 mb-2">{isConfirmed ? "Consultation Confirmed" : "Consultation Request Sent"}</h2>
           <p className="type-body-sm liq-text-2 mb-4">
-            Your free 30-minute consultation with a Rest The Case attorney is booked for<br />
-            <strong className="text-[#C9A84C]">{selectedDate}</strong> at <strong className="text-[#C9A84C]">{selectedTime}</strong>.
+            {isConfirmed ? <>Your final consultation schedule is<br />
+              <strong className="text-[#C9A84C]">{consultation.confirmedDay}, {consultation.confirmedDate}</strong> at <strong className="text-[#C9A84C]">{consultation.confirmedTime}</strong>.</>
+              : <>Your requested slot is<br /><strong className="text-[#C9A84C]">{consultation.date}</strong> at <strong className="text-[#C9A84C]">{consultation.time}</strong>.</>}
           </p>
           <p className="type-caption liq-text-3 mb-6">
-            A confirmation has been sent to <strong className="text-[#C9A84C]">{store.email}</strong>.
-            Our attorney will call you at your registered number.
+            {isConfirmed
+              ? <>A schedule confirmation was sent to <strong className="text-[#C9A84C]">{store.email}</strong>. {consultation.advocate ? `${consultation.advocate} will handle your consultation.` : "Our legal team will call your registered number."}</>
+              : "The Rest The Case team will review your request. You will receive an email only after the final date and time are confirmed."}
           </p>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <button onClick={() => { setEditKind("update"); setDone(false); }}
+              className="border border-[#C9A84C]/30 text-[#C9A84C] font-bold py-2.5 rounded-xl transition-all">
+              Update Details
+            </button>
+            <button onClick={() => { setEditKind("reschedule"); setSelectedDate(""); setSelectedTime(""); setDone(false); }}
+              className="border border-[#C9A84C]/30 text-[#C9A84C] font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5">
+              <RefreshCw size={14} /> Reschedule
+            </button>
+          </div>
           <button
             onClick={() => navigate("/results")}
             className="w-full bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold py-3 rounded-xl transition-all"
@@ -140,8 +195,8 @@ export default function ConsultPage() {
               <Calendar size={18} className="text-[#C9A84C]" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="type-h2 liq-text-1">Book Free Consultation</h2>
-              <p className="type-caption liq-text-3">30-min call with a Rest The Case attorney</p>
+              <h2 className="type-h2 liq-text-1">{editKind === "reschedule" ? "Reschedule Consultation" : consultation ? "Update Consultation" : "Book Free Consultation"}</h2>
+              <p className="type-caption liq-text-3">{consultation ? "Changes are reviewed before the final schedule is confirmed" : "30-min call with a Rest The Case attorney"}</p>
             </div>
           </div>
 
@@ -222,11 +277,11 @@ export default function ConsultPage() {
             disabled={loading || !selectedDate || !selectedTime}
             className="w-full bg-[#C9A84C] hover:bg-[#E2C97E] text-[#0A0A0A] font-bold py-3.5 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : <><Calendar size={16} /> Confirm Booking</>}
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <><Calendar size={16} /> {consultation ? "Submit Changes for Review" : "Submit Consultation Request"}</>}
           </button>
 
           <p className="type-caption liq-text-4 text-center mt-3">
-            Free of charge · Our attorney calls you · No sales pitch
+            Free of charge · Final schedule is confirmed by our team · No sales pitch
           </p>
         </motion.div>
       </div>

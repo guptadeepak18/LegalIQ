@@ -8,7 +8,7 @@
 
 import { db } from "@workspace/db";
 import { consultations, assessments, leads } from "@workspace/db";
-import { eq, and, gte, lt, isNull } from "drizzle-orm";
+import { eq, and, gte, lt, isNull, isNotNull, inArray } from "drizzle-orm";
 import { sendTemplateEmail } from "./emailTemplates.js";
 import { logger } from "../lib/logger.js";
 
@@ -23,17 +23,16 @@ async function sendConsultationReminders(): Promise<void> {
     const windowStart = new Date(now.getTime() + 22 * 60 * 60 * 1000); // 22 h from now
     const windowEnd   = new Date(now.getTime() + 26 * 60 * 60 * 1000); // 26 h from now
 
-    const startDate = windowStart.toISOString().split("T")[0];
-    const endDate   = windowEnd.toISOString().split("T")[0];
-
     const rows = await db
       .select({ c: consultations, l: leads })
       .from(consultations)
       .innerJoin(leads, eq(leads.id, consultations.leadId))
       .where(
         and(
-          gte(consultations.date, startDate),
-          lt(consultations.date,  endDate)
+          isNotNull(consultations.scheduledAt),
+          inArray(consultations.status, ["Confirmed", "Scheduled"]),
+          gte(consultations.scheduledAt, windowStart),
+          lt(consultations.scheduledAt, windowEnd)
         )
       );
 
@@ -41,8 +40,8 @@ async function sendConsultationReminders(): Promise<void> {
       await sendTemplateEmail("consult_reminder", l.email, {
         name:    l.name,
         company: l.company,
-        date:    c.date ?? "",
-        time:    c.time ?? "",
+        date:    c.confirmedDate ?? c.date ?? "",
+        time:    c.confirmedTime ?? c.time ?? "",
       }, { leadId: l.id }).catch((err) =>
         logger.warn({ err, leadId: l.id }, "Reminder email failed")
       );
