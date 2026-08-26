@@ -11,6 +11,7 @@ import { getAdminNotificationEmail } from "../services/gmail.js";
 import { logger } from "../lib/logger.js";
 import { sendReportNotifications } from "../services/reportNotifications.js";
 import { ensureCanonicalReportArtifact } from "../services/reportArtifact.js";
+import { resolveCaseStudies } from "../data/caseStudies.js";
 
 const router = Router();
 
@@ -168,6 +169,29 @@ router.get("/assessments/:id/report-pdf", async (req, res) => {
     logger.error({ error, assessmentId, reportId: report.id }, "Canonical report PDF unavailable");
     res.status(503).json({ success: false, message: "Your report PDF could not be generated. Please try again shortly." });
   }
+});
+
+router.get("/assessments/:id/case-studies", async (req, res) => {
+  const auth = getAuth(req);
+  if (!auth?.userId) { res.status(401).json({ success: false, message: "Please sign in to continue" }); return; }
+  const assessmentId = String(req.params.id);
+  const [row] = await db.select({ assessment: assessments, lead: leads })
+    .from(assessments)
+    .innerJoin(leads, eq(assessments.leadId, leads.id))
+    .where(eq(assessments.id, assessmentId));
+  if (!row || row.lead.clerkUserId !== auth.userId) {
+    res.status(404).json({ success: false, message: "Assessment not found" });
+    return;
+  }
+  const [report] = await db.select().from(reports).where(eq(reports.assessmentId, assessmentId));
+  if (!report) { res.status(404).json({ success: false, message: "Report not found" }); return; }
+  const similarCases = resolveCaseStudies(
+    report.similarCases,
+    row.lead.businessType,
+    row.lead.category,
+    Array.isArray(report.insights) ? report.insights as Array<{ title?: string; gap?: string; consequence?: string }> : [],
+  );
+  res.json({ success: true, similarCases });
 });
 
 router.get("/admin/assessments/:id/report-pdf", requireAuth, requirePermission("leads:view"), async (req, res) => {

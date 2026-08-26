@@ -5,9 +5,10 @@ import {
   renderReportPDFBytes,
   type ReportData,
 } from "../../../legaliq-web/src/lib/pdfGenerator.js";
-import { readCertificateObject, writePrivatePdf } from "./certificates.js";
+import { deleteCertificateObject, readCertificateObject, writePrivatePdf } from "./certificates.js";
+import { resolveCaseStudies } from "../data/caseStudies.js";
 
-export const REPORT_RENDERER_VERSION = "lhs-jsPDF-v1";
+export const REPORT_RENDERER_VERSION = "lhs-jsPDF-v2-case-studies";
 
 export type ReportArtifactInput = {
   lead: {
@@ -15,6 +16,7 @@ export type ReportArtifactInput = {
     company: string;
     city: string;
     businessType?: string | null;
+    category?: string | null;
   };
   assessment: {
     id: string;
@@ -47,7 +49,16 @@ function list<T>(value: unknown): T[] {
 
 export async function buildCanonicalReportData(input: ReportArtifactInput): Promise<ReportData> {
   if (input.report.pdfRenderSnapshot && typeof input.report.pdfRenderSnapshot === "object") {
-    return input.report.pdfRenderSnapshot as ReportData;
+    const snapshot = input.report.pdfRenderSnapshot as ReportData;
+    return {
+      ...snapshot,
+      similarCases: resolveCaseStudies(
+        input.report.similarCases ?? snapshot.similarCases,
+        input.lead.businessType ?? snapshot.businessType,
+        input.lead.category ?? "",
+        list<{ title?: string; gap?: string; consequence?: string }>(input.report.insights),
+      ),
+    };
   }
   const storedAnswers = await db.select().from(answers).where(eq(answers.assessmentId, input.assessment.id));
   return {
@@ -94,7 +105,7 @@ export async function ensureCanonicalReportArtifact(input: ReportArtifactInput) 
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${input.report.id}))`);
     const [freshReport] = await tx.select().from(reports).where(eq(reports.id, input.report.id));
     if (!freshReport) throw new Error("Report no longer exists");
-    if (freshReport.pdfObjectPath && freshReport.pdfChecksum) {
+    if (freshReport.pdfObjectPath && freshReport.pdfChecksum && freshReport.pdfRendererVersion === REPORT_RENDERER_VERSION) {
       const stored = await readCertificateObject(freshReport.pdfObjectPath);
       if (stored) return {
         bytes: stored.bytes,
@@ -112,6 +123,9 @@ export async function ensureCanonicalReportArtifact(input: ReportArtifactInput) 
       const checksum = createHash("sha256").update(bytes).digest("hex");
       const objectPath = `/objects/lhs-reports/${input.report.id}-${checksum.slice(0, 16)}.pdf`;
       await writePrivatePdf(objectPath, bytes);
+      if (freshReport.pdfObjectPath && freshReport.pdfObjectPath !== objectPath) {
+        await deleteCertificateObject(freshReport.pdfObjectPath).catch(() => undefined);
+      }
       await tx.update(reports).set({
         pdfObjectPath: objectPath,
         pdfChecksum: checksum,

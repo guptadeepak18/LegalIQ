@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { selectCaseStudies } from "../data/caseStudies.js";
+import { resolveCaseStudies, selectCaseStudies } from "../data/caseStudies.js";
 
 const education = selectCaseStudies(
   "B-School and higher education institute",
@@ -35,5 +35,19 @@ assert.ok(
   hospitalityComplaint.every((item) => item.caseStudyId !== "ima-vp-shantha-consumer-protection"),
   "generic service complaints must never qualify a healthcare-only decision",
 );
+
+const contractRisk = selectCaseStudies(
+  "General services business",
+  "Professional services",
+  [{ title: "Contract and agreement exposure", gap: "Client contract terms are incomplete" }],
+);
+assert.ok(contractRisk.length > 0, "common contract risks must still produce relevant sourced cases");
+
+const hydratedLegacy = resolveCaseStudies(
+  [{ caseStudyId: logistics[0]?.caseStudyId, title: logistics[0]?.title, summary: logistics[0]?.summary, relevance: logistics[0]?.relevance, readMoreUrl: logistics[0]?.readMoreUrl }],
+  "Logistics",
+  "Supply chain",
+);
+assert.equal(hydratedLegacy[0]?.caseStudy.provenance.verificationStatus, "verified", "legacy report cards must regain full Read More details");
 
 console.log("caseStudies tests passed");

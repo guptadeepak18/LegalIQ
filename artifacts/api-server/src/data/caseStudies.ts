@@ -374,8 +374,8 @@ const GENERIC_MATCH_TERMS = new Set([
 function matchingTerms(terms: string[], text: string): number {
   return terms.reduce((count, term) => {
     const normalizedTerm = normalise(term);
-    if (GENERIC_MATCH_TERMS.has(normalizedTerm)) return count;
-    return count + (containsTerm(text, normalizedTerm) ? 1 : 0);
+    if (!containsTerm(text, normalizedTerm)) return count;
+    return count + (GENERIC_MATCH_TERMS.has(normalizedTerm) ? 0.25 : 1);
   }, 0);
 }
 
@@ -402,7 +402,7 @@ export function selectCaseStudies(
       // A sector match alone needs at least one specific signal. A highly
       // specific sector phrase (for example, "B-school") is enough on its own.
       const strongSectorMatch = industryMatches >= 2 || entry.industries.some((term) => normalise(term).split(" ").length > 1 && containsTerm(profile, term));
-      const qualifies = (industryMatches > 0 && (riskMatches > 0 || profileKeywordMatches > 0)) || strongSectorMatch && riskMatches > 0;
+      const qualifies = industryMatches > 0 || riskMatches > 0 || profileKeywordMatches > 0 || strongSectorMatch;
       const matchedRisk = risks.find((risk) => matchingTerms(entry.keywords, normalise(`${risk.title ?? ""} ${risk.gap ?? ""} ${risk.consequence ?? ""}`)) > 0);
       return {
         entry,
@@ -411,7 +411,7 @@ export function selectCaseStudies(
         matchedRisk,
       };
     })
-    .filter((candidate) => candidate.qualifies && candidate.score >= 44)
+    .filter((candidate) => candidate.qualifies && candidate.score >= 3)
     .sort((a, b) => b.score - a.score || a.entry.id.localeCompare(b.entry.id))
     .slice(0, 3)
     .map(({ entry, matchedRisk }) => {
@@ -430,4 +430,36 @@ export function selectCaseStudies(
       },
       };
     });
+}
+
+export function resolveCaseStudies(
+  stored: unknown,
+  businessType: string,
+  category: string,
+  risks: Array<{ title?: string; gap?: string; consequence?: string }> = [],
+  fullAnswers = "",
+): SimilarCaseStudy[] {
+  const items = Array.isArray(stored) ? stored : [];
+  const hydrated = items.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Partial<SimilarCaseStudy>;
+    if (record.caseStudy?.provenance?.verificationStatus === "verified") return [record as SimilarCaseStudy];
+    const entry = VERIFIED_CASE_STUDIES.find((candidate) =>
+      candidate.id === record.caseStudyId ||
+      candidate.sourceUrl === record.readMoreUrl ||
+      candidate.cardTitle === record.title
+    );
+    if (!entry) return [];
+    return [{
+      caseStudyId: entry.id,
+      title: record.title || entry.cardTitle,
+      summary: record.summary || entry.cardSummary,
+      relevance: record.relevance || `Matched to the reported ${businessType || category || "business"} profile.`,
+      readMoreUrl: entry.sourceUrl,
+      caseStudy: { ...entry },
+    }];
+  });
+  return hydrated.length > 0
+    ? hydrated.slice(0, 3)
+    : selectCaseStudies(businessType, category, risks, fullAnswers);
 }

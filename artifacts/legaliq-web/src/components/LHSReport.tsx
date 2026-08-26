@@ -293,7 +293,7 @@ export function LHSReport({
   // Do not render legacy free-form examples: only catalog records containing
   // the selected, sourced case-study payload can be opened.
   const verifiedSimilarCases = (report.similarCases ?? []).filter(
-    (caseItem): caseItem is SimilarCase & { caseStudy: CaseStudyDetails } => Boolean(caseItem.caseStudy),
+    (caseItem) => Boolean(caseItem.caseStudy || caseItem.readMoreUrl),
   );
   const riskMessage = grade === "D"
     ? "Immediate legal intervention required. Multiple high-risk gaps detected."
@@ -785,14 +785,21 @@ export function LHSReport({
                 </span>
                 <h3 className="font-bold liq-text-1 text-sm leading-snug">{c.title}</h3>
                 <p className="type-body-sm liq-text-3 leading-relaxed flex-1">{c.summary}</p>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCaseStudy(c.caseStudy)}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#C9A84C] hover:text-[#E2C97E] transition-colors mt-auto pt-2 border-t border-[#C9A84C]/12 text-left"
-                  aria-label={`Read case study: ${c.title}`}
-                >
-                  <BookOpen size={11} /> Read More
-                </button>
+                {c.caseStudy ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCaseStudy(c.caseStudy as CaseStudyDetails)}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#C9A84C] hover:text-[#E2C97E] transition-colors mt-auto pt-2 border-t border-[#C9A84C]/12 text-left"
+                    aria-label={`Read case study: ${c.title}`}
+                  >
+                    <BookOpen size={11} /> Read More
+                  </button>
+                ) : (
+                  <a href={c.readMoreUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#C9A84C] hover:text-[#E2C97E] transition-colors mt-auto pt-2 border-t border-[#C9A84C]/12">
+                    <ExternalLink size={11} /> Read More
+                  </a>
+                )}
               </motion.div>
             ))}
           </div>

@@ -69,6 +69,20 @@ export default function ResultsPage() {
       .catch(() => {});
   }, [result?.assessmentId]);
 
+  useEffect(() => {
+    if (!result?.assessmentId) return;
+    fetch(`/api/assessments/${result.assessmentId}/case-studies`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data.success || !Array.isArray(data.similarCases)) return;
+        store.setResult({
+          ...result,
+          report: { ...result.report, similarCases: data.similarCases },
+        });
+      })
+      .catch(() => {});
+  }, [result?.assessmentId]);
+
   if (!isLoaded || !isSignedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center">
