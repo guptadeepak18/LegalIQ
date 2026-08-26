@@ -9,6 +9,7 @@ export const ADMIN_PERMISSION_OPTIONS = [
   { value: "analytics", label: "Analytics", detail: "Portfolio analysis dashboard" },
   { value: "reviews", label: "Review moderation", detail: "Approve and reject testimonials" },
   { value: "email", label: "Email management", detail: "Templates, sender settings, and logs" },
+  { value: "brochures", label: "Brochure templates", detail: "Create templates and select report brochure designs" },
   { value: "settings", label: "System settings", detail: "Platform configuration visibility" },
   { value: "admin-users", label: "Admin users", detail: "Create and manage administrator accounts" },
 ] as const;

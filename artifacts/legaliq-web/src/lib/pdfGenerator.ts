@@ -2168,7 +2168,30 @@ function brochureCard(doc: jsPDF, x: number, y: number, w: number, h: number,
   doc.text(bodyLines, x + 5, y + 27);
 }
 
-export async function generateVCLOBrochurePDF(): Promise<void> {
+export interface BrochureTemplateConfig {
+  colors: { navy: string; gold: string; accent: string };
+  contactEmail: string;
+  contactPhone: string;
+  website: string;
+  tagline: string;
+  coverTitle: string;
+  coverSubtitle: string;
+  vcloPitch: string;
+  scoreLabel: string;
+}
+
+export interface BrochureTemplateSelection {
+  templateId?: string | null;
+  version?: number | null;
+  config?: BrochureTemplateConfig | null;
+}
+
+function brochureRgb(hex: string | undefined, fallback: [number, number, number]): [number, number, number] {
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return fallback;
+  return [Number.parseInt(hex.slice(1, 3), 16), Number.parseInt(hex.slice(3, 5), 16), Number.parseInt(hex.slice(5, 7), 16)];
+}
+
+export async function generateVCLOBrochurePDF(selection: BrochureTemplateSelection = {}): Promise<void> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const W   = doc.internal.pageSize.getWidth();
   const H   = doc.internal.pageSize.getHeight();
@@ -2176,19 +2199,24 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   const MR  = 16;
   const CW  = W - ML - MR;
   let page  = 1;
+  const config = selection.config;
+  const B_NAVY = brochureRgb(config?.colors.navy, NAVY);
+  const B_GOLD = brochureRgb(config?.colors.gold, GOLD);
+  const B_ACCENT = brochureRgb(config?.colors.accent, GOLD);
+  const useLegacyCover = !config || config.coverTitle === "Virtual Chief Legal Officer (VCLO) Service";
 
   // ═══════════════════════════════════════════════════════════════
   // PAGE 1 — COVER
   // ═══════════════════════════════════════════════════════════════
-  doc.setFillColor(...NAVY);
+  doc.setFillColor(...B_NAVY);
   doc.rect(0, 0, W, H, "F");
 
   // Gold top bar
-  doc.setFillColor(...GOLD);
+  doc.setFillColor(...B_GOLD);
   doc.rect(0, 0, W, 3.5, "F");
 
   // Left gold stripe
-  doc.setFillColor(...GOLD);
+  doc.setFillColor(...B_GOLD);
   doc.rect(0, 0, 3.5, H, "F");
 
   // Decorative background arc
@@ -2198,15 +2226,15 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   // Brand: LegalIQ
   doc.setFont("helvetica", "bold");
   doc.setFontSize(34);
-  doc.setTextColor(...GOLD);
+  doc.setTextColor(...B_GOLD);
   doc.text("LegalIQ", ML + 8, 46);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(160, 152, 130);
-  doc.text("LEGAL HEALTH ASSESSMENT  |  BY REST THE CASE", ML + 8, 55);
+  doc.text(`${useLegacyCover ? "LEGAL HEALTH ASSESSMENT" : config?.scoreLabel?.toUpperCase()}  |  BY REST THE CASE`, ML + 8, 55);
 
-  doc.setDrawColor(...GOLD);
+  doc.setDrawColor(...B_GOLD);
   doc.setLineWidth(0.5);
   doc.line(ML + 8, 60, W - ML, 60);
 
@@ -2214,20 +2242,28 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(28);
   doc.setTextColor(...WHITE);
-  doc.text("Virtual Chief", ML + 8, 82);
-  doc.text("Legal Officer", ML + 8, 96);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(28);
-  doc.setTextColor(...GOLD);
-  doc.text("(VCLO) Service", ML + 8, 110);
+  if (useLegacyCover) {
+    doc.text("Virtual Chief", ML + 8, 82);
+    doc.text("Legal Officer", ML + 8, 96);
+    doc.setTextColor(...B_GOLD);
+    doc.text("(VCLO) Service", ML + 8, 110);
+  } else {
+    const coverTitleLines = doc.splitTextToSize(clean(config!.coverTitle), CW - 20).slice(0, 3);
+    doc.text(coverTitleLines, ML + 8, 82);
+  }
 
   // Tagline
   doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
   doc.setTextColor(180, 172, 148);
-  doc.text("Always-On Legal Protection", ML + 8, 126);
-  doc.text("for Indian Businesses.", ML + 8, 134);
+  if (useLegacyCover) {
+    doc.text("Always-On Legal Protection", ML + 8, 126);
+    doc.text("for Indian Businesses.", ML + 8, 134);
+  } else {
+    const coverSubtitle = doc.splitTextToSize(clean(config!.coverSubtitle), CW - 18).slice(0, 3);
+    doc.setTextColor(...B_ACCENT);
+    doc.text(coverSubtitle, ML + 8, 122);
+  }
 
   // Feature pills
   const pills = ["Contract Review", "Compliance Calendar", "On-Demand Legal Support", "Risk Prevention"];
@@ -2237,12 +2273,12 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
     const tw = doc.getTextWidth(p) + 12;
     if (pillX + tw > W - ML) { pillX = ML + 8; pillY += 12; }
     doc.setFillColor(30, 38, 70);
-    doc.setDrawColor(...GOLD);
+    doc.setDrawColor(...B_GOLD);
     doc.setLineWidth(0.3);
     doc.roundedRect(pillX, pillY - 6, tw, 9, 2, 2, "FD");
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.setTextColor(...GOLD);
+    doc.setTextColor(...B_GOLD);
     doc.text(p, pillX + 6, pillY - 0.5);
     pillX += tw + 5;
   });
@@ -2251,7 +2287,7 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   const spY = 184;
   doc.setFillColor(18, 24, 52);
   doc.roundedRect(ML + 8, spY, CW - 10, 62, 5, 5, "F");
-  doc.setDrawColor(...GOLD);
+  doc.setDrawColor(...B_GOLD);
   doc.setLineWidth(0.5);
   doc.roundedRect(ML + 8, spY, CW - 10, 62, 5, 5, "S");
 
@@ -2267,7 +2303,7 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   ];
   reasons.forEach((r, i) => {
     const ry = spY + 24 + i * 13;
-    doc.setFillColor(...GOLD);
+    doc.setFillColor(...B_GOLD);
     doc.circle(ML + 14, ry - 1.5, 2, "F");
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
@@ -2276,7 +2312,7 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   });
 
   // Plans badge
-  doc.setFillColor(...GOLD);
+  doc.setFillColor(...B_GOLD);
   doc.roundedRect(ML + 8, spY + 44, 72, 14, 3, 3, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
@@ -2291,8 +2327,8 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(160, 152, 130);
-  doc.text("restthecase.com/virtualCLOPackage", ML + 8, bY + 10);
-  doc.text("www.restthecase.com", W - ML, bY + 10, { align: "right" });
+  doc.text(clean(config?.website || "restthecase.com/virtualCLOPackage"), ML + 8, bY + 10);
+  doc.text(clean(config?.contactEmail || "info@restthecase.com"), W - ML, bY + 10, { align: "right" });
   doc.setFontSize(7);
   doc.setTextColor(100, 92, 78);
   doc.text("This brochure is for informational purposes only and does not constitute legal advice.", ML + 8, bY + 20);
@@ -2319,7 +2355,7 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   y += 20;
 
   // Intro paragraph
-  const introText = "A Virtual CLO (VCLO) is a senior legal professional assigned to your business on a fixed monthly retainer. Unlike traditional lawyers who are engaged per matter, a VCLO becomes an extension of your team — proactively managing legal risks, reviewing contracts, tracking compliance deadlines, and advising on business decisions before problems arise.";
+  const introText = clean(config?.vcloPitch || "A Virtual CLO (VCLO) is a senior legal professional assigned to your business on a fixed monthly retainer. Unlike traditional lawyers who are engaged per matter, a VCLO becomes an extension of your team - proactively managing legal risks, reviewing contracts, tracking compliance deadlines, and advising on business decisions before problems arise.");
   const introLines = wrap(doc, introText, CW);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
@@ -2576,23 +2612,23 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   page++;
 
   // Full dark background for CTA page
-  doc.setFillColor(...NAVY);
+  doc.setFillColor(...B_NAVY);
   doc.rect(0, 0, W, H, "F");
-  doc.setFillColor(...GOLD);
+  doc.setFillColor(...B_GOLD);
   doc.rect(0, 0, W, 3.5, "F");
-  doc.setFillColor(...GOLD);
+  doc.setFillColor(...B_GOLD);
   doc.rect(0, 0, 3.5, H, "F");
 
   y = 28;
 
   // Section tag
   doc.setFillColor(24, 32, 64);
-  doc.setDrawColor(...GOLD);
+  doc.setDrawColor(...B_GOLD);
   doc.setLineWidth(0.3);
   doc.roundedRect(ML + 8, y, 56, 9, 2, 2, "FD");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
-  doc.setTextColor(...GOLD);
+  doc.setTextColor(...B_GOLD);
   doc.text("VCLO PLANS & PRICING", ML + 36, y + 6, { align: "center" });
   y += 16;
 
@@ -2603,14 +2639,14 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   doc.text("Protect Your Business.", ML + 8, y);
   y += 10;
   doc.setFontSize(22);
-  doc.setTextColor(...GOLD);
+  doc.setTextColor(...B_GOLD);
   doc.text("For Less Than You Think.", ML + 8, y);
   y += 14;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   doc.setTextColor(170, 162, 140);
-  const taglineLines = wrap(doc, "REST THE CASE VCLO plans give your business a dedicated attorney at a flat monthly rate — no hourly billing, no hidden fees, no surprises.", CW - 10);
+  const taglineLines = wrap(doc, clean(config?.tagline || "REST THE CASE VCLO plans give your business a dedicated attorney at a flat monthly rate - no hourly billing, no hidden fees, no surprises."), CW - 10);
   doc.text(taglineLines, ML + 8, y);
   y += taglineLines.length * 5.5 + 12;
 
@@ -2669,7 +2705,7 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   y += 92;
 
   // Gold CTA bar
-  doc.setFillColor(...GOLD);
+  doc.setFillColor(...B_GOLD);
   doc.roundedRect(ML + 8, y, CW - 10, 22, 4, 4, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
@@ -2679,9 +2715,9 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
 
   // Contact details
   const contacts = [
-    "Website:  restthecase.com/virtualCLOPackage",
-    "Email:    info@restthecase.com",
-    "Phone:    +91 9876543210",
+    `Website:  ${config?.website || "restthecase.com/virtualCLOPackage"}`,
+    `Email:    ${config?.contactEmail || "info@restthecase.com"}`,
+    `Phone:    ${config?.contactPhone || "+91 9876543210"}`,
   ];
   contacts.forEach((c, i) => {
     doc.setFont("helvetica", "normal");
@@ -2699,7 +2735,8 @@ export async function generateVCLOBrochurePDF(): Promise<void> {
   doc.text("This brochure is for informational purposes only. Plans and pricing subject to change. Contact us for a custom quote.", ML + 8, H - 18);
   doc.text("(C) REST THE CASE  |  restthecase.com", ML + 8, H - 11);
 
-  doc.save("RestTheCase-VCLO-Service-Brochure.pdf");
+  const suffix = selection.version ? `-v${selection.version}` : "";
+  doc.save(`RestTheCase-VCLO-Service-Brochure${suffix}.pdf`);
 }
 
 export async function generateCertificatePDF(data: CertificateData): Promise<void> {

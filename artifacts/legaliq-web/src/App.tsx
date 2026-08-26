@@ -23,6 +23,7 @@ import AnalyticsPage from "@/pages/admin/AnalyticsPage";
 import ReviewsPage from "@/pages/admin/ReviewsPage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import EmailTemplatesPage from "@/pages/admin/EmailTemplatesPage";
+import BrochureTemplatesPage from "@/pages/admin/BrochureTemplatesPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -81,6 +82,7 @@ function Router() {
       <Route path="/admin/analytics" component={AnalyticsPage} />
       <Route path="/admin/reviews" component={ReviewsPage} />
       <Route path="/admin/email-templates" component={EmailTemplatesPage} />
+      <Route path="/admin/brochure-templates" component={BrochureTemplatesPage} />
       <Route path="/admin/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>

@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startEmailScheduler } from "./services/emailScheduler";
 import { ensureRequiredEmailTemplates } from "./services/emailTemplates";
+import { ensureDefaultBrochureTemplate } from "./services/brochureTemplates";
 
 const rawPort = process.env["PORT"];
 
@@ -20,6 +21,7 @@ if (Number.isNaN(port) || port <= 0) {
 async function startServer() {
   try {
     await ensureRequiredEmailTemplates();
+    await ensureDefaultBrochureTemplate();
   } catch (err) {
     logger.warn({ err }, "Failed to ensure required email templates");
   }

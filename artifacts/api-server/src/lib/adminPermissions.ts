@@ -7,6 +7,7 @@ export const ADMIN_PERMISSIONS = [
   "analytics",
   "reviews",
   "email",
+  "brochures",
   "settings",
   "admin-users",
 ] as const;
@@ -18,9 +19,14 @@ export const FULL_ADMIN_PERMISSIONS: AdminPermission[] = [...ADMIN_PERMISSIONS];
 export function normalizePermissions(value: unknown): AdminPermission[] {
   if (!Array.isArray(value)) return [...FULL_ADMIN_PERMISSIONS];
   const allowed = new Set<string>(ADMIN_PERMISSIONS);
-  return [...new Set(value.filter((permission): permission is AdminPermission =>
+  const permissions = [...new Set(value.filter((permission): permission is AdminPermission =>
     typeof permission === "string" && allowed.has(permission),
   ))];
+  const legacyFullPermissions = ADMIN_PERMISSIONS.filter((permission) => permission !== "brochures");
+  if (!permissions.includes("brochures") && legacyFullPermissions.every((permission) => permissions.includes(permission))) {
+    permissions.push("brochures");
+  }
+  return permissions;
 }
 
 export function hasFullPermissions(value: unknown): boolean {

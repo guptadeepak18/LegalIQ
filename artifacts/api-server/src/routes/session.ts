@@ -10,6 +10,7 @@ import { sendTemplateEmail } from "../services/emailTemplates.js";
 import { getAdminNotificationEmail } from "../services/gmail.js";
 import { logger } from "../lib/logger.js";
 import type { AssessmentPillar, AssessmentQuestion } from "../services/gemini.js";
+import { assignDefaultBrochureTemplate } from "../services/brochureTemplates.js";
 
 // How long to wait for AI seed generation before falling back to static questions.
 // A warm (per-lead) cache resolves in <50ms. A cold call to Gemini typically
@@ -268,6 +269,7 @@ router.post("/session/answer", async (req, res) => {
         vcloPitch: aiReport.vcloPitch,
       })
       .returning();
+    await assignDefaultBrochureTemplate(report.id);
 
     const reviewToken = randomBytes(32).toString("hex");
     if (lead) {

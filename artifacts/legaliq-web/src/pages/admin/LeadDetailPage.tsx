@@ -5,7 +5,7 @@ import {
   ArrowLeft, User, Building2, Phone, Mail, MapPin,
   CheckCircle, Sparkles, Copy, Check, RefreshCw,
   Download, Calendar, AlertTriangle, Target, Lightbulb,
-  ChevronDown, ChevronUp, Zap,
+  ChevronDown, ChevronUp, Zap, PanelsTopLeft,
 } from "lucide-react";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -13,7 +13,7 @@ import { riskBadgeClass } from "@/lib/risk";
 import { toast } from "sonner";
 import { LHSReport } from "@/components/LHSReport";
 import type { AssessmentResult } from "@/store/useStore";
-import { generateReportPDF, generateCertificatePDF } from "@/lib/pdfGenerator";
+import { generateReportPDF, generateCertificatePDF, generateVCLOBrochurePDF, type BrochureTemplateConfig } from "@/lib/pdfGenerator";
 import { PILLAR_META } from "@/components/LHSReport";
 import {
   hasAdminPermission,
@@ -71,12 +71,18 @@ interface LeadDetail {
         vcloWouldHave: string; lesson: string;
       };
       vcloPitch?: string;
+      brochureTemplateId?: string | null;
+      brochureTemplateVersion?: number | null;
+      brochureTemplateSnapshot?: BrochureTemplateConfig | null;
     };
     answers?: Array<{ question: string; pillar: string; answer: string; score: number }>;
   };
 }
 
 interface EmailDraft { subject: string; body: string }
+interface BrochureTemplateOption {
+  id: string; name: string; version: number; isActive: boolean; config: BrochureTemplateConfig;
+}
 
 interface AIInsights {
   overallAssessment: string;
@@ -213,6 +219,10 @@ export default function LeadDetailPage() {
   const [insightsRateLimited, setInsightsRateLimited] = useState(false);
   const [insightsExpanded, setInsightsExpanded] = useState(true);
   const [profile, setProfile] = useState<AdminProfile | null>(null);
+  const [brochureTemplates, setBrochureTemplates] = useState<BrochureTemplateOption[]>([]);
+  const [selectedBrochureTemplateId, setSelectedBrochureTemplateId] = useState("");
+  const [brochureSaving, setBrochureSaving] = useState(false);
+  const [brochureDownloading, setBrochureDownloading] = useState(false);
 
   // Consultation management state
   const [updatingConsultation, setUpdatingConsultation] = useState(false);
@@ -220,6 +230,7 @@ export default function LeadDetailPage() {
   const [advocateInput, setAdvocateInput] = useState("");
   const canUpdateLeads = hasAdminPermission(profile, "leads:update");
   const canUseAi = hasAdminPermission(profile, "ai");
+  const canManageBrochures = hasAdminPermission(profile, "brochures");
 
   useEffect(() => {
     loadAdminProfile().then(setProfile).catch(() => setProfile(null));
@@ -237,10 +248,62 @@ export default function LeadDetailPage() {
           setScheduledAtInput(d.toISOString().slice(0, 16));
         }
         setAdvocateInput(res.lead.consultation?.advocate ?? "");
+        setSelectedBrochureTemplateId(res.lead.assessment?.report?.brochureTemplateId ?? "");
       })
       .catch(() => { toast.error("Lead not found"); navigate("/admin/leads"); })
       .finally(() => setLoading(false));
   }, [id, navigate]);
+
+  useEffect(() => {
+    if (!canManageBrochures) return;
+    apiFetch<{ success: boolean; templates: BrochureTemplateOption[] }>("/admin/brochure-templates", { headers: authHeaders() })
+      .then((res) => setBrochureTemplates(res.templates.filter((template) => template.isActive)))
+      .catch(() => setBrochureTemplates([]));
+  }, [canManageBrochures]);
+
+  async function saveBrochureTemplate() {
+    if (!lead || !selectedBrochureTemplateId) return;
+    setBrochureSaving(true);
+    try {
+      const res = await apiFetch<{ success: boolean; selection: { id: string; version: number; config: BrochureTemplateConfig } }>(
+        `/admin/assessments/${lead.assessment!.id}/brochure-template`,
+        { method: "PATCH", headers: authHeaders(), body: JSON.stringify({ templateId: selectedBrochureTemplateId }) },
+      );
+      setLead((current) => current?.assessment?.report ? {
+        ...current,
+        assessment: {
+          ...current.assessment,
+          report: {
+            ...current.assessment.report,
+            brochureTemplateId: res.selection.id,
+            brochureTemplateVersion: res.selection.version,
+            brochureTemplateSnapshot: res.selection.config,
+          },
+        },
+      } : current);
+      toast.success("Brochure template selected for this report");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not select template");
+    } finally {
+      setBrochureSaving(false);
+    }
+  }
+
+  async function handleDownloadBrochure() {
+    const selection = lead?.assessment?.report;
+    setBrochureDownloading(true);
+    try {
+      await generateVCLOBrochurePDF({
+        templateId: selection?.brochureTemplateId,
+        version: selection?.brochureTemplateVersion,
+        config: selection?.brochureTemplateSnapshot,
+      });
+    } catch {
+      toast.error("Brochure generation failed");
+    } finally {
+      setBrochureDownloading(false);
+    }
+  }
 
   async function updateStatus(status: string) {
     if (!lead || !canUpdateLeads) return;
@@ -467,6 +530,11 @@ export default function LeadDetailPage() {
                     style={{ borderColor: "rgba(201,168,76,0.25)", color: "#C9A84C", background: "rgba(201,168,76,0.08)" }}>
                     <Download size={11} /> {certGenerating ? "…" : "Certificate"}
                   </button>
+                  <button onClick={handleDownloadBrochure} disabled={brochureDownloading}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all disabled:opacity-40"
+                    style={{ borderColor: "rgba(201,168,76,0.25)", color: "#C9A84C", background: "rgba(201,168,76,0.08)" }}>
+                    <PanelsTopLeft size={11} /> {brochureDownloading ? "Generating…" : "Brochure"}
+                  </button>
                 </>
               )}
               <a href={`https://wa.me/${lead.phone?.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
@@ -481,6 +549,31 @@ export default function LeadDetailPage() {
               </a>
             </div>
           </div>
+
+          {a?.report && canManageBrochures && (
+            <div className="border-t px-5 py-4 flex flex-col md:flex-row md:items-end gap-3" style={{ borderColor: "var(--nav-border)" }}>
+              <div className="flex-1">
+                <label className="text-[10px] font-bold liq-text-3 uppercase tracking-wider mb-1.5 block">
+                  Brochure template for this report
+                </label>
+                <select value={selectedBrochureTemplateId} onChange={(event) => setSelectedBrochureTemplateId(event.target.value)}
+                  className="liq-input text-xs w-full">
+                  <option value="">Current VCLO Standard (backward compatible)</option>
+                  {brochureTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>{template.name} · v{template.version}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="text-xs liq-text-3 md:max-w-xs">
+                The selected version is frozen on this report. Editing the catalog later will not change this user's brochure.
+              </div>
+              <button onClick={saveBrochureTemplate}
+                disabled={brochureSaving || !selectedBrochureTemplateId || selectedBrochureTemplateId === a.report.brochureTemplateId}
+                className="px-4 py-2.5 rounded-xl bg-[#C9A84C] text-[#0A0A0A] text-xs font-bold disabled:opacity-40">
+                {brochureSaving ? "Saving…" : "Select Template"}
+              </button>
+            </div>
+          )}
 
           {/* Info grid */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-0 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: "var(--nav-border)" }}>

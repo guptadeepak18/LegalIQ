@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, Sparkles, BarChart2,
   Star, Settings, Menu, X, LogOut,
-  ChevronRight, Mail,
+  ChevronRight, Mail, PanelsTopLeft,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { to: "/admin/analytics",       label: "Analytics",       icon: BarChart2,       section: "main", permission: "analytics" as AdminPermission },
   { to: "/admin/reviews",         label: "Reviews",         icon: Star,            section: "main", permission: "reviews" as AdminPermission },
   { to: "/admin/email-templates", label: "Email Templates", icon: Mail,            section: "config", permission: "email" as AdminPermission },
+  { to: "/admin/brochure-templates", label: "Brochure Templates", icon: PanelsTopLeft, section: "config", permission: "brochures" as AdminPermission },
   { to: "/admin/settings",        label: "Settings",        icon: Settings,        section: "config" },
 ];
 

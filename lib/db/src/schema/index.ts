@@ -106,7 +106,35 @@ export const reports = pgTable("reports", {
   similarCases: jsonb("similar_cases").default([]),
   example: jsonb("example").default({}),
   vcloPitch: text("vclo_pitch"),
+  brochureTemplateId: uuid("brochure_template_id").references(() => brochureTemplates.id, { onDelete: "set null" }),
+  brochureTemplateVersion: integer("brochure_template_version"),
+  brochureTemplateSnapshot: jsonb("brochure_template_snapshot").$type<BrochureTemplateConfig | null>(),
+  brochureTemplateSelectedAt: timestamp("brochure_template_selected_at"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type BrochureTemplateConfig = {
+  colors: { navy: string; gold: string; accent: string };
+  contactEmail: string;
+  contactPhone: string;
+  website: string;
+  tagline: string;
+  coverTitle: string;
+  coverSubtitle: string;
+  vcloPitch: string;
+  scoreLabel: string;
+};
+
+export const brochureTemplates = pgTable("brochure_templates", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  templateKey: text("template_key").notNull().unique(),
+  version: integer("version").notNull().default(1),
+  isActive: boolean("is_active").notNull().default(true),
+  config: jsonb("config").$type<BrochureTemplateConfig>().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const consultations = pgTable("consultations", {

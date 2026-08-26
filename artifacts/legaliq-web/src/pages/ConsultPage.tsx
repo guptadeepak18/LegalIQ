@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { generateVCLOBrochurePDF } from "@/lib/pdfGenerator";
+import { generateVCLOBrochurePDF, type BrochureTemplateSelection } from "@/lib/pdfGenerator";
 
 const TIME_SLOTS = [
   "09:00 AM – 09:30 AM", "10:00 AM – 10:30 AM", "11:00 AM – 11:30 AM",
@@ -54,6 +54,9 @@ export default function ConsultPage() {
   const [consultation, setConsultation] = useState<ConsultationRecord | null>(null);
   const [consultationLoading, setConsultationLoading] = useState(true);
   const [editKind, setEditKind] = useState<"update" | "reschedule" | null>(null);
+  const [brochureSelection, setBrochureSelection] = useState<BrochureTemplateSelection | null>(
+    () => store.result?.assessmentId ? null : {},
+  );
   const [brochureDownloading, setBrochureDownloading] = useState(false);
   const dates = getAvailableDates();
 
@@ -74,12 +77,22 @@ export default function ConsultPage() {
       })
       .catch(() => undefined)
       .finally(() => setConsultationLoading(false));
+    if (store.result?.assessmentId) apiFetch<{ success: boolean; selection: { templateId: string; version: number; config: BrochureTemplateSelection["config"] } | null }>(`/assessments/${store.result.assessmentId}/brochure-template`)
+      .then((res) => {
+        if (res.selection) setBrochureSelection({
+          templateId: res.selection.templateId,
+          version: res.selection.version,
+          config: res.selection.config,
+        });
+      })
+      .catch(() => undefined);
   }, [store.leadId]);
 
   async function handleDownloadBrochure() {
+    if (!brochureSelection) return;
     setBrochureDownloading(true);
     try {
-      await generateVCLOBrochurePDF();
+      await generateVCLOBrochurePDF(brochureSelection);
     } catch (e) {
       console.error("Brochure generation failed", e);
       toast.error("Could not generate brochure — please try again.");
@@ -209,7 +222,7 @@ export default function ConsultPage() {
               <p className="text-sm font-semibold liq-text-1 leading-snug">VCLO Service Brochure</p>
               <p className="text-xs liq-text-3 mt-0.5">Share with your team or board before the call</p>
             </div>
-            <button onClick={handleDownloadBrochure} disabled={brochureDownloading}
+            <button onClick={handleDownloadBrochure} disabled={brochureDownloading || !brochureSelection}
               className="flex items-center gap-1.5 text-xs font-bold text-[#0A0A0A] bg-[#C9A84C] hover:bg-[#E2C97E] px-3 py-2 rounded-lg transition-all disabled:opacity-60 flex-shrink-0">
               <Download size={12} />
               {brochureDownloading ? "…" : "Download PDF"}

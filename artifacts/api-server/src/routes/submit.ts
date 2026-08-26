@@ -8,6 +8,7 @@ import { generateReport } from "../services/gemini.js";
 import { sendTemplateEmail } from "../services/emailTemplates.js";
 import { getAdminNotificationEmail } from "../services/gmail.js";
 import { logger } from "../lib/logger.js";
+import { assignDefaultBrochureTemplate } from "../services/brochureTemplates.js";
 
 const router = Router();
 
@@ -100,6 +101,7 @@ router.post("/submit", async (req, res) => {
       vcloPitch: aiReport.vcloPitch,
     })
     .returning();
+  await assignDefaultBrochureTemplate(report.id);
 
   const reviewToken = randomBytes(32).toString("hex");
   await db.update(leads).set({ reviewToken }).where(eq(leads.id, leadId));

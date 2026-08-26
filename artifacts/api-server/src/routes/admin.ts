@@ -8,6 +8,7 @@ import {
   answers as answersTable,
   reviews,
   consultations,
+  brochureTemplates,
 } from "@workspace/db";
 import { eq, desc, gte, lte, lt, and, count, avg } from "drizzle-orm";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
@@ -21,6 +22,7 @@ import {
   sendTemplateEmail,
 } from "../services/emailTemplates.js";
 import { getEmailSettings, updateEmailSetting } from "../services/gmail.js";
+import { isBrochureTemplateConfig } from "../services/brochureTemplates.js";
 
 const router = Router();
 
@@ -561,9 +563,100 @@ router.get("/admin/leads/:id", requireAuth, requirePermission("leads:view"), asy
       } : null,
       assessment: assessment ? {
         ...assessment,
-        report: report ? { summary: report.summary, pillarAssessments: report.pillarAssessments, insights: report.insights, futureRisks: report.futureRisks, actions: report.actions, costSummary: report.costSummary, similarCases: report.similarCases, example: report.example, vcloPitch: report.vcloPitch } : null,
+        report: report ? { summary: report.summary, pillarAssessments: report.pillarAssessments, insights: report.insights, futureRisks: report.futureRisks, actions: report.actions, costSummary: report.costSummary, similarCases: report.similarCases, example: report.example, vcloPitch: report.vcloPitch, brochureTemplateId: report.brochureTemplateId, brochureTemplateVersion: report.brochureTemplateVersion, brochureTemplateSnapshot: report.brochureTemplateSnapshot } : null,
         answers: answersList.map((a) => ({ question: a.question, pillar: a.pillar, answer: a.answer, score: a.score })),
       } : null,
+    },
+  });
+});
+
+// ── Brochure templates ───────────────────────────────────────────────────────
+router.get("/admin/brochure-templates", requireAuth, requirePermission("brochures"), async (_req, res) => {
+  const templates = await db.select().from(brochureTemplates).orderBy(desc(brochureTemplates.updatedAt));
+  res.json({ success: true, templates });
+});
+
+router.post("/admin/brochure-templates", requireAuth, requirePermission("brochures"), async (req, res) => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const templateKey = typeof body.templateKey === "string" ? body.templateKey.trim().toLowerCase() : "";
+  if (!name || !/^[a-z0-9-]+$/.test(templateKey) || !isBrochureTemplateConfig(body.config)) {
+    res.status(400).json({ success: false, message: "Provide a name, a lowercase template key, and complete template configuration" });
+    return;
+  }
+  const [existing] = await db.select({ id: brochureTemplates.id }).from(brochureTemplates).where(eq(brochureTemplates.templateKey, templateKey));
+  if (existing) {
+    res.status(409).json({ success: false, message: "Template key already exists" });
+    return;
+  }
+  const [template] = await db.insert(brochureTemplates).values({
+    name,
+    templateKey,
+    description: typeof body.description === "string" ? body.description.trim() : null,
+    config: body.config,
+    isActive: body.isActive !== false,
+  }).returning();
+  res.status(201).json({ success: true, template });
+});
+
+router.patch("/admin/brochure-templates/:id", requireAuth, requirePermission("brochures"), async (req, res) => {
+  const id = String(req.params.id);
+  const [existing] = await db.select().from(brochureTemplates).where(eq(brochureTemplates.id, id));
+  if (!existing) {
+    res.status(404).json({ success: false, message: "Template not found" });
+    return;
+  }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  if (body.config !== undefined && !isBrochureTemplateConfig(body.config)) {
+    res.status(400).json({ success: false, message: "Template configuration is incomplete" });
+    return;
+  }
+  if (body.isActive === false && existing.isActive) {
+    const activeTemplates = await db.select({ id: brochureTemplates.id })
+      .from(brochureTemplates)
+      .where(eq(brochureTemplates.isActive, true));
+    if (activeTemplates.length <= 1) {
+      res.status(409).json({ success: false, message: "At least one brochure template must remain active" });
+      return;
+    }
+  }
+  const [template] = await db.update(brochureTemplates).set({
+    name: typeof body.name === "string" && body.name.trim() ? body.name.trim() : existing.name,
+    description: typeof body.description === "string" ? body.description.trim() : existing.description,
+    isActive: typeof body.isActive === "boolean" ? body.isActive : existing.isActive,
+    config: body.config ? body.config as typeof existing.config : existing.config,
+    version: body.config ? existing.version + 1 : existing.version,
+    updatedAt: new Date(),
+  }).where(eq(brochureTemplates.id, id)).returning();
+  res.json({ success: true, template });
+});
+
+router.patch("/admin/assessments/:id/brochure-template", requireAuth, requirePermission("brochures"), async (req, res) => {
+  const assessmentId = String(req.params.id);
+  const templateId = typeof req.body?.templateId === "string" ? req.body.templateId : "";
+  const [assessment] = await db.select().from(assessments).where(eq(assessments.id, assessmentId));
+  if (!assessment) {
+    res.status(404).json({ success: false, message: "Assessment not found" });
+    return;
+  }
+  const [report] = await db.select().from(reports).where(eq(reports.assessmentId, assessment.id));
+  const [template] = await db.select().from(brochureTemplates).where(eq(brochureTemplates.id, templateId));
+  if (!report || !template || !template.isActive) {
+    res.status(400).json({ success: false, message: "Choose an active brochure template for this report" });
+    return;
+  }
+  const [updated] = await db.update(reports).set({
+    brochureTemplateId: template.id,
+    brochureTemplateVersion: template.version,
+    brochureTemplateSnapshot: template.config,
+    brochureTemplateSelectedAt: new Date(),
+  }).where(eq(reports.id, report.id)).returning();
+  res.json({
+    success: true,
+    selection: {
+      id: updated.brochureTemplateId,
+      version: updated.brochureTemplateVersion,
+      config: updated.brochureTemplateSnapshot,
     },
   });
 });

@@ -2,7 +2,8 @@ import { Router } from "express";
 import { randomBytes } from "crypto";
 import { getAuth, clerkClient } from "@clerk/express";
 import { db } from "@workspace/db";
-import { leads } from "@workspace/db";
+import { leads, assessments, reports } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { generateSeedQuestionsForAssessment } from "../services/gemini.js";
 import { sendTemplateEmail } from "../services/emailTemplates.js";
@@ -108,6 +109,29 @@ router.post("/leads", async (req, res) => {
   });
 
   res.json({ success: true, leadId: lead.id });
+});
+
+router.get("/assessments/:id/brochure-template", async (req, res) => {
+  const auth = getAuth(req);
+  if (!auth?.userId) {
+    res.status(401).json({ success: false, message: "Please sign in to continue" });
+    return;
+  }
+  const assessmentId = String(req.params.id);
+  const [assessment] = await db.select({ id: assessments.id, clerkUserId: leads.clerkUserId })
+    .from(assessments)
+    .innerJoin(leads, eq(assessments.leadId, leads.id))
+    .where(eq(assessments.id, assessmentId));
+  if (!assessment || assessment.clerkUserId !== auth.userId) {
+    res.status(404).json({ success: false, message: "Assessment not found" });
+    return;
+  }
+  const [report] = await db.select({
+    templateId: reports.brochureTemplateId,
+    version: reports.brochureTemplateVersion,
+    config: reports.brochureTemplateSnapshot,
+  }).from(reports).where(eq(reports.assessmentId, assessmentId));
+  res.json({ success: true, selection: report?.templateId ? report : null });
 });
 
 router.post("/leads/:id/resend-report", requireAuth, requirePermission("leads:update"), async (req, res) => {

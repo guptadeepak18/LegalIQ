@@ -6,7 +6,7 @@ import { useUser } from "@clerk/react";
 import { useStore } from "@/store/useStore";
 import { LogoWatermark } from "@/components/LogoWatermark";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { generateReportPDF, generateCertificatePDF, generateVCLOBrochurePDF } from "@/lib/pdfGenerator";
+import { generateReportPDF, generateCertificatePDF, generateVCLOBrochurePDF, type BrochureTemplateSelection } from "@/lib/pdfGenerator";
 import { basePath } from "@/lib/clerk";
 import { LHSReport, gradeFromScore, PILLAR_META } from "@/components/LHSReport";
 import type { HistoryEntry, Benchmark } from "@/components/LHSReport";
@@ -21,6 +21,7 @@ export default function ResultsPage() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [benchmark, setBenchmark] = useState<Benchmark | null>(null);
   const [certGenerating, setCertGenerating] = useState(false);
+  const [brochureSelection, setBrochureSelection] = useState<BrochureTemplateSelection | null>(null);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -50,6 +51,22 @@ export default function ResultsPage() {
       })
       .catch(() => {});
   }, [store.businessType, result]);
+
+  useEffect(() => {
+    if (!result?.assessmentId) return;
+    fetch(`/api/assessments/${result.assessmentId}/brochure-template`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.selection) {
+          setBrochureSelection({
+            templateId: data.selection.templateId,
+            version: data.selection.version,
+            config: data.selection.config,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [result?.assessmentId]);
 
   if (!isLoaded || !isSignedIn) {
     return (
@@ -93,9 +110,10 @@ export default function ResultsPage() {
   }
 
   async function handleDownloadBrochure() {
+    if (!brochureSelection) return;
     setBrochureDownloading(true);
     try {
-      await generateVCLOBrochurePDF();
+      await generateVCLOBrochurePDF(brochureSelection);
     } catch (e) {
       console.error("Brochure generation failed", e);
       try { (await import("sonner")).toast.error("Could not generate brochure — please try again."); } catch {}
@@ -172,6 +190,10 @@ export default function ResultsPage() {
           <button onClick={handleDownloadPdf} disabled={downloading}
             className="flex items-center gap-2 text-sm liq-text-2 hover:text-[#C9A84C] border border-[#C9A84C]/20 hover:border-[#C9A84C]/40 px-3 py-2 rounded-lg transition-all">
             <Download size={14} /> PDF
+          </button>
+          <button onClick={handleDownloadBrochure} disabled={brochureDownloading || !brochureSelection}
+            className="hidden sm:flex items-center gap-2 text-sm liq-text-2 hover:text-[#C9A84C] border border-[#C9A84C]/20 hover:border-[#C9A84C]/40 px-3 py-2 rounded-lg transition-all disabled:opacity-50">
+            <Download size={14} /> Brochure
           </button>
           <button onClick={() => navigate("/consult")}
             className="flex items-center gap-2 text-sm text-[#0A0A0A] bg-[#C9A84C] hover:bg-[#E2C97E] font-bold px-4 py-2 rounded-lg transition-all">
