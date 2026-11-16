@@ -111,16 +111,13 @@ router.post("/leads", async (req, res) => {
   generateSeedQuestionsForAssessment(
     lead.id,
     company ?? "your business",
-    businessType,
+    category ?? "Other",
     subCategory ?? businessType,
-    "1-50",
-    "2-5 years",
-    category ?? "General",
     city
   ).then(() => {
     logger.info({ businessType, city }, "Seed cache warmed for new lead");
   }).catch((err) => {
-    logger.warn({ err, businessType, city }, "Seed cache warm-up failed — will fall back to static");
+    logger.warn({ err, businessType, city }, "Seed cache warm-up failed — will fall back to business-specific static questions");
   });
 
   res.json({ success: true, leadId: lead.id });

@@ -4,7 +4,7 @@ import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { leads, sessions, assessments, answers as answersTable, reports } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
-import { generateSeedQuestionsForAssessment, generateReport, STATIC_SEED_PILLARS, clearSeedCache } from "../services/gemini.js";
+import { generateSeedQuestionsForAssessment, generateReport, buildFallbackPillars, clearSeedCache } from "../services/gemini.js";
 import { getNextAction, type StoredAnswer } from "../services/quizEngine.js";
 import { calculatePillarScores, calculateAnswerScore } from "../services/scoring.js";
 import { logger } from "../lib/logger.js";
@@ -117,7 +117,7 @@ router.post("/session/start", async (req, res) => {
   // generate genuinely business-specific questions before ever touching the
   // static fallback bank.
   const aiPromise = generateSeedQuestionsForAssessment(
-    leadId, companyName, businessType, registration, employeeCount, "2-5 years", industry, state
+    leadId, companyName, industry, registration, state
   );
 
   let pillars: AssessmentPillar[];
@@ -130,7 +130,7 @@ router.post("/session/start", async (req, res) => {
     ]);
     logger.info({ businessType, state }, "Session start: AI questions ready");
   } catch {
-    pillars = STATIC_SEED_PILLARS as AssessmentPillar[];
+    pillars = buildFallbackPillars(industry, registration);
     logger.info({ businessType, state }, "Session start: using static fallback, warming cache async");
     aiPromise.catch(() => {}); // keep resolving in background to warm cache
   }

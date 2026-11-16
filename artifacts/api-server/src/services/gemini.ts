@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { resolveBusinessProfile, type ResolvedProfile, type Topic, type PillarId, type OptKey } from "./businessProfiles.js";
 import { logger } from "../lib/logger.js";
 import {
   selectCaseStudies,
@@ -190,22 +191,32 @@ async function callGemini(
       "llama-3.1-8b-instant",
       "openai/gpt-oss-20b",
     ].filter(Boolean) as string[];
+    const groqRequest = (model: string) => fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${groqApiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        temperature,
+        max_tokens: maxTokens,
+        response_format: { type: "json_object" },
+      }),
+    });
     for (const model of groqModels) {
       try {
-        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${groqApiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: prompt }],
-            temperature,
-            max_tokens: maxTokens,
-            response_format: { type: "json_object" },
-          }),
-        });
+        let res = await groqRequest(model);
+        // Rate-limited with a short retry window: wait once rather than moving
+        // to the next model, which usually shares the same org-level limit.
+        if (res.status === 429) {
+          const retryAfter = Number(res.headers.get("retry-after"));
+          if (Number.isFinite(retryAfter) && retryAfter > 0 && retryAfter <= 8) {
+            await new Promise((r) => setTimeout(r, retryAfter * 1000));
+            res = await groqRequest(model);
+          }
+        }
         if (res.ok) {
           const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
           const raw = data.choices?.[0]?.message?.content ?? "";
@@ -253,15 +264,18 @@ async function callGemini(
 
   for (const model of GEMINI_MODELS) {
     try {
-      const isPro = model.includes("pro");
-      const is25 = model.includes("2.5");
       const response = await ai.models.generateContent({
         model,
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           temperature,
-          maxOutputTokens: maxTokens,
-          ...(is25 ? { thinkingConfig: { thinkingBudget: isPro ? 128 : 0 } } : {}),
+          // gemini-2.5-* "thinking" eats into maxOutputTokens and truncates
+          // JSON, so it is capped there (2.5-pro needs a minimum budget).
+          // Newer models reject thinkingBudget:0 with 400 INVALID_ARGUMENT, so
+          // leave thinking on their defaults and give them output headroom.
+          ...(model.startsWith("gemini-2.5")
+            ? { maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: model === "gemini-2.5-pro" ? 128 : 0 } }
+            : { maxOutputTokens: maxTokens * 2 }),
         },
       });
       const raw = response.text ?? "";
@@ -370,179 +384,95 @@ const PILLAR_META: Array<{ id: number; name: PillarName; icon: string }> = [
   { id: 4, name: "Legal Cost Efficiency", icon: "💼" },
 ];
 
+const PILLAR_FILL_GUIDANCE: Record<PillarName, string> = {
+  "Litigation Health": "Think: pending cases, notices from specific regulators, customer or counterparty claims, cheque-bounce (Section 138) matters, employee disputes.",
+  "Contractual Health": "Think: the specific counterparties listed above — lease, platform terms, staff or consultant contracts, supplier and customer terms.",
+  "Compliance Health": "Think: other licences or registrations above, statutory registers and returns, labour compliance (PF/ESIC/minimum wages), state-specific rules.",
+  "Legal Cost Efficiency": "Think: penalties or settlements already paid, insurance gaps, reactive vs preventive legal spend, money stuck in disputes or unclaimed statutory interest (MSMED Act), personal guarantees given by the owner.",
+};
+
+function formatTopicsForPrompt(topics: Topic[]): string {
+  return topics
+    .map((tp, i) => `  ${i + 1}. ${tp.topic} — legal basis: ${tp.law}. Reference question (rephrase it to fit, don't copy it word for word): "${tp.q}"`)
+    .join("\n");
+}
+
 function buildSeedPrompt(
   companyName: string,
-  businessType: string,
-  registration: string,
-  employeeCount: string,
-  businessAge: string,
-  industry: string,
+  profile: ResolvedProfile,
   state: string,
   onlyPillarId?: number
 ): string {
   const targetPillar = onlyPillarId ? PILLAR_META.find((p) => p.id === onlyPillarId) : undefined;
+  const pillarIds = (targetPillar ? [targetPillar.id] : [1, 2, 3, 4]) as PillarId[];
   const scopeInstruction = targetPillar
-    ? `YOUR TASK (THIS CALL): Generate exactly 5 main questions for ONLY PILLAR ${targetPillar.id} — "${targetPillar.name}". Ignore the other 3 pillars entirely for this call; they are generated separately. Return only that one pillar's JSON object (see OUTPUT shape below, but with a single pillar, not an array of 4).`
-    : `YOUR TASK: Generate exactly 5 main questions per pillar (20 questions total across 4 pillars). These are ALL of the main questions for each pillar — do not generate fewer or more.`;
-  return `
-You are a senior Indian legal risk advisor with 20 years of experience 
-advising MSMEs, startups, and SMEs across India.
+    ? `YOUR TASK (THIS CALL): Generate exactly 5 questions for ONLY PILLAR ${targetPillar.id} — "${targetPillar.name}". The other pillars are generated separately. Return only that one pillar's JSON object.`
+    : `YOUR TASK: Generate exactly 5 questions per pillar (20 total across 4 pillars).`;
 
-You are generating the opening questions for a legal health assessment.
-Each question must feel like it was written specifically for THIS business — 
-not a generic legal checklist.
+  const mustCover = pillarIds.map((id) => {
+    const meta = PILLAR_META.find((p) => p.id === id)!;
+    const topics = profile.topicsByPillar[id];
+    const remaining = 5 - topics.length;
+    return `PILLAR ${id} — ${meta.name.toUpperCase()}: ${PILLAR_DEFINITIONS[meta.name]}
+MUST-COVER TOPICS for a ${profile.subCategory} (write one question per topic, in this order):
+${formatTopicsForPrompt(topics)}${remaining > 0 ? `
+  + ${remaining} more question(s) on other ${meta.name} risks that are COMMON and SPECIFIC to a ${profile.subCategory} in ${state}. ${PILLAR_FILL_GUIDANCE[meta.name]}` : ""}`;
+  }).join("\n\n");
+
+  // Pillars are generated in separate calls, so tell each call what the others cover.
+  const otherTopics = ([1, 2, 3, 4] as PillarId[])
+    .filter((id) => !pillarIds.includes(id))
+    .flatMap((id) => profile.topicsByPillar[id].map((tp) => tp.topic));
+  const exclusion = otherTopics.length
+    ? `\nALREADY COVERED IN OTHER PILLARS — do NOT ask about these again, even in different words: ${otherTopics.join("; ")}.\n`
+    : "";
+
+  return `
+You are a senior Indian legal risk advisor with 20 years of experience advising
+MSMEs, startups, and SMEs across India. You know the day-to-day legal realities
+of a ${profile.subCategory} — its regulators, inspections, licences, typical
+contracts, and the disputes that actually hit businesses like it.
+
+You are writing the questions for a legal health assessment of ONE specific business.
 
 BUSINESS PROFILE:
-Business Name: ${companyName}
-Business Type: ${businessType}
-Sub-category: ${industry}
-Registration: ${registration}
-Employees: ${employeeCount}
-Years Operating: ${businessAge}
-State: ${state}
-Has Physical Location: Yes
-Sells Online: Unknown
-Handles Customer Data: Unknown
+- Business name: ${companyName}
+- Industry category: ${profile.category}
+- Business type (sub-category): ${profile.subCategory}
+- Location (city / state): ${state}
+- Size, age, and legal structure: not collected — do not assume them. Where a rule depends on size or turnover, build the threshold into the answer options.
+
+WHAT IS SPECIFIC TO A ${profile.subCategory.toUpperCase()}:
+- Regulators and inspectors: ${profile.regulators.join("; ")}
+- Licences and registrations: ${profile.licences.join("; ")}
+- Key counterparties and contracts: ${profile.counterparties.join("; ")}
+- Disputes this kind of business commonly faces: ${profile.disputes.join("; ")}
 
 ${scopeInstruction}
-A separate follow-up engine will add up to 2 extra questions after any single main
-question, but only when that specific answer reveals a risk worth exploring further.
-You do not need to plan for follow-ups here — just write 5 strong, distinct main
-questions per pillar, each covering a different risk area within that pillar.
 
-STRICT RULES FOR QUESTION QUALITY:
-1. Every question must mention or imply THIS specific business type or category — where it reads naturally, use the business name "${companyName}" directly (e.g. "Does ${companyName} have...").
-2. Maximum 20 words per question
-3. Practical and moderately easy to answer — a busy owner should be able to answer in a few seconds without looking anything up
-4. NEVER use a plain Yes/No/Not-Sure question. Every question must ship with 3-4 custom answer OPTIONS that match that specific question (see OPTIONS RULES below)
-5. No legal jargon — write at a Class 10 reading level
-6. Each question must probe a risk that is ACTUALLY COMMON for this business type
-7. Questions within a pillar must cover different risks — no overlap
-8. Tone: professional and direct — like a CA during a tax audit
+${mustCover}
+${exclusion}
+SPECIFICITY RULES (most important — a question that fails these is wrong):
+1. Every question must name at least one concrete thing specific to a ${profile.subCategory}: a regulator, licence, register, form, platform, counterparty, document, or law from the lists above. A question that would make sense for ANY business is not allowed.
+2. BANNED generic questions (and close variants): "Do you have a lawyer you can call?", "Has your business received any legal notice?", "Do you have written agreements with vendors?", "Are your licences up to date?", "Do you file GST on time?", "Do you have insurance?". Replace them with the specific version, e.g. "Is your FSSAI State licence valid for your current turnover?" instead of "Are your licences up to date?".
+3. Use the words a ${profile.subCategory} owner actually uses (e.g. "Swiggy payout", "Drug Inspector", "H1 register", "RERA escrow", "jangad memo", "job card"). Write at a Class 10 reading level, with at most 22 words per question.
+4. Where state rules differ, use the rule for ${state} if you know it confidently; otherwise phrase the question so it applies across states.
+5. Use "${companyName}" in at most 1 or 2 questions per pillar, where it reads naturally.
+6. The 5 questions within a pillar must each cover a different risk — no overlap.
+7. Do not invent laws, section numbers, or penalty amounts. If you are not sure of a figure, describe the consequence without a number.
 
-OPTIONS RULES (apply to every question):
-- Provide 3 to 4 answer options, each tailored to what this exact question is asking (never reuse a generic Yes/No/Not Sure set)
-- Options should read like natural human answers, e.g. for "Do you have signed agreements with your vendors?": "Yes, all of them are signed", "Only some vendors have signed agreements", "No, most are verbal/informal", "Not sure — I'd need to check"
-- Each option needs a "score" from 0 to 4: 4 = fully compliant / no risk, 3 = mostly compliant, 2 = partial gap, 1 = significant gap, 0 = high risk / non-compliant
-- Order options from best (score 4) to worst (score 0) or worst to best — keep it logical and easy to scan
-- Every question must also include an "insight" object with 5 short fields written for THIS exact question and business:
-  - info: 1-2 plain sentences on what this risk area is and why it matters for ${companyName}
-  - impact: the concrete financial/operational consequence of the risk (₹ amount or real business impact)
-  - suggestion: one practical, doable suggestion
-  - recommendation: one specific recommendation (what to put in place, and how)
-  - example: a short (2-3 sentence) real-world-style example of a similar business in India facing this exact issue
+OPTIONS RULES (every question):
+- Keep each option label under 12 words. Offer "Not applicable" only if the question is conditional (e.g. "if you sell supplements").
+- 3 to 4 answer options written for THAT question, like real answers from an owner (never a generic Yes/No/Not sure set). Example for "Do your Swiggy/Zomato terms say when they can delist you?": "Yes, I've read and saved them", "I've seen them but not read closely", "No, I just accepted in the app", "Not sure where to find them".
+- Each option has a "score" from 0 to 4 (4 = fully protected, 0 = high risk). Include one honest "not sure" style option, scored 1.
+- Every question also has an "insight" object written for THIS question and a ${profile.subCategory}:
+  - info: 1-2 plain sentences on why this matters for a ${profile.subCategory}
+  - impact: the concrete financial or operational consequence
+  - suggestion: one practical step the owner can take this week
+  - recommendation: what to put in place, and who should do it (CA, lawyer, consultant)
+  - example: 2-3 sentences describing a realistic situation at a similar ${profile.subCategory} in India (do not name real people or businesses)
 
-BUSINESS-TYPE SPECIFIC GUIDANCE (apply the rules that match this business):
-
-If businessType contains "Restaurant" OR "Food" OR "Cloud Kitchen" OR "Café" OR "Catering":
-  Pillar 3 MUST cover: FSSAI licence validity, fire NOC, liquor licence (if applicable), health trade licence
-  Pillar 1 MUST cover: food safety consumer complaints, hygiene notices from FSSAI inspectors
-  Pillar 2 MUST cover: vendor agreements for raw materials, employee/chef contracts with confidentiality clauses
-  Pillar 4 MUST cover: reactive spend on food safety violations, Zomato/Swiggy dispute costs
-
-If businessType contains "Retail" OR "Shop" OR "Trading" OR "Wholesale" OR "Distribution":
-  Pillar 3 MUST cover: Shop & Establishment Act registration, weights & measures licence, GST compliance
-  Pillar 2 MUST cover: supplier credit agreements, purchase orders with return/defect terms
-  Pillar 1 MUST cover: consumer forum complaints, cheque bounce disputes with suppliers
-  Pillar 4 MUST cover: penalties paid for non-compliance, cost of unwritten vendor disputes
-
-If businessType contains "Tech" OR "SaaS" OR "Software" OR "IT" OR "App" OR "Digital" OR "Startup":
-  Pillar 3 MUST cover: MCA ROC annual filings, DPIT startup recognition, ESOP documentation, DPDP Act 2023 compliance
-  Pillar 2 MUST cover: client MSAs with IP ownership clauses, contractor vs employee classification risk
-  Pillar 1 MUST cover: IP infringement claims, founder disputes, investor agreement breaches
-  Pillar 4 MUST cover: legal spend on ad-hoc contracts, cost of unplanned IP disputes
-
-If businessType contains "Manufacturing" OR "Factory" OR "Production":
-  Pillar 3 MUST cover: factory licence under Factories Act, pollution NOC from State PCB, BIS certification, fire safety
-  Pillar 1 MUST cover: worker injury claims, Workmen's Compensation Act liability, product liability cases
-  Pillar 2 MUST cover: purchase orders with warranty/defect terms, dealer/distributor agreements
-  Pillar 4 MUST cover: EPR compliance costs, penalties under pollution board, reactive vs proactive ratio
-
-If businessType contains "Construction" OR "Real Estate" OR "Contractor" OR "Builder" OR "Developer":
-  Pillar 3 MUST cover: RERA registration, building plan approvals, labour cess, environment clearance
-  Pillar 1 MUST cover: contractor payment disputes, land title disputes, homebuyer RERA complaints
-  Pillar 2 MUST cover: subcontractor agreements with performance milestones, client contracts with penalty clauses
-  Pillar 4 MUST cover: cost of RERA penalties, spend on dispute resolution vs preventive legal counsel
-
-If businessType contains "Professional" OR "Consulting" OR "CA" OR "Chartered" OR "Agency" OR "Advisory":
-  Pillar 2 MUST cover: signed engagement letters, scope of work with deliverables, payment terms in writing
-  Pillar 4 MUST cover: professional indemnity exposure, unbilled hours on disputes, time on legal vs billable work
-  Pillar 1 MUST cover: client complaints to regulatory councils, fee recovery disputes
-  Pillar 3 MUST cover: professional body registration currency, GST compliance for services
-
-If businessType contains "Healthcare" OR "Clinic" OR "Hospital" OR "Diagnostic" OR "Pharmacy" OR "Medical":
-  Pillar 3 MUST cover: Clinical Establishment Registration, medical waste disposal licence, NABH if applicable, DPDP Act for patient data
-  Pillar 1 MUST cover: patient complaints, medical negligence notices, Consumer Protection Act cases
-  Pillar 4 MUST cover: cost of regulatory penalties, medico-legal defence spend
-  Pillar 2 MUST cover: doctor/staff employment agreements, medical equipment vendor contracts
-
-If businessType contains "Education" OR "School" OR "College" OR "Coaching" OR "Training" OR "EdTech":
-  Pillar 3 MUST cover: state education department recognition/affiliation, GST registration for coaching, DPDP Act for student data, online content copyright compliance, UGC/AICTE compliance
-  Pillar 1 MUST cover: student/parent consumer complaints, faculty misconduct complaints
-  Pillar 2 MUST cover: student enrollment agreements, faculty employment contracts with IP clauses
-
-If businessType contains "E-commerce" OR "Online" OR "Marketplace" OR "D2C":
-  Pillar 3 MUST cover: Legal Metrology Act compliance, Consumer Protection (E-commerce) Rules 2020, DPDP Act 2023
-  Pillar 4 MUST cover: payment aggregator compliance costs, return/refund dispute resolution costs
-  Pillar 2 MUST cover: logistics partner agreements, seller/vendor onboarding agreements
-  Pillar 1 MUST cover: consumer forum online complaints, counterfeit product liability
-
-If businessType contains "Logistics" OR "Transport" OR "Courier" OR "Warehouse" OR "Supply Chain":
-  Pillar 3 MUST cover: Motor Vehicles Act permits, GST e-way bills, warehouse licence, DPDP Act for GPS/driver data
-  Pillar 1 MUST cover: cargo damage claims, accident liability cases
-  Pillar 2 MUST cover: freight agreements with liability caps, customer indemnity clauses
-  Pillar 4 MUST cover: accident liability settlement costs, EV transition compliance spend
-
-If businessType contains "Finance" OR "Fintech" OR "Lending" OR "Investment" OR "Insurance" OR "NBFC":
-  Pillar 3 MUST cover: RBI NBFC registration, SEBI registration if applicable, KYC/AML compliance, DPDP Act for financial data
-  Pillar 4 MUST cover: cyber security RBI guideline compliance costs, regulatory penalty spend
-  Pillar 2 MUST cover: loan agreements with proper security documentation, agent contracts
-  Pillar 1 MUST cover: borrower defaults, RBI or consumer ombudsman complaints
-
-If businessType contains "Hotel" OR "Hospitality" OR "Resort" OR "Guest House" OR "Travel" OR "Tourism":
-  Pillar 3 MUST cover: hotel/trade licence, fire NOC, FSSAI for in-house restaurant, tourism department registration, DPDP Act for guest data
-  Pillar 1 MUST cover: guest injury claims, consumer forum complaints on OTA bookings
-  Pillar 2 MUST cover: OTA partnership agreements (MakeMyTrip, Booking.com), staff contracts
-  Pillar 4 MUST cover: OTA dispute costs, regulatory fine exposure per booking system gap
-
-If businessType contains "Agriculture" OR "Farming" OR "Agri" OR "Food Processing":
-  Pillar 3 MUST cover: FSSAI licence for processing, APEDA registration for exports, pesticide licence
-  Pillar 2 MUST cover: contract farming agreements, cold chain vendor agreements
-  Pillar 4 MUST cover: crop insurance claim costs, MSP dispute resolution costs, agri export compliance spend
-  Pillar 1 MUST cover: land dispute claims, input supplier payment disputes
-
-If businessType contains "Media" OR "Entertainment" OR "Film" OR "OTT" OR "Publishing" OR "Content":
-  Pillar 2 MUST cover: content licensing agreements, talent/artist contracts, IP assignment agreements
-  Pillar 4 MUST cover: copyright infringement defence costs, IT Rules 2021 compliance spend
-  Pillar 3 MUST cover: censorship board certification, advertising standards compliance, DPDP Act for user data
-  Pillar 1 MUST cover: defamation claims, copyright infringement notices
-
-If businessType contains "NGO" OR "Trust" OR "Foundation" OR "Non-Profit" OR "Section 8":
-  Pillar 3 MUST cover: FCRA registration if receiving foreign funds, 80G/12A tax exemption filings, FCRA compliance for international donors
-  Pillar 2 MUST cover: grant agreements, volunteer agreements, vendor contracts
-  Pillar 4 MUST cover: CSR fund utilisation audit risk, penalty exposure for FCRA non-compliance
-
-For ALL business types — always ensure:
-  - At least 1 question per pillar directly names the business type or industry
-  - Questions about labour law compliance (PF/ESI/Gratuity) appear in Pillar 3
-  - Questions about personal guarantees on business loans and data privacy risks appear in Pillar 4
-  - State = "${state}" should inform which state-specific licences to ask about
-
-THE 4 PILLARS:
-
-PILLAR 1 — LITIGATION HEALTH (score out of 25)
-Risk: Active or pending legal disputes that drain time and money.
-
-PILLAR 2 — CONTRACTUAL HEALTH (score out of 25)
-Risk: Missing or weak written agreements that leave the business unprotected.
-
-PILLAR 3 — COMPLIANCE HEALTH (score out of 25)
-Risk: Expired licences, missed filings, or missing registrations that invite penalties.
-
-PILLAR 4 — LEGAL COST EFFICIENCY (score out of 25)
-Risk: Business is spending money fixing legal problems that prevention would have avoided.
-
-${targetPillar ? `OUTPUT — return only this JSON, no explanations, no markdown (ONE pillar object only, not wrapped in a "pillars" array):
+${targetPillar ? `OUTPUT — return only this JSON, no explanations, no markdown (ONE pillar object, not wrapped in a "pillars" array):
 {
   "id": ${targetPillar.id},
   "name": "${targetPillar.name}",
@@ -550,81 +480,30 @@ ${targetPillar ? `OUTPUT — return only this JSON, no explanations, no markdown
   "questions": [
     {
       "id": "p${targetPillar.id}_q1",
-      "text": "QUESTION TEXT — max 20 words, plain language, practical",
-      "context": "why this question matters for THIS specific business type",
+      "text": "question text, max 22 words",
+      "context": "one-line hint shown under the question, specific to a ${profile.subCategory}",
       "risk_if_no": "exact financial or legal consequence if this is a gap",
-      "law_reference": "specific Indian law or authority e.g. Consumer Protection Act 2019",
-      "risk_area": "${targetPillar.name.toLowerCase()}",
+      "law_reference": "specific Indian law, rule, or authority",
       "weight": 9,
       "exposure_low": 50000,
       "exposure_high": 500000,
       "options": [
-        { "value": "A", "label": "answer option matching this question", "sublabel": "optional short helper text", "score": 4 },
-        { "value": "B", "label": "answer option matching this question", "score": 3 },
-        { "value": "C", "label": "answer option matching this question", "score": 1 },
-        { "value": "D", "label": "answer option matching this question", "score": 0 }
+        { "value": "A", "label": "tailored answer", "sublabel": "optional helper text", "score": 4 },
+        { "value": "B", "label": "tailored answer", "score": 2 },
+        { "value": "C", "label": "tailored answer", "score": 0 },
+        { "value": "D", "label": "tailored 'not sure' answer", "score": 1 }
       ],
-      "insight": {
-        "info": "what this risk area is and why it matters for this business",
-        "impact": "concrete ₹ or operational consequence",
-        "suggestion": "one practical suggestion",
-        "recommendation": "one specific recommendation",
-        "example": "short real-world-style example"
-      }
+      "insight": { "info": "...", "impact": "...", "suggestion": "...", "recommendation": "...", "example": "..." }
     }
-    /* … continue this exact shape for "p${targetPillar.id}_q2" through "p${targetPillar.id}_q5" — 5 questions total, each covering a distinct risk area … */
+    /* … same shape for "p${targetPillar.id}_q2" through "p${targetPillar.id}_q5"; weight 5-10 reflects severity … */
   ]
 }` : `OUTPUT — return only this JSON, no explanations, no markdown:
 {
   "pillars": [
-    {
-      "id": 1,
-      "name": "Litigation Health",
-      "icon": "⚖️",
-      "questions": [
-        {
-          "id": "p1_q1",
-          "text": "QUESTION TEXT — max 20 words, plain language, practical",
-          "context": "why this question matters for THIS specific business type",
-          "risk_if_no": "exact financial or legal consequence if this is a gap",
-          "law_reference": "specific Indian law or authority e.g. Consumer Protection Act 2019",
-          "risk_area": "litigation",
-          "weight": 9,
-          "exposure_low": 50000,
-          "exposure_high": 500000,
-          "options": [
-            { "value": "A", "label": "answer option matching this question", "sublabel": "optional short helper text", "score": 4 },
-            { "value": "B", "label": "answer option matching this question", "score": 3 },
-            { "value": "C", "label": "answer option matching this question", "score": 1 },
-            { "value": "D", "label": "answer option matching this question", "score": 0 }
-          ],
-          "insight": {
-            "info": "what this risk area is and why it matters for this business",
-            "impact": "concrete ₹ or operational consequence",
-            "suggestion": "one practical suggestion",
-            "recommendation": "one specific recommendation",
-            "example": "short real-world-style example"
-          }
-        },
-        {
-          "id": "p1_q2",
-          "text": "SECOND QUESTION — different risk area within same pillar",
-          "context": "...",
-          "risk_if_no": "...",
-          "law_reference": "...",
-          "risk_area": "litigation",
-          "weight": 7,
-          "exposure_low": 25000,
-          "exposure_high": 200000,
-          "options": [ "...same shape as above, 3-4 options tailored to this question..." ],
-          "insight": { "info": "...", "impact": "...", "suggestion": "...", "recommendation": "...", "example": "..." }
-        }
-        /* … continue this exact shape for "p1_q3", "p1_q4", "p1_q5" — 5 questions total in this pillar, each covering a distinct risk area … */
-      ]
-    },
-    { "id": 2, "name": "Contractual Health", "icon": "📄", "questions": [...] },
-    { "id": 3, "name": "Compliance Health", "icon": "✅", "questions": [...] },
-    { "id": 4, "name": "Legal Cost Efficiency", "icon": "💼", "questions": [...] }
+    { "id": 1, "name": "Litigation Health", "icon": "⚖️", "questions": [ /* 5 questions, shape: id "p1_q1".., text, context, risk_if_no, law_reference, weight, exposure_low, exposure_high, options[], insight{} */ ] },
+    { "id": 2, "name": "Contractual Health", "icon": "📄", "questions": [ ... ] },
+    { "id": 3, "name": "Compliance Health", "icon": "✅", "questions": [ ... ] },
+    { "id": 4, "name": "Legal Cost Efficiency", "icon": "💼", "questions": [ ... ] }
   ]
 }`}`;
 }
@@ -709,12 +588,85 @@ export const STATIC_SEED_PILLARS: AssessmentPillar[] = [
   },
 ];
 
+// ─── Business-specific static fallback ───────────────────────────────────────
+// Used when the AI is slow or unavailable. Built from the resolved business
+// profile, so a pharmacy still gets Drug Licence / H1-register questions and a
+// cloud kitchen still gets FSSAI / aggregator questions. Generic STATIC_SEED
+// questions are only used to fill a pillar if the profile has fewer than 5 topics.
+const OPTS_LICENCE: AnswerOption[] = [
+  { value: "A", label: "Yes, valid and I have the certificate", score: 4 },
+  { value: "B", label: "Applied for / renewal is in progress", score: 2 },
+  { value: "C", label: "No, or it has expired", score: 0 },
+  { value: "D", label: "Not sure whether we need it", score: 1 },
+];
+const OPTS_FILING: AnswerOption[] = [
+  { value: "A", label: "Yes, always on time", score: 4 },
+  { value: "B", label: "Usually, with occasional delays", score: 2 },
+  { value: "C", label: "No, we are behind", score: 0 },
+  { value: "D", label: "Not sure — my CA handles it", score: 1 },
+];
+const OPTS_PRACTICE: AnswerOption[] = [
+  { value: "A", label: "Yes, consistently and documented", score: 4 },
+  { value: "B", label: "Sometimes, but not every time", score: 2 },
+  { value: "C", label: "No, we don't do this", score: 0 },
+  { value: "D", label: "Not sure", score: 1 },
+];
+const OPTS_COVER: AnswerOption[] = [
+  { value: "A", label: "Yes, with adequate cover", score: 4 },
+  { value: "B", label: "We have a policy, but it may not cover this", score: 2 },
+  { value: "C", label: "No cover for this", score: 0 },
+  { value: "D", label: "Not sure what our policy covers", score: 1 },
+];
+const OPT_SETS: Record<OptKey, AnswerOption[]> = {
+  HAVE: OPTS_HAVE, LICENCE: OPTS_LICENCE, FILING: OPTS_FILING, PRACTICE: OPTS_PRACTICE,
+  COVER: OPTS_COVER, DISPUTE: OPTS_DISPUTE, SPEND: OPTS_SPEND,
+};
+
+function topicToQuestion(tp: Topic, idx: number, pillar: AssessmentPillar, profile: ResolvedProfile): AssessmentQuestion {
+  const reverse = tp.opts === "DISPUTE" || tp.opts === "SPEND";
+  return {
+    id: `p${pillar.id}_q${idx + 1}`,
+    text: tp.q,
+    hint: tp.hint,
+    riskIfNo: tp.risk,
+    weight: Math.max(6, 10 - idx),
+    isReverse: reverse,
+    isFollowUp: false,
+    pillar: pillar.name,
+    options: OPT_SETS[tp.opts],
+    insight: mkInsight(
+      `${tp.hint} For a ${profile.noun}, this falls under ${tp.law}.`,
+      tp.risk,
+      `Check where your ${profile.noun} stands on "${tp.topic.toLowerCase()}" this week and write down any gaps.`,
+      `Have a lawyer or CA who knows ${tp.law} review this and set up a simple tracker so it doesn't lapse.`,
+      `Many ${profile.noun} owners in India find out about this gap only after an inspection, complaint, or claim forces the issue — fixing it beforehand is much cheaper.`,
+    ),
+  };
+}
+
+export function buildFallbackPillar(profile: ResolvedProfile, pillarId: PillarId): AssessmentPillar {
+  const base = STATIC_SEED_PILLARS[pillarId - 1]!;
+  const specific = profile.topicsByPillar[pillarId].map((tp, i) => topicToQuestion(tp, i, base, profile));
+  const fillers = base.questions.slice(0, Math.max(0, 5 - specific.length)).map((q, i) => ({
+    ...q,
+    id: `p${base.id}_q${specific.length + i + 1}`,
+  }));
+  return { ...base, questions: [...specific, ...fillers] };
+}
+
+export function buildFallbackPillars(category: string, subCategory: string): AssessmentPillar[] {
+  const profile = resolveBusinessProfile(category, subCategory);
+  return ([1, 2, 3, 4] as PillarId[]).map((id) => buildFallbackPillar(profile, id));
+}
+
 // ─── In-memory cache keyed per-lead so every business gets its own
-// dynamically generated questions instead of sharing a businessType/city bucket.
-// The TTL only exists so a page refresh / retry within the same session reuses
-// the same AI-generated set rather than re-billing Gemini.
+// dynamically generated questions. The TTL only exists so a page refresh /
+// retry within the same session reuses the same AI-generated set.
 const seedCache = new Map<string, { pillars: AssessmentPillar[]; ts: number }>();
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+// Pre-warm (on lead creation) and session start can request the same lead at
+// once — share one in-flight generation instead of paying for two.
+const seedInflight = new Map<string, Promise<AssessmentPillar[]>>();
 
 export function clearSeedCache(leadId?: string) {
   if (leadId) {
@@ -724,14 +676,31 @@ export function clearSeedCache(leadId?: string) {
   }
 }
 
-export async function generateSeedQuestionsForAssessment(
+/** Exposed for tests / tooling: the exact prompt used for one pillar. */
+export function buildSeedPromptFor(companyName: string, category: string, subCategory: string, state: string, pillarId: number): string {
+  return buildSeedPrompt(companyName, resolveBusinessProfile(category, subCategory), state, pillarId);
+}
+
+export function generateSeedQuestionsForAssessment(
   leadId: string,
   companyName: string,
-  businessType: string,
-  registration: string,
-  employeeCount: string,
-  businessAge: string,
-  industry: string,
+  category: string,
+  subCategory: string,
+  state: string
+): Promise<AssessmentPillar[]> {
+  const existing = seedInflight.get(leadId);
+  if (existing) return existing;
+  const p = generateSeedQuestionsUncached(leadId, companyName, category, subCategory, state)
+    .finally(() => seedInflight.delete(leadId));
+  seedInflight.set(leadId, p);
+  return p;
+}
+
+async function generateSeedQuestionsUncached(
+  leadId: string,
+  companyName: string,
+  category: string,
+  subCategory: string,
   state: string
 ): Promise<AssessmentPillar[]> {
   const cacheKey = leadId;
@@ -741,51 +710,54 @@ export async function generateSeedQuestionsForAssessment(
     return cached.pillars;
   }
 
+  const profile = resolveBusinessProfile(category, subCategory);
+
   function parsePillar(pIdx: number, p: SeedPillarRaw): AssessmentPillar {
-    const pillarName = p.name as PillarName;
+    const meta = PILLAR_META[pIdx]!;
+    const pillarName = meta.name;
     return {
-      id: p.id ?? pIdx + 1,
+      id: meta.id,
       name: pillarName,
       icon: p.icon ?? STATIC_SEED_PILLARS[pIdx]!.icon,
       definition: PILLAR_DEFINITIONS[pillarName] ?? "",
-      questions: (p.questions ?? []).slice(0, 5).map((q) => {
-        const expEstimate = q.exposure_estimate
-          ?? (q.exposure_low != null && q.exposure_high != null
-            ? `₹${q.exposure_low.toLocaleString("en-IN")} – ₹${q.exposure_high.toLocaleString("en-IN")}`
-            : undefined);
-        return {
-          id: q.id ?? `p${p.id}_q${Math.random()}`,
-          text: q.text,
-          hint: q.context ?? q.risk_if_no,
-          riskIfNo: q.risk_if_no,
-          weight: q.weight ?? 7,
-          isReverse: q.isReverse ?? false,
-          isFollowUp: false,
-          pillar: pillarName,
-          exposureEstimate: expEstimate,
-          options: normaliseOptions(q.options),
-          insight: normaliseInsight(q.insight, q.risk_if_no),
-        };
-      }),
+      questions: (p.questions ?? [])
+        .filter((q) => typeof q?.text === "string" && q.text.trim().length > 0)
+        .slice(0, 5)
+        .map((q, qIdx) => {
+          const expEstimate = q.exposure_estimate
+            ?? (q.exposure_low != null && q.exposure_high != null
+              ? `₹${q.exposure_low.toLocaleString("en-IN")} – ₹${q.exposure_high.toLocaleString("en-IN")}`
+              : undefined);
+          return {
+            id: `p${meta.id}_q${qIdx + 1}`,
+            text: q.text.trim(),
+            hint: q.context ?? q.risk_if_no,
+            riskIfNo: q.risk_if_no,
+            weight: q.weight ?? 7,
+            isReverse: q.isReverse ?? false,
+            isFollowUp: false,
+            pillar: pillarName,
+            exposureEstimate: expEstimate,
+            options: normaliseOptions(q.options),
+            insight: normaliseInsight(q.insight, q.risk_if_no),
+          };
+        }),
     };
   }
 
-  // Generate each pillar's 5 questions with its own smaller, focused Gemini
-  // call, run concurrently. A single "generate all 20 questions" call
-  // routinely took 30-40s (bigger than any reasonable request timeout); 4
-  // parallel per-pillar calls each produce far less output and typically
-  // resolve in well under half that time, so real AI-generated (not static
-  // fallback) questions actually make it back to the user in practice.
+  // One focused call per pillar, run concurrently (a single 20-question call
+  // routinely exceeded request timeouts).
   async function generateOnePillar(pillarMeta: { id: number; name: PillarName; icon: string }): Promise<AssessmentPillar> {
-    const prompt = buildSeedPrompt(companyName || "your business", businessType, registration, employeeCount, businessAge, industry, state, pillarMeta.id);
+    const prompt = buildSeedPrompt(companyName || "your business", profile, state, pillarMeta.id);
 
     async function tryParse(): Promise<AssessmentPillar> {
-      const raw = await callGemini(prompt, 2000, 0.25);
+      const raw = await callGemini(prompt, 5000, 0.3);
       const parsed = JSON.parse(raw) as SeedPillarRaw;
-      if ((parsed.questions?.length ?? 0) < 5) {
-        throw new Error(`Pillar "${pillarMeta.name}" has only ${parsed.questions?.length ?? 0} questions, expected 5`);
+      const pillar = parsePillar(pillarMeta.id - 1, parsed);
+      if (pillar.questions.length < 5) {
+        throw new Error(`Pillar "${pillarMeta.name}" has only ${pillar.questions.length} questions, expected 5`);
       }
-      return parsePillar(pillarMeta.id - 1, parsed);
+      return pillar;
     }
 
     try {
@@ -796,15 +768,23 @@ export async function generateSeedQuestionsForAssessment(
     }
   }
 
-  try {
-    const pillars = await Promise.all(PILLAR_META.map((meta) => generateOnePillar(meta)));
+  // A failed pillar falls back to its business-specific static set, without
+  // throwing away the pillars that the AI did generate.
+  const results = await Promise.allSettled(PILLAR_META.map((meta) => generateOnePillar(meta)));
+  let aiCount = 0;
+  const pillars = results.map((r, i) => {
+    if (r.status === "fulfilled") { aiCount++; return r.value; }
+    logger.error({ err: r.reason, pillar: PILLAR_META[i]!.name }, "Using business-specific static fallback for pillar");
+    return buildFallbackPillar(profile, (i + 1) as PillarId);
+  });
+
+  if (aiCount === PILLAR_META.length) {
     seedCache.set(cacheKey, { pillars, ts: Date.now() });
-    logger.info({ cacheKey }, "Seed questions: Gemini generated and cached");
-    return pillars;
-  } catch (err) {
-    logger.error({ err, cacheKey }, "Seed generation failed for one or more pillars, using static fallback");
-    return STATIC_SEED_PILLARS;
+    logger.info({ cacheKey, subCategory: profile.subCategory }, "Seed questions: AI generated and cached");
+  } else {
+    logger.warn({ cacheKey, aiCount, subCategory: profile.subCategory }, "Seed questions: partial AI generation, not cached");
   }
+  return pillars;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1174,7 +1154,7 @@ export async function generateSeedQuestions(
   _contextTags: string[]
 ): Promise<Array<{ id: number; question: string; pillar: PillarName; isReverseScored: boolean; isSeed: boolean; contextNote?: string }>> {
   try {
-    const pillars = await generateSeedQuestionsForAssessment(`legacy:${businessType}|${city}`, "your business", businessType, "Private Limited / LLP", "11-50", "2-5 years", businessType, city);
+    const pillars = await generateSeedQuestionsForAssessment(`legacy:${_category}|${businessType}|${city}`, "your business", _category, businessType, city);
     return pillars.flatMap((p) =>
       p.questions.map((q, i) => ({
         id: i + 1,
