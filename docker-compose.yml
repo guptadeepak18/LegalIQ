@@ -1,0 +1,61 @@
+# ==============================================================================
+# LegalIQ Docker Compose Configuration
+# Can be used for local full-stack testing or standalone EC2 / Lightsail hosting
+# ==============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: legaliq-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: legaliq
+      POSTGRES_USER: legaliq_user
+      POSTGRES_PASSWORD: legaliq_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legaliq_user -d legaliq"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:-pk_test_placeholder}
+    container_name: legaliq-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      DATABASE_URL: postgresql://legaliq_user:legaliq_secure_password@postgres:5432/legaliq
+      JWT_SECRET: ${JWT_SECRET:-legaliq-jwt-secret-replace-with-64-character-hex}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-Admin@123456}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:-}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+      VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:-}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-legaliq-assets}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      FAST2SMS_API_KEY: ${FAST2SMS_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+volumes:
+  pgdata:

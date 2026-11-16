@@ -19,32 +19,29 @@ import {
   sessions,
 } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { objectStorageClient } from "./certificateStorage.js";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { s3Client, getS3Bucket, getS3Prefix } from "./certificateStorage.js";
 import { logger } from "../lib/logger.js";
 
 const RESET_MARKER_KEY = "maintenance.fresh_start_v1";
 
-function privateLocation() {
-  const raw = process.env.PRIVATE_OBJECT_DIR;
-  if (!raw) throw new Error("PRIVATE_OBJECT_DIR is not configured");
-  const [bucket, ...parts] = raw.replace(/^\/+/, "").split("/");
-  if (!bucket) throw new Error("PRIVATE_OBJECT_DIR is invalid");
-  return { bucket, prefix: parts.join("/").replace(/\/+$/, "") };
-}
-
 async function writeBackup(snapshot: unknown): Promise<string> {
-  const { bucket, prefix } = privateLocation();
+  const bucket = getS3Bucket();
+  const prefix = getS3Prefix();
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const relativePath = `database-backups/legaliq-production-pre-fresh-start-${timestamp}.json.gz`;
-  const objectName = [prefix, relativePath].filter(Boolean).join("/");
-  await objectStorageClient.bucket(bucket).file(objectName).save(
-    gzipSync(Buffer.from(JSON.stringify(snapshot), "utf8")),
-    {
-      resumable: false,
-      contentType: "application/gzip",
-      metadata: { cacheControl: "private, max-age=0" },
-    },
+  const key = [prefix, relativePath].filter(Boolean).join("/");
+
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: gzipSync(Buffer.from(JSON.stringify(snapshot), "utf8")),
+      ContentType: "application/gzip",
+      CacheControl: "private, max-age=0",
+    })
   );
+
   return `/objects/${relativePath}`;
 }
 

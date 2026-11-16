@@ -5,23 +5,21 @@ import {
   type SimilarCaseStudy,
 } from "../data/caseStudies.js";
 
-const GEMINI_API_KEY = process.env.AI_INTEGRATIONS_GEMINI_API_KEY ?? process.env.GEMINI_API_KEY ?? "";
-const GEMINI_BASE_URL = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
-
-// Models available via Replit AI Integrations
 const GEMINI_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.5-pro",
 ] as const;
 
 function getAiClient(): GoogleGenAI {
-  if (GEMINI_BASE_URL) {
+  const apiKey = process.env.GEMINI_API_KEY ?? process.env.AI_INTEGRATIONS_GEMINI_API_KEY ?? "";
+  const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  if (baseUrl) {
     return new GoogleGenAI({
-      apiKey: GEMINI_API_KEY,
-      httpOptions: { apiVersion: "", baseUrl: GEMINI_BASE_URL },
+      apiKey,
+      httpOptions: { apiVersion: "", baseUrl },
     });
   }
-  return new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+  return new GoogleGenAI({ apiKey });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,17 +1,42 @@
 /**
- * Gmail sender via Replit Connectors SDK.
- * Sends emails using the connected Google account, with this app's own sender
- * identity stored in app_settings.
- * Display name and Reply-To are configurable from the admin panel.
+ * Transactional Email Sender for LegalIQ
+ * Supports:
+ *   1. AWS SES (Amazon Simple Email Service) via @aws-sdk/client-ses (Default on AWS)
+ *   2. SMTP via nodemailer (if SMTP_HOST / SMTP_USER / SMTP_PASS is set)
+ *   3. Graceful dev logging fallback if neither is configured
+ *
+ * Display name and Reply-To are configurable from the admin panel (stored in app_settings).
  */
 
-import { ReplitConnectors } from "@replit/connectors-sdk";
-import { db } from "@workspace/db";
-import { appSettings } from "@workspace/db";
+import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
+import nodemailer from "nodemailer";
+import { db, appSettings } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 
-const connectors = new ReplitConnectors();
+const sesClient = new SESClient({
+  region: process.env.AWS_REGION || "ap-south-1",
+  credentials:
+    process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
+      ? {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        }
+      : undefined,
+});
+
+let smtpTransporter: nodemailer.Transporter | null = null;
+if (process.env.SMTP_HOST) {
+  smtpTransporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === "true",
+    auth: {
+      user: process.env.SMTP_USER || "",
+      pass: process.env.SMTP_PASS || "",
+    },
+  });
+}
 
 // ── Settings cache (refreshed every 5 min) ───────────────────────────────────
 
@@ -119,9 +144,7 @@ function buildRawMessage(opts: {
     lines.push(`--${boundary}--`);
   }
 
-  const raw = lines.join("\r\n");
-  // base64url (no padding, + → -, / → _)
-  return Buffer.from(raw).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return lines.join("\r\n");
 }
 
 // ── Public send function ──────────────────────────────────────────────────────
@@ -137,6 +160,29 @@ export async function sendGmail(opts: GmailSendOptions): Promise<void> {
   const settings = await getEmailSettings();
   const from = `${settings.senderName} <${settings.senderEmail}>`;
 
+  // 1. If SMTP is configured, send via SMTP
+  if (smtpTransporter) {
+    try {
+      await smtpTransporter.sendMail({
+        from,
+        to: opts.to,
+        replyTo: settings.replyTo,
+        subject: opts.subject,
+        html: opts.html,
+        attachments: opts.attachments?.map((a) => ({
+          filename: a.filename,
+          content: a.content,
+          contentType: a.contentType,
+        })),
+      });
+      logger.info({ to: opts.to, subject: opts.subject }, "Email delivered via SMTP");
+      return;
+    } catch (err) {
+      logger.error({ err, to: opts.to }, "SMTP send failed, falling back to AWS SES");
+    }
+  }
+
+  // 2. Send via AWS SES
   const raw = buildRawMessage({
     from,
     to: opts.to,
@@ -146,21 +192,25 @@ export async function sendGmail(opts: GmailSendOptions): Promise<void> {
     attachments: opts.attachments,
   });
 
-  const response = await connectors.proxy(
-    "google-mail",
-    "/gmail/v1/users/me/messages/send",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ raw }),
+  try {
+    const command = new SendRawEmailCommand({
+      RawMessage: {
+        Data: Buffer.from(raw),
+      },
+    });
+
+    await sesClient.send(command);
+    logger.info({ to: opts.to, subject: opts.subject }, "Email delivered via AWS SES");
+  } catch (sesErr) {
+    // If not in production and SES is not configured, don't crash dev workflows
+    if (process.env.NODE_ENV !== "production") {
+      logger.warn(
+        { to: opts.to, subject: opts.subject, err: (sesErr as Error).message },
+        "Dev mode: Email not sent via SES (logged for review)"
+      );
+      return;
     }
-  );
-
-  if (!response.ok) {
-    const text = await response.text();
-    logger.error({ status: response.status, text, to: opts.to }, "Gmail send failed");
-    throw new Error(`Gmail send failed (${response.status}): ${text}`);
+    logger.error({ err: sesErr, to: opts.to }, "AWS SES send failed");
+    throw sesErr;
   }
-
-  logger.info({ to: opts.to, subject: opts.subject }, "Gmail sent");
 }
