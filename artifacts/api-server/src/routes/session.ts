@@ -4,7 +4,7 @@ import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { leads, sessions, assessments, answers as answersTable, reports } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
-import { generateSeedQuestionsForAssessment, generateReport, STATIC_SEED_PILLARS } from "../services/gemini.js";
+import { generateSeedQuestionsForAssessment, generateReport, STATIC_SEED_PILLARS, clearSeedCache } from "../services/gemini.js";
 import { getNextAction, type StoredAnswer } from "../services/quizEngine.js";
 import { calculatePillarScores, calculateAnswerScore } from "../services/scoring.js";
 import { logger } from "../lib/logger.js";
@@ -59,7 +59,7 @@ router.post("/session/start", async (req, res) => {
     res.status(401).json({ success: false, message: "Please sign in to continue" });
     return;
   }
-  const { leadId } = req.body as { leadId: string };
+  const { leadId, restart } = req.body as { leadId: string; restart?: boolean };
 
   if (!leadId) {
     res.status(400).json({ success: false, message: "leadId is required" });
@@ -80,10 +80,28 @@ router.post("/session/start", async (req, res) => {
 
   const activeSession = await getActiveSession(db, userId);
   if (activeSession) {
-    const action = resumedSessionAction(activeSession);
-    if (action) {
-      res.json(action);
-      return;
+    const isDifferentLead = activeSession.leadId !== leadId;
+    const firstPillarQuestions = (activeSession.pillarsJson as unknown as AssessmentPillar[])?.[0]?.questions;
+    const isStaticSession = Array.isArray(firstPillarQuestions) &&
+      firstPillarQuestions.length > 0 &&
+      firstPillarQuestions[0]?.text?.includes("Has your business received any legal notice from a court");
+
+    if (restart || isDifferentLead || isStaticSession) {
+      logger.info(
+        { sessionId: activeSession.id, restart, isDifferentLead, isStaticSession },
+        "Abandoning previous session to generate fresh AI assessment"
+      );
+      await db.update(sessions)
+        .set({ status: "abandoned" })
+        .where(eq(sessions.id, activeSession.id));
+      clearSeedCache(activeSession.leadId ?? undefined);
+      clearSeedCache(leadId);
+    } else {
+      const action = resumedSessionAction(activeSession);
+      if (action) {
+        res.json(action);
+        return;
+      }
     }
   }
 
@@ -124,7 +142,17 @@ router.post("/session/start", async (req, res) => {
       await lockAssessmentAccount(tx, userId);
       await assertCanAssess(tx, userId);
       const existing = await getActiveSession(tx, userId);
-      if (existing) return { session: existing, resumed: true };
+      if (existing) {
+        const firstPillarQuestions = (existing.pillarsJson as unknown as AssessmentPillar[])?.[0]?.questions;
+        const isStatic = Array.isArray(firstPillarQuestions) &&
+          firstPillarQuestions.length > 0 &&
+          firstPillarQuestions[0]?.text?.includes("Has your business received any legal notice from a court");
+        if (existing.leadId !== leadId || restart || isStatic) {
+          await tx.update(sessions).set({ status: "abandoned" }).where(eq(sessions.id, existing.id));
+        } else {
+          return { session: existing, resumed: true };
+        }
+      }
       const [created] = await tx.insert(sessions).values({
         leadId,
         clerkUserId: userId,
@@ -564,6 +592,29 @@ router.post("/session/back", async (req, res) => {
     previousAnswer: lastAnswer.answer,
     canGoBack: remainingAnswers.length > 0,
   });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/session/reset
+// Abandons any active in-progress assessment session and clears AI question cache
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/session/reset", async (req, res) => {
+  const userId = getAuth(req)?.userId;
+  if (!userId) {
+    res.status(401).json({ success: false, message: "Please sign in to continue" });
+    return;
+  }
+  const { leadId } = req.body as { leadId?: string };
+  const activeSession = await getActiveSession(db, userId);
+  if (activeSession) {
+    await db.update(sessions)
+      .set({ status: "abandoned" })
+      .where(eq(sessions.id, activeSession.id));
+    clearSeedCache(activeSession.leadId ?? undefined);
+    logger.info({ sessionId: activeSession.id, userId }, "Active session manually abandoned via /session/reset");
+  }
+  if (leadId) clearSeedCache(leadId);
+  res.json({ success: true, message: "Active assessment session has been reset." });
 });
 
 export default router;

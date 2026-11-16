@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, ChevronLeft, Loader2, Check, Lightbulb, TrendingDown, ListChecks, Sparkles, BookOpen } from "lucide-react";
+import { ChevronRight, ChevronLeft, Loader2, Check, Lightbulb, TrendingDown, ListChecks, Sparkles, BookOpen, RotateCcw } from "lucide-react";
 import { useStore, type AccountAssessmentStatus } from "@/store/useStore";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
@@ -243,34 +243,55 @@ export default function AssessPage() {
 
   type Phase = "loading" | "asking" | "checking" | "pillar-done" | "submitting";
   const [phase, setPhase] = useState<Phase>("loading");
+  const [restarting, setRestarting] = useState(false);
 
   useEffect(() => { if (!store.leadId) navigate("/onboard"); }, [store.leadId, navigate]);
 
-  useEffect(() => {
+  const startSession = useCallback(async (restart = false) => {
     if (!store.leadId) return;
-    async function startSession() {
-      setPhase("loading");
-      setIsGeneratingReport(false);
+    setPhase("loading");
+    setIsGeneratingReport(false);
+    if (restart) setRestarting(true);
+    try {
+      const res = await apiFetch<{
+        success: boolean;
+        sessionId: string;
+        type: "QUESTION";
+        question: AQuestion;
+        pillarIndex: number;
+        pillarName: string;
+        pillarIcon: string;
+        recordedAnswers?: Array<{ pillar: string; answer: string; score: number }>;
+      }>("/session/start", {
+        method: "POST",
+        body: JSON.stringify({ leadId: store.leadId, restart }),
+      });
+      setSessionId(res.sessionId);
+      setCurrentQuestion(res.question);
+      setPillarIndex(res.pillarIndex);
+      setPillarName(res.pillarName);
+      setPillarIcon(res.pillarIcon);
+      setAllAnswers((res.recordedAnswers ?? []).map((item) => ({ pillar: item.pillar, label: item.answer, score: item.score })));
+      setPhase("asking");
+      if (restart) toast.success("Started fresh assessment tailored to your business.");
+    } catch (error) {
       try {
-        const res = await apiFetch<{ success: boolean; sessionId: string; type: "QUESTION"; question: AQuestion; pillarIndex: number; pillarName: string; pillarIcon: string; recordedAnswers?: Array<{ pillar: string; answer: string; score: number }>; }>("/session/start", { method: "POST", body: JSON.stringify({ leadId: store.leadId }) });
-        setSessionId(res.sessionId); setCurrentQuestion(res.question);
-        setPillarIndex(res.pillarIndex); setPillarName(res.pillarName); setPillarIcon(res.pillarIcon);
-        setAllAnswers((res.recordedAnswers ?? []).map((item) => ({ pillar: item.pillar, label: item.answer, score: item.score })));
-        setPhase("asking");
-      } catch (error) {
-        try {
-          const status = await apiFetch<AccountAssessmentStatus>("/account/assessment-status");
-          store.hydrateAccountStatus(status);
-          if (status.result && !status.canAssess) {
-            navigate("/results");
-            return;
-          }
-        } catch {}
-        toast.error(error instanceof Error ? error.message : "Could not load assessment. Please try again.");
-      }
+        const status = await apiFetch<AccountAssessmentStatus>("/account/assessment-status");
+        store.hydrateAccountStatus(status);
+        if (status.result && !status.canAssess) {
+          navigate("/results");
+          return;
+        }
+      } catch {}
+      toast.error(error instanceof Error ? error.message : "Could not load assessment. Please try again.");
+    } finally {
+      setRestarting(false);
     }
-    startSession();
-  }, [store.leadId]);
+  }, [store.leadId, navigate]);
+
+  useEffect(() => {
+    startSession(false);
+  }, [startSession]);
 
   const handleAnswer = useCallback(async (option: AnswerOption) => {
     if (!currentQuestion || !sessionId || phase !== "asking") return;
@@ -482,7 +503,7 @@ export default function AssessPage() {
 
       <PillarDots current={pillarIndex} colors={PILLAR_COLORS} />
 
-      <div className="flex items-center justify-center mt-5">
+      <div className="flex items-center justify-center gap-4 mt-5">
         <motion.button
           whileHover={allAnswers.length > 0 ? { x: -3 } : undefined}
           whileTap={allAnswers.length > 0 ? { scale: 0.96 } : undefined}
@@ -497,6 +518,18 @@ export default function AssessPage() {
         >
           {backLoading ? <Loader2 size={15} className="animate-spin" /> : <ChevronLeft size={15} />}
           Back
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => startSession(true)}
+          disabled={restarting}
+          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-amber-500/30 text-amber-500/90 hover:text-amber-400 hover:border-amber-500/50 hover:bg-amber-500/10 transition-all cursor-pointer"
+          title="Restart with fresh AI-generated questions"
+        >
+          <RotateCcw size={13} className={restarting ? "animate-spin" : ""} />
+          Restart Fresh
         </motion.button>
       </div>
 

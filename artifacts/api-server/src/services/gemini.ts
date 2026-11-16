@@ -6,10 +6,12 @@ import {
 } from "../data/caseStudies.js";
 
 const GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-flash-latest",
   "gemini-3.5-flash",
   "gemini-3.5-flash-lite",
-  "gemini-flash-latest",
-  "gemini-2.5-flash",
   "gemini-2.5-pro",
 ] as const;
 
@@ -180,7 +182,14 @@ async function callGemini(
 ): Promise<string> {
   const groqApiKey = process.env.GROQ_API_KEY;
   if (groqApiKey) {
-    const groqModels = [process.env.GROQ_MODEL, "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"].filter(Boolean) as string[];
+    const groqModels = [
+      process.env.GROQ_MODEL,
+      "openai/gpt-oss-120b",
+      "llama-3.3-70b-versatile",
+      "qwen/qwen3.8-27b",
+      "llama-3.1-8b-instant",
+      "openai/gpt-oss-20b",
+    ].filter(Boolean) as string[];
     for (const model of groqModels) {
       try {
         const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -244,18 +253,15 @@ async function callGemini(
 
   for (const model of GEMINI_MODELS) {
     try {
+      const isPro = model.includes("pro");
+      const is25 = model.includes("2.5");
       const response = await ai.models.generateContent({
         model,
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           temperature,
           maxOutputTokens: maxTokens,
-          // gemini-2.5-* models default to "thinking" mode, which silently eats
-          // into maxOutputTokens for internal reasoning and truncates the
-          // visible JSON response. gemini-2.5-flash allows disabling it
-          // entirely (budget 0); gemini-2.5-pro requires a minimum budget, so
-          // give it the smallest allowed value instead.
-          thinkingConfig: { thinkingBudget: model === "gemini-2.5-pro" ? 128 : 0 },
+          ...(is25 ? { thinkingConfig: { thinkingBudget: isPro ? 128 : 0 } } : {}),
         },
       });
       const raw = response.text ?? "";
@@ -267,11 +273,8 @@ async function callGemini(
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       const msg = lastError.message ?? "";
-      if (msg.includes("429") || msg.includes("quota") || msg.includes("404") || msg.includes("not found")) {
-        logger.warn({ model, err: msg }, "Gemini model unavailable, trying next");
-        continue;
-      }
-      throw lastError;
+      logger.warn({ model, err: msg }, "Gemini model attempt failed, trying next");
+      continue;
     }
   }
 
@@ -713,6 +716,14 @@ export const STATIC_SEED_PILLARS: AssessmentPillar[] = [
 const seedCache = new Map<string, { pillars: AssessmentPillar[]; ts: number }>();
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
+export function clearSeedCache(leadId?: string) {
+  if (leadId) {
+    seedCache.delete(leadId);
+  } else {
+    seedCache.clear();
+  }
+}
+
 export async function generateSeedQuestionsForAssessment(
   leadId: string,
   companyName: string,
@@ -769,7 +780,7 @@ export async function generateSeedQuestionsForAssessment(
     const prompt = buildSeedPrompt(companyName || "your business", businessType, registration, employeeCount, businessAge, industry, state, pillarMeta.id);
 
     async function tryParse(): Promise<AssessmentPillar> {
-      const raw = await callGemini(prompt, 4000, 0.25);
+      const raw = await callGemini(prompt, 2000, 0.25);
       const parsed = JSON.parse(raw) as SeedPillarRaw;
       if ((parsed.questions?.length ?? 0) < 5) {
         throw new Error(`Pillar "${pillarMeta.name}" has only ${parsed.questions?.length ?? 0} questions, expected 5`);

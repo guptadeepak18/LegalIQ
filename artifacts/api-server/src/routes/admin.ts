@@ -51,7 +51,14 @@ function getAdminAiClient(): GoogleGenAI {
 async function callGeminiAdmin(prompt: string, maxTokens = 1200): Promise<string> {
   const groqApiKey = process.env.GROQ_API_KEY;
   if (groqApiKey) {
-    const groqModels = [process.env.GROQ_MODEL, "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"].filter(Boolean) as string[];
+    const groqModels = [
+      process.env.GROQ_MODEL,
+      "openai/gpt-oss-120b",
+      "llama-3.3-70b-versatile",
+      "qwen/qwen3.8-27b",
+      "llama-3.1-8b-instant",
+      "openai/gpt-oss-20b",
+    ].filter(Boolean) as string[];
     for (const model of groqModels) {
       try {
         const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -105,17 +112,24 @@ async function callGeminiAdmin(prompt: string, maxTokens = 1200): Promise<string
   }
 
   const ai = getAdminAiClient();
-  const response = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: {
-      temperature: 0.7,
-      maxOutputTokens: maxTokens,
-      responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 0 },
-    },
-  });
-  return response.text ?? "";
+  const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest", "gemini-3.5-flash"];
+  for (const model of models) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+          temperature: 0.7,
+          maxOutputTokens: maxTokens,
+          responseMimeType: "application/json",
+        },
+      });
+      return response.text ?? "";
+    } catch {
+      // Try next Gemini model
+    }
+  }
+  return "";
 }
 
 function extractJSON(raw: string): Record<string, unknown> {
