@@ -12,5 +12,14 @@
   "devDependencies": {
     "prettier": "^3.8.4",
     "typescript": "~5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@clerk/shared",
+      "@google/genai",
+      "core-js",
+      "esbuild",
+      "protobufjs"
+    ]
   }
 }

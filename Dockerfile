@@ -7,8 +7,8 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-# Enable pnpm via Corepack
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Enable pnpm via Corepack (pinning pnpm 9 for lockfile and build script compatibility)
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
 # Copy root workspace configurations
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.json ./
@@ -46,7 +46,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
 # Copy workspace manifests
 COPY --from=builder /app/package.json ./package.json
