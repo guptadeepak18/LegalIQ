@@ -71,7 +71,7 @@ const staticDir = candidateStaticDirs.find((dir) => fs.existsSync(dir));
 if (staticDir) {
   logger.info({ staticDir }, "Serving static web assets");
   app.use(express.static(staticDir));
-  app.get("*", (req: Request, res: Response) => {
+  app.use((req: Request, res: Response) => {
     if (req.path.startsWith("/api")) {
       res.status(404).json({ success: false, message: "Not found" });
       return;
