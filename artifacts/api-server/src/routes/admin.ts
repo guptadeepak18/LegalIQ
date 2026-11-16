@@ -51,27 +51,30 @@ function getAdminAiClient(): GoogleGenAI {
 async function callGeminiAdmin(prompt: string, maxTokens = 1200): Promise<string> {
   const groqApiKey = process.env.GROQ_API_KEY;
   if (groqApiKey) {
-    try {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${groqApiKey}`,
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.7,
-          max_tokens: maxTokens,
-          response_format: { type: "json_object" },
-        }),
-      });
-      if (res.ok) {
-        const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-        return data.choices?.[0]?.message?.content ?? "";
+    const groqModels = [process.env.GROQ_MODEL, "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"].filter(Boolean) as string[];
+    for (const model of groqModels) {
+      try {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${groqApiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+            max_tokens: maxTokens,
+            response_format: { type: "json_object" },
+          }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+          return data.choices?.[0]?.message?.content ?? "";
+        }
+      } catch {
+        // Try next Groq model
       }
-    } catch {
-      // Fall through to Gemini
     }
   }
 

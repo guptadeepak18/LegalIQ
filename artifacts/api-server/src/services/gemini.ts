@@ -177,30 +177,33 @@ async function callGemini(
 ): Promise<string> {
   const groqApiKey = process.env.GROQ_API_KEY;
   if (groqApiKey) {
-    try {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${groqApiKey}`,
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "user", content: prompt }],
-          temperature,
-          max_tokens: maxTokens,
-          response_format: { type: "json_object" },
-        }),
-      });
-      if (res.ok) {
-        const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-        const raw = data.choices?.[0]?.message?.content ?? "";
-        logger.info("Groq AI call succeeded (llama-3.3-70b-versatile)");
-        return raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    const groqModels = [process.env.GROQ_MODEL, "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"].filter(Boolean) as string[];
+    for (const model of groqModels) {
+      try {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${groqApiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: prompt }],
+            temperature,
+            max_tokens: maxTokens,
+            response_format: { type: "json_object" },
+          }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+          const raw = data.choices?.[0]?.message?.content ?? "";
+          logger.info({ model }, "Groq AI call succeeded");
+          return raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+        }
+        logger.warn({ status: res.status, model }, "Groq model failed, trying next");
+      } catch (groqErr) {
+        logger.warn({ err: groqErr, model }, "Groq error, trying next");
       }
-      logger.warn({ status: res.status }, "Groq call failed, falling through to Gemini");
-    } catch (groqErr) {
-      logger.warn({ err: groqErr }, "Groq error, falling through to Gemini");
     }
   }
 
