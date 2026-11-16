@@ -20,7 +20,7 @@ COPY artifacts/legaliq-web ./artifacts/legaliq-web
 COPY scripts ./scripts
 
 # Install all dependencies (including devDependencies needed for build)
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Build frontend and backend
 # VITE_CLERK_PUBLISHABLE_KEY defaults to your project key, overridable via --build-arg
@@ -61,7 +61,7 @@ COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
 COPY --from=builder /app/artifacts/legaliq-web/dist ./artifacts/legaliq-web/dist
 
 # Install production dependencies only
-RUN pnpm install --prod --frozen-lockfile
+RUN pnpm install --prod --no-frozen-lockfile
 
 # Create non-root user for security
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
