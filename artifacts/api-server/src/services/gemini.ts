@@ -175,6 +175,64 @@ async function callGemini(
   maxTokens: number,
   temperature: number
 ): Promise<string> {
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (groqApiKey) {
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${groqApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          temperature,
+          max_tokens: maxTokens,
+          response_format: { type: "json_object" },
+        }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+        const raw = data.choices?.[0]?.message?.content ?? "";
+        logger.info("Groq AI call succeeded (llama-3.3-70b-versatile)");
+        return raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+      }
+      logger.warn({ status: res.status }, "Groq call failed, falling through to Gemini");
+    } catch (groqErr) {
+      logger.warn({ err: groqErr }, "Groq error, falling through to Gemini");
+    }
+  }
+
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  if (openRouterApiKey) {
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openRouterApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "meta-llama/llama-3.3-70b-instruct:free",
+          messages: [{ role: "user", content: prompt }],
+          temperature,
+          max_tokens: maxTokens,
+          response_format: { type: "json_object" },
+        }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+        const raw = data.choices?.[0]?.message?.content ?? "";
+        logger.info("OpenRouter AI call succeeded");
+        return raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+      }
+      logger.warn({ status: res.status }, "OpenRouter call failed, falling through to Gemini");
+    } catch (orErr) {
+      logger.warn({ err: orErr }, "OpenRouter error, falling through to Gemini");
+    }
+  }
+
   const ai = getAiClient();
   let lastError: Error = new Error("No models available");
 
