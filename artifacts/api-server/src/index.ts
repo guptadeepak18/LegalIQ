@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startEmailScheduler } from "./services/emailScheduler";
+import { ensureDatabaseSchema } from "./services/schemaBootstrap";
 import { ensureRequiredEmailTemplates } from "./services/emailTemplates";
 import { ensureDefaultBrochureTemplate } from "./services/brochureTemplates";
 import { ensureBootstrapAdmin } from "./services/adminBootstrap";
@@ -22,11 +23,15 @@ if (Number.isNaN(port) || port <= 0) {
 
 async function startServer() {
   try {
+    // 1. Auto-initialize database schema if empty / uninitialized
+    await ensureDatabaseSchema();
+
+    // 2. Seed required baseline assets and bootstrap admin
     await ensureRequiredEmailTemplates();
     await ensureDefaultBrochureTemplate();
     await ensureBootstrapAdmin();
   } catch (err) {
-    logger.warn({ err }, "Failed to ensure required email templates");
+    logger.error({ err }, "Database bootstrap error during server startup");
   }
 
   // When explicitly enabled for a publish, a failed backup/reset must stop
